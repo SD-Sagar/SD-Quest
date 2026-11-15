@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --color-hunter-black: #07080b;
+  --color-hunter-dark: #0d111a;
+  --color-hunter-card: #121824;
+  --color-hunter-card-hover: #172033;
+  --color-hunter-border: #1e293b;
+  --color-hunter-border-bright: #334155;
+  --color-mana-blue: #00d2ff;
+  --color-mana-glow: rgba(0, 210, 255, 0.35);
+  --color-monarch-purple: #8a2be2;
+  --color-monarch-glow: rgba(138, 43, 226, 0.35);
+  --color-system-green: #10b981;
+  --color-system-red: #ef4444;
+  --color-system-gold: #f59e0b;
+}
+
+:root {
+  --background: #07080b;
+  --foreground: #f1f5f9;
+}
+
+body {
+  background: #07080b;
+  color: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* Solo Leveling Custom Glass & Glow Utilities */
+.hunter-panel {
+  background: linear-gradient(180deg, rgba(18, 24, 36, 0.85) 0%, rgba(13, 17, 26, 0.95) 100%);
+  border: 1px solid rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.7);
+}
+
+.mana-border {
+  border-color: rgba(0, 210, 255, 0.4);
+  box-shadow: 0 0 15px -3px rgba(0, 210, 255, 0.25);
+}
+
+.monarch-border {
+  border-color: rgba(138, 43, 226, 0.4);
+  box-shadow: 0 0 15px -3px rgba(138, 43, 226, 0.25);
+}
+
+.mana-text-glow {
+  text-shadow: 0 0 12px rgba(0, 210, 255, 0.6);
+}
+
+.monarch-text-glow {
+  text-shadow: 0 0 12px rgba(138, 43, 226, 0.6);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #07080b;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+

@@ -1,0 +1,17 @@
+{
+  "name": "SD-Quest — Lifelong Personal Operating System",
+  "short_name": "SD-Quest",
+  "description": "YOUR LIFE. YOUR QUEST. YOUR RULES. Dark fantasy life-management RPG.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07080b",
+  "theme_color": "#07080b",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

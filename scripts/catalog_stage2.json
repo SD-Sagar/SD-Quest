@@ -1,0 +1,2339 @@
+[
+  {
+    "id": "ex-goblet-squat",
+    "name": "Goblet Dumbbell Squat",
+    "split_day": "Monday",
+    "order_index": 1,
+    "target_muscle": "Quadriceps & Glutes",
+    "secondary_muscles": [
+      "Core",
+      "Calves"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 1,
+    "unlock_criteria": "Awakening Foundation",
+    "target_duration_mins": 8,
+    "default_sets": 4,
+    "default_reps_min": 8,
+    "default_reps_max": 12,
+    "default_rest_seconds": 90,
+    "instructions": [
+      "Stand shoulder-width apart, flare toes 20° outward.",
+      "Hold dumbbell vertically against upper chest with palms under the top plate.",
+      "Inhale deep into belly, push hips backward and bend knees until thighs hit parallel.",
+      "Drive through midfoot, exhale forcefully at top lockout."
+    ],
+    "form_cues": [
+      "Chest tall and proud",
+      "Spread the floor with feet",
+      "Knees track over second toe"
+    ],
+    "common_mistakes": [
+      "Knees collapsing inward (valgus)",
+      "Rounding lower back at bottom",
+      "Heels lifting off ground"
+    ],
+    "alternatives": [
+      "Dumbbell Front Squat",
+      "Dumbbell Sumo Squat"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Torso & Horn Grip",
+        "description": "Cup dumbbell against sternum like a goblet, elbows tucked tight to ribs.",
+        "coachTip": "Maintain proud ribcage."
+      },
+      {
+        "step": 2,
+        "title": "The Descent",
+        "description": "Hinge hips slightly back then drop straight down between heels.",
+        "coachTip": "Inhale and brace core."
+      },
+      {
+        "step": 3,
+        "title": "Concentric Drive",
+        "description": "Push the ground away to return to full upright lockout.",
+        "coachTip": "Squeeze glutes at top."
+      }
+    ]
+  },
+  {
+    "id": "ex-db-front-squat",
+    "name": "Dumbbell Front Squat",
+    "split_day": "Monday",
+    "order_index": 2,
+    "target_muscle": "Quadriceps & Core",
+    "secondary_muscles": [
+      "Upper Back",
+      "Glutes"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 2,
+    "unlock_criteria": "Recruit Stage II",
+    "target_duration_mins": 8,
+    "default_sets": 4,
+    "default_reps_min": 8,
+    "default_reps_max": 10,
+    "default_rest_seconds": 90,
+    "instructions": [
+      "Rest two dumbbells on front shoulders with elbows pointing forward.",
+      "Keep torso completely upright as you descend into a deep squat.",
+      "Drive up through heels while keeping elbows lifted."
+    ],
+    "form_cues": [
+      "Elbows high throughout",
+      "Sit between your heels"
+    ],
+    "common_mistakes": [
+      "Dropping elbows forward",
+      "Excessive forward torso pitch"
+    ],
+    "alternatives": [
+      "Goblet Dumbbell Squat",
+      "Dumbbell Sumo Squat"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Front Rack Anchor",
+        "description": "Rest heads of dumbbells on deltoids.",
+        "coachTip": "Elbows up parallel to floor."
+      },
+      {
+        "step": 2,
+        "title": "Deep Knee Flexion",
+        "description": "Squat down with vertical torso angle.",
+        "coachTip": "Deep breath in on descent."
+      },
+      {
+        "step": 3,
+        "title": "Quad Drive",
+        "description": "Drive vertically to lockout.",
+        "coachTip": "Exhale through teeth at top."
+      }
+    ]
+  },
+  {
+    "id": "ex-db-sumo-squat",
+    "name": "Dumbbell Sumo Squat",
+    "split_day": "Monday",
+    "order_index": 3,
+    "target_muscle": "Adductors & Glutes",
+    "secondary_muscles": [
+      "Quadriceps",
+      "Hamstrings"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 1,
+    "unlock_criteria": "Awakening Foundation",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 15,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Take a wide stance (1.5x shoulder width) with toes angled 45° outward.",
+      "Hold single dumbbell hanging straight down between legs.",
+      "Squat straight down, pushing knees wide along toe angle.",
+      "Squeeze inner thighs and glutes to return to stand."
+    ],
+    "form_cues": [
+      "Knees wide and flared",
+      "Vertical pelvis descent"
+    ],
+    "common_mistakes": [
+      "Leaning forward excessively",
+      "Knees caving inwards"
+    ],
+    "alternatives": [
+      "Goblet Dumbbell Squat",
+      "Dumbbell Lateral Lunge"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Wide Stance",
+        "description": "Set feet wide, toes flared 45 degrees.",
+        "coachTip": "Dumbbell hangs perpendicular."
+      },
+      {
+        "step": 2,
+        "title": "Adductor Descent",
+        "description": "Drop hips straight down, knees opening wide.",
+        "coachTip": "Feel inner thigh stretch."
+      },
+      {
+        "step": 3,
+        "title": "Glute Lockout",
+        "description": "Drive up and contract glutes forcefully.",
+        "coachTip": "Do not hyperextend spine."
+      }
+    ]
+  },
+  {
+    "id": "ex-db-rdl",
+    "name": "Dumbbell Romanian Deadlift (RDL)",
+    "split_day": "Monday",
+    "order_index": 4,
+    "target_muscle": "Hamstrings & Glutes",
+    "secondary_muscles": [
+      "Erectors",
+      "Grip",
+      "Forearms"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 1,
+    "unlock_criteria": "Awakening Foundation",
+    "target_duration_mins": 8,
+    "default_sets": 4,
+    "default_reps_min": 8,
+    "default_reps_max": 12,
+    "default_rest_seconds": 90,
+    "instructions": [
+      "Hold two dumbbells against front of thighs with soft, unlocked knees.",
+      "Push hips backward as if trying to touch the wall behind you.",
+      "Lower dumbbells grazing along shins until hamstrings reach peak stretch.",
+      "Drive hips forward by contracting glutes and hamstrings to return to standing."
+    ],
+    "form_cues": [
+      "Push butt backward",
+      "Shins remain vertical",
+      "Keep dumbbells tight to legs"
+    ],
+    "common_mistakes": [
+      "Rounding the lumbar spine",
+      "Squatting down instead of hip hinging",
+      "Letting dumbbells drift away"
+    ],
+    "alternatives": [
+      "Single-Leg Romanian Deadlift",
+      "Dumbbell Good Morning"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "The Hinge Setup",
+        "description": "Stand tall, soft knees, shoulder blades packed.",
+        "coachTip": "Look 6 feet ahead on floor."
+      },
+      {
+        "step": 2,
+        "title": "Posterior Glide",
+        "description": "Slide hips back as dumbbells shave shins.",
+        "coachTip": "Stop when hips stop moving back."
+      },
+      {
+        "step": 3,
+        "title": "Hip Extension",
+        "description": "Drive hips forward into the dumbbells.",
+        "coachTip": "Exhale and lock glutes."
+      }
+    ]
+  },
+  {
+    "id": "ex-db-stiff-leg-dl",
+    "name": "Dumbbell Stiff-Leg Deadlift",
+    "split_day": "Monday",
+    "order_index": 5,
+    "target_muscle": "Hamstrings (Lower/Tendon)",
+    "secondary_muscles": [
+      "Glutes",
+      "Lower Back"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Warrior",
+    "unlock_level": 10,
+    "unlock_criteria": "Warrior Rank Hinge Mastery",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 90,
+    "instructions": [
+      "Keep knees nearly straight with minimal micro-bend.",
+      "Hinge at the hips, keeping back flat as weights descend lower toward ankles.",
+      "Feel intense loaded stretch in hamstrings before reversing."
+    ],
+    "form_cues": [
+      "Knees almost locked but not hyperextended",
+      "Focus on hamstring stretch"
+    ],
+    "common_mistakes": [
+      "Rounding thoracic or lumbar spine",
+      "Jerking the weights at the bottom"
+    ],
+    "alternatives": [
+      "Dumbbell Romanian Deadlift (RDL)",
+      "Single-Leg Romanian Deadlift"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Fixed Knee Angle",
+        "description": "Set minimal micro-bend in knees and lock the joint angle.",
+        "coachTip": "Neutral neck."
+      },
+      {
+        "step": 2,
+        "title": "Deep Stretch Descent",
+        "description": "Hinge pure at hips down to mid-shin.",
+        "coachTip": "Inhale controlled."
+      },
+      {
+        "step": 3,
+        "title": "Hamstring Pull",
+        "description": "Pull torso upright purely with hamstrings.",
+        "coachTip": "Smooth steady tempo."
+      }
+    ]
+  },
+  {
+    "id": "ex-db-reverse-lunge",
+    "name": "Dumbbell Reverse Lunge",
+    "split_day": "Monday",
+    "order_index": 6,
+    "target_muscle": "Quadriceps & Glutes",
+    "secondary_muscles": [
+      "Calves",
+      "Core"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 2,
+    "unlock_criteria": "Recruit Stage II",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Hold dumbbells at sides.",
+      "Take a controlled step backward and lower back knee until it hovers 1 inch above floor.",
+      "Front shin stays vertical.",
+      "Push through front heel to step back forward."
+    ],
+    "form_cues": [
+      "Soft landing with rear foot",
+      "Front heel firmly planted",
+      "Torso upright"
+    ],
+    "common_mistakes": [
+      "Slamming rear knee into floor",
+      "Forward knee pushing past toes uncontrollably"
+    ],
+    "alternatives": [
+      "Dumbbell Forward Lunge",
+      "Bulgarian Split Squat"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Backward Step",
+        "description": "Step back smoothly onto ball of rear foot.",
+        "coachTip": "Keep hips square."
+      },
+      {
+        "step": 2,
+        "title": "Double 90° Bend",
+        "description": "Lower until front and rear knees form 90 degrees.",
+        "coachTip": "Back knee hovers."
+      },
+      {
+        "step": 3,
+        "title": "Front Leg Drive",
+        "description": "Power forward through front midfoot.",
+        "coachTip": "Exhale to stand."
+      }
+    ]
+  },
+  {
+    "id": "ex-db-forward-lunge",
+    "name": "Dumbbell Forward Lunge",
+    "split_day": "Monday",
+    "order_index": 7,
+    "target_muscle": "Quadriceps & Deceleration",
+    "secondary_muscles": [
+      "Glutes",
+      "Calves"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Initiate",
+    "unlock_level": 5,
+    "unlock_criteria": "Initiate Rank Unlocked",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Step forward with dumbbells at sides.",
+      "Decelerate smoothly and bend both knees.",
+      "Push explosively off the front heel to return to start."
+    ],
+    "form_cues": [
+      "Control the landing",
+      "Abs braced tight"
+    ],
+    "common_mistakes": [
+      "Stomping forward foot",
+      "Torso collapsing forward"
+    ],
+    "alternatives": [
+      "Dumbbell Reverse Lunge",
+      "Dumbbell Walking Lunge"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Lunge Entry",
+        "description": "Step forward cleanly.",
+        "coachTip": "Brace core."
+      },
+      {
+        "step": 2,
+        "title": "Braking Phase",
+        "description": "Absorb impact through quadriceps.",
+        "coachTip": "Stay centered."
+      },
+      {
+        "step": 3,
+        "title": "Push Back",
+        "description": "Explode off lead heel back to starting stance.",
+        "coachTip": "Drive cleanly."
+      }
+    ]
+  },
+  {
+    "id": "ex-db-walking-lunge",
+    "name": "Dumbbell Walking Lunge",
+    "split_day": "Monday",
+    "order_index": 8,
+    "target_muscle": "Total Leg Hypertrophy",
+    "secondary_muscles": [
+      "Glutes",
+      "Hamstrings",
+      "Calves"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Initiate",
+    "unlock_level": 7,
+    "unlock_criteria": "Initiate Dynamic Legs",
+    "target_duration_mins": 8,
+    "default_sets": 3,
+    "default_reps_min": 12,
+    "default_reps_max": 16,
+    "default_rest_seconds": 90,
+    "instructions": [
+      "Step forward continuously, alternating legs with each stride.",
+      "Maintain steady fluid pace without rushing.",
+      "Keep dumbbells steady at sides without swinging."
+    ],
+    "form_cues": [
+      "Continuous forward motion",
+      "Knees track over toes"
+    ],
+    "common_mistakes": [
+      "Swinging dumbbells for momentum",
+      "Short shallow strides"
+    ],
+    "alternatives": [
+      "Dumbbell Reverse Lunge",
+      "Dumbbell Step-Up"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Lead Step",
+        "description": "Step forward into lunge.",
+        "coachTip": "Torso tall."
+      },
+      {
+        "step": 2,
+        "title": "Transition",
+        "description": "Drive directly through front heel into the next stride.",
+        "coachTip": "Seamless movement."
+      },
+      {
+        "step": 3,
+        "title": "Stride Rhythm",
+        "description": "Continue smoothly alternating legs.",
+        "coachTip": "Keep dumbbells silent."
+      }
+    ]
+  },
+  {
+    "id": "ex-bulgarian-split-squat",
+    "name": "Bulgarian Split Squat",
+    "split_day": "Monday",
+    "order_index": 9,
+    "target_muscle": "Quadriceps & Glute Isolation",
+    "secondary_muscles": [
+      "Adductors",
+      "Core Balance"
+    ],
+    "bench_angle": "Flat",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Initiate",
+    "unlock_level": 5,
+    "unlock_criteria": "Initiate Rank Bench Unlocked",
+    "target_duration_mins": 8,
+    "default_sets": 3,
+    "default_reps_min": 8,
+    "default_reps_max": 12,
+    "default_rest_seconds": 90,
+    "instructions": [
+      "Place rear foot laces-down on flat bench behind you.",
+      "Lower hips down and slightly back until front thigh is parallel to floor.",
+      "Push aggressively through front heel to return to top."
+    ],
+    "form_cues": [
+      "Front shin vertical",
+      "Lean slightly forward to bias glutes",
+      "Deep hip flexion"
+    ],
+    "common_mistakes": [
+      "Pushing off rear foot instead of front leg",
+      "Front heel lifting off floor"
+    ],
+    "alternatives": [
+      "Static Split Squat",
+      "Dumbbell Reverse Lunge"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Bench Placement",
+        "description": "Rest rear shoelaces on flat bench.",
+        "coachTip": "Find comfortable stride length."
+      },
+      {
+        "step": 2,
+        "title": "Descent",
+        "description": "Lower straight down until front thigh is parallel.",
+        "coachTip": "Front knee tracks toe."
+      },
+      {
+        "step": 3,
+        "title": "Drive",
+        "description": "Push directly through front midfoot to stand.",
+        "coachTip": "Exhale through teeth."
+      }
+    ]
+  },
+  {
+    "id": "ex-static-split-squat",
+    "name": "Static Split Squat",
+    "split_day": "Monday",
+    "order_index": 10,
+    "target_muscle": "Quadriceps & Hip Flexors",
+    "secondary_muscles": [
+      "Glutes",
+      "Balance"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 3,
+    "unlock_criteria": "Recruit Stage III",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Set feet in stationary staggered split stance.",
+      "Perform all reps on one leg before switching, without moving feet between reps."
+    ],
+    "form_cues": [
+      "Both feet stay anchored",
+      "Even weight distribution"
+    ],
+    "common_mistakes": [
+      "Shifting feet between reps",
+      "Front knee caving inward"
+    ],
+    "alternatives": [
+      "Bulgarian Split Squat",
+      "Dumbbell Reverse Lunge"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Split Anchor",
+        "description": "Set wide split stance on floor.",
+        "coachTip": "Feet stay glued."
+      },
+      {
+        "step": 2,
+        "title": "Vertical Reps",
+        "description": "Pump reps up and down smoothly.",
+        "coachTip": "Smooth rhythm."
+      },
+      {
+        "step": 3,
+        "title": "Side Switch",
+        "description": "Complete sets on both legs.",
+        "coachTip": "Equal intensity."
+      }
+    ]
+  },
+  {
+    "id": "ex-db-step-up",
+    "name": "Dumbbell Step-Up",
+    "split_day": "Monday",
+    "order_index": 11,
+    "target_muscle": "Glute & Quad Power",
+    "secondary_muscles": [
+      "Calves",
+      "Core"
+    ],
+    "bench_angle": "Flat",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 3,
+    "unlock_criteria": "Recruit Bench Agility",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Place entire foot on flat bench.",
+      "Drive through top foot to stand atop bench.",
+      "Lower back down with controlled 2-second negative."
+    ],
+    "form_cues": [
+      "Lead leg does 90% of the work",
+      "Do not jump off bottom foot"
+    ],
+    "common_mistakes": [
+      "Bouncing off bottom toe",
+      "Incomplete hip extension at top"
+    ],
+    "alternatives": [
+      "Bulgarian Split Squat",
+      "Dumbbell Forward Lunge"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Bench Footing",
+        "description": "Plant entire foot on bench surface.",
+        "coachTip": "No heel hanging."
+      },
+      {
+        "step": 2,
+        "title": "Top Leg Lift",
+        "description": "Stand up without jumping off back foot.",
+        "coachTip": "Feel top quad/glute."
+      },
+      {
+        "step": 3,
+        "title": "Slow Descent",
+        "description": "Step down softly.",
+        "coachTip": "Control the negative."
+      }
+    ]
+  },
+  {
+    "id": "ex-lateral-lunge",
+    "name": "Dumbbell Lateral Lunge",
+    "split_day": "Monday",
+    "order_index": 12,
+    "target_muscle": "Adductors & Glute Medius",
+    "secondary_muscles": [
+      "Quadriceps",
+      "Mobility"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Initiate",
+    "unlock_level": 6,
+    "unlock_criteria": "Initiate Frontal Plane",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Step wide to the side, pushing hips backward as you bend the stepping knee.",
+      "Keep non-stepping leg completely straight.",
+      "Push off side heel to return to center."
+    ],
+    "form_cues": [
+      "Trail leg straight",
+      "Hips push back like a squat on one side"
+    ],
+    "common_mistakes": [
+      "Bent knee collapsing inward",
+      "Torso twisting sideways"
+    ],
+    "alternatives": [
+      "Dumbbell Sumo Squat",
+      "Goblet Dumbbell Squat"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Side Step",
+        "description": "Step wide to lateral side.",
+        "coachTip": "Keep toes pointing forward."
+      },
+      {
+        "step": 2,
+        "title": "Lateral Hinge",
+        "description": "Sink hips back on stepping leg.",
+        "coachTip": "Trail leg locked straight."
+      },
+      {
+        "step": 3,
+        "title": "Center Push",
+        "description": "Push off outside foot back to start.",
+        "coachTip": "Brisk return."
+      }
+    ]
+  },
+  {
+    "id": "ex-db-glute-bridge",
+    "name": "Dumbbell Glute Bridge",
+    "split_day": "Monday",
+    "order_index": 13,
+    "target_muscle": "Gluteus Maximus",
+    "secondary_muscles": [
+      "Hamstrings",
+      "Core"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 1,
+    "unlock_criteria": "Awakening Foundation",
+    "target_duration_mins": 6,
+    "default_sets": 3,
+    "default_reps_min": 12,
+    "default_reps_max": 15,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Lie on back with knees bent, feet flat.",
+      "Rest dumbbell securely across hips.",
+      "Drive through heels to lift hips until thighs and torso align.",
+      "Squeeze glutes hard for 2 seconds at top."
+    ],
+    "form_cues": [
+      "Ribs pinned down",
+      "Squeeze glutes, do not arch lower back"
+    ],
+    "common_mistakes": [
+      "Overarching lumbar spine",
+      "Driving through toes"
+    ],
+    "alternatives": [
+      "Dumbbell Hip Thrust",
+      "Single-Leg Glute Bridge"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Floor Setup",
+        "description": "Lie supine, knees at 90°, dumbbell on hip crease.",
+        "coachTip": "Brace abs."
+      },
+      {
+        "step": 2,
+        "title": "Hip Lift",
+        "description": "Bridge hips upward into lockout.",
+        "coachTip": "Drive heels into floor."
+      },
+      {
+        "step": 3,
+        "title": "Glute Peak",
+        "description": "Hold contraction 2 seconds.",
+        "coachTip": "Exhale fully."
+      }
+    ]
+  },
+  {
+    "id": "ex-db-hip-thrust",
+    "name": "Dumbbell Hip Thrust",
+    "split_day": "Monday",
+    "order_index": 14,
+    "target_muscle": "Glute Peak Hypertrophy",
+    "secondary_muscles": [
+      "Hamstrings",
+      "Core"
+    ],
+    "bench_angle": "Flat",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Initiate",
+    "unlock_level": 5,
+    "unlock_criteria": "Initiate Bench Glute Power",
+    "target_duration_mins": 8,
+    "default_sets": 4,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 90,
+    "instructions": [
+      "Anchor upper shoulder blades against flat bench edge.",
+      "Place heavy dumbbell across pelvis.",
+      "Lower hips toward floor then thrust upward until torso and thighs form a flat bridge."
+    ],
+    "form_cues": [
+      "Chin tucked to chest",
+      "Drive through heels",
+      "Full hip extension"
+    ],
+    "common_mistakes": [
+      "Looking at ceiling (lumbar hyperextension)",
+      "Incomplete lockout"
+    ],
+    "alternatives": [
+      "Dumbbell Glute Bridge",
+      "Single-Leg Glute Bridge"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Bench Anchor",
+        "description": "Rest mid-scapula on edge of bench.",
+        "coachTip": "Chin tucked down."
+      },
+      {
+        "step": 2,
+        "title": "Thrust",
+        "description": "Drive hips skyward through heels.",
+        "coachTip": "Squeeze glutes violently."
+      },
+      {
+        "step": 3,
+        "title": "Horizontal Tabletop",
+        "description": "Hold flat bridge position.",
+        "coachTip": "Exhale at peak."
+      }
+    ]
+  },
+  {
+    "id": "ex-single-leg-glute-bridge",
+    "name": "Single-Leg Glute Bridge",
+    "split_day": "Monday",
+    "order_index": 15,
+    "target_muscle": "Glute Unilateral Balance",
+    "secondary_muscles": [
+      "Hamstrings",
+      "Lower Back"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "bodyweight",
+    "unlock_tier": "Recruit",
+    "unlock_level": 2,
+    "unlock_criteria": "Recruit Balance",
+    "target_duration_mins": 6,
+    "default_sets": 3,
+    "default_reps_min": 12,
+    "default_reps_max": 15,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Lie on floor with one knee bent and other leg extended straight.",
+      "Drive through working heel to lift pelvis.",
+      "Keep hips level and square throughout."
+    ],
+    "form_cues": [
+      "Hips stay parallel to ceiling",
+      "Intense unilateral glute contraction"
+    ],
+    "common_mistakes": [
+      "Hips tilting to one side",
+      "Pushing through neck or shoulders"
+    ],
+    "alternatives": [
+      "Dumbbell Glute Bridge",
+      "Dumbbell Hip Thrust"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Single Leg Anchor",
+        "description": "One foot flat on floor, opposite leg floating.",
+        "coachTip": "Keep pelvis level."
+      },
+      {
+        "step": 2,
+        "title": "One-Leg Bridge",
+        "description": "Press working heel down to elevate hips.",
+        "coachTip": "Pure glute focus."
+      },
+      {
+        "step": 3,
+        "title": "Level Top",
+        "description": "Hold level at top for 1 count.",
+        "coachTip": "Lower under control."
+      }
+    ]
+  },
+  {
+    "id": "ex-standing-db-calf-raise",
+    "name": "Standing Dumbbell Calf Raise",
+    "split_day": "Monday",
+    "order_index": 16,
+    "target_muscle": "Gastrocnemius (Calves)",
+    "secondary_muscles": [
+      "Tibialis",
+      "Ankles"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 1,
+    "unlock_criteria": "Awakening Foundation",
+    "target_duration_mins": 6,
+    "default_sets": 4,
+    "default_reps_min": 15,
+    "default_reps_max": 20,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Hold dumbbells at sides with balls of feet on a raised plate rim.",
+      "Lower heels down into deep stretch.",
+      "Press onto big toes to raise as high as possible, holding peak for 1 second."
+    ],
+    "form_cues": [
+      "Full stretch at bottom",
+      "Pause 1 second at top contraction"
+    ],
+    "common_mistakes": [
+      "Bouncing through Achilles tendon",
+      "Rolling onto pinky toes"
+    ],
+    "alternatives": [
+      "Single-Leg Calf Raise",
+      "Seated Dumbbell Calf Raise"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Plate Edge Setup",
+        "description": "Balls of feet on plate edge, heels hanging.",
+        "coachTip": "Hold dumbbells steady."
+      },
+      {
+        "step": 2,
+        "title": "Deep Stretch",
+        "description": "Drop heels below plate rim.",
+        "coachTip": "Feel deep calf stretch."
+      },
+      {
+        "step": 3,
+        "title": "High Peak",
+        "description": "Rise onto balls of feet, contracting calves.",
+        "coachTip": "Squeeze 1s."
+      }
+    ]
+  },
+  {
+    "id": "ex-single-leg-calf-raise",
+    "name": "Single-Leg Calf Raise",
+    "split_day": "Monday",
+    "order_index": 17,
+    "target_muscle": "Calf Unilateral Strength",
+    "secondary_muscles": [
+      "Ankles",
+      "Balance"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Initiate",
+    "unlock_level": 5,
+    "unlock_criteria": "Initiate Ankle Stability",
+    "target_duration_mins": 6,
+    "default_sets": 3,
+    "default_reps_min": 15,
+    "default_reps_max": 20,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Hold one dumbbell in hand on working side.",
+      "Perform high-range calf raises on a single foot.",
+      "Control the tempo strictly (3s down, 1s hold, 1s up)."
+    ],
+    "form_cues": [
+      "Strict slow tempo",
+      "No momentum bouncing"
+    ],
+    "common_mistakes": [
+      "Rushing the reps",
+      "Bent knee"
+    ],
+    "alternatives": [
+      "Standing Dumbbell Calf Raise",
+      "Seated Dumbbell Calf Raise"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Single Foot Anchor",
+        "description": "Balance on ball of one foot.",
+        "coachTip": "Light hand touch for balance."
+      },
+      {
+        "step": 2,
+        "title": "Controlled Reps",
+        "description": "Lower into stretch, rise to ceiling.",
+        "coachTip": "Strict control."
+      },
+      {
+        "step": 3,
+        "title": "Peak Squeeze",
+        "description": "Contract calf muscle hard.",
+        "coachTip": "No bouncing."
+      }
+    ]
+  },
+  {
+    "id": "ex-seated-db-calf-raise",
+    "name": "Seated Dumbbell Calf Raise",
+    "split_day": "Monday",
+    "order_index": 18,
+    "target_muscle": "Soleus (Deep Calf Muscle)",
+    "secondary_muscles": [
+      "Ankle Stabilizers"
+    ],
+    "bench_angle": "Seated 90°",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 2,
+    "unlock_criteria": "Recruit Soleus Focus",
+    "target_duration_mins": 6,
+    "default_sets": 4,
+    "default_reps_min": 15,
+    "default_reps_max": 20,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Sit tall on bench set to 90° with knees at 90° angle.",
+      "Place dumbbells across knees with balls of feet on floor/plate.",
+      "Raise heels high to work the deep soleus muscle."
+    ],
+    "form_cues": [
+      "Soleus activates with bent knee",
+      "Keep dumbbells balanced over knees"
+    ],
+    "common_mistakes": [
+      "Slouching torso",
+      "Cutting the range of motion short"
+    ],
+    "alternatives": [
+      "Standing Dumbbell Calf Raise",
+      "Single-Leg Calf Raise"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Seated Setup",
+        "description": "Sit on 90° bench, dumbbells resting on knees.",
+        "coachTip": "Feet on edge."
+      },
+      {
+        "step": 2,
+        "title": "Heel Drop",
+        "description": "Drop heels into deep stretch.",
+        "coachTip": "Bent knee isolates soleus."
+      },
+      {
+        "step": 3,
+        "title": "Soleus Push",
+        "description": "Push onto toes to maximum height.",
+        "coachTip": "Hard squeeze."
+      }
+    ]
+  },
+  {
+    "id": "ex-db-good-morning",
+    "name": "Dumbbell Good Morning",
+    "split_day": "Monday",
+    "order_index": 19,
+    "target_muscle": "Hamstrings & Spinal Erectors",
+    "secondary_muscles": [
+      "Glutes",
+      "Core"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Warrior",
+    "unlock_level": 12,
+    "unlock_criteria": "Warrior Posterior Chain",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Hold single dumbbell horizontally across upper chest.",
+      "Hinge backward at hips with flat spine and soft knees.",
+      "Lower torso to near-parallel to floor, then contract hamstrings to return to stand."
+    ],
+    "form_cues": [
+      "Keep spine completely rigid",
+      "Push hips far behind you"
+    ],
+    "common_mistakes": [
+      "Rounding the lower back",
+      "Bending knees excessively into a squat"
+    ],
+    "alternatives": [
+      "Dumbbell Romanian Deadlift (RDL)",
+      "Single-Leg Romanian Deadlift"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Chest Hug",
+        "description": "Hold dumbbell firm against upper chest.",
+        "coachTip": "Shoulders packed."
+      },
+      {
+        "step": 2,
+        "title": "Pure Hinge",
+        "description": "Hinge hips straight back with flat back.",
+        "coachTip": "Feel hamstrings load."
+      },
+      {
+        "step": 3,
+        "title": "Hamstring Snap",
+        "description": "Contract glutes and hamstrings to return upright.",
+        "coachTip": "Lock hips."
+      }
+    ]
+  },
+  {
+    "id": "ex-single-leg-rdl",
+    "name": "Single-Leg Romanian Deadlift",
+    "split_day": "Monday",
+    "order_index": 20,
+    "target_muscle": "Hamstring & Hip Balance",
+    "secondary_muscles": [
+      "Glute Medius",
+      "Foot Arch",
+      "Core"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Warrior",
+    "unlock_level": 15,
+    "unlock_criteria": "Warrior Balance Mastery",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 8,
+    "default_reps_max": 10,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Hold single dumbbell in hand opposite working leg.",
+      "Hinge forward while extending non-working leg straight behind you in line with torso.",
+      "Touch dumbbell toward mid-shin, then drive working hip forward."
+    ],
+    "form_cues": [
+      "Torso and back leg form straight line",
+      "Square hips to floor, do not rotate open"
+    ],
+    "common_mistakes": [
+      "Letting non-working hip flare open",
+      "Rounding upper spine"
+    ],
+    "alternatives": [
+      "Dumbbell Romanian Deadlift (RDL)",
+      "Dumbbell Good Morning"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Single Leg Setup",
+        "description": "Stand on one foot, soft knee, dumbbell opposite side.",
+        "coachTip": "Lock core."
+      },
+      {
+        "step": 2,
+        "title": "Airplane Hinge",
+        "description": "Hinge forward as rear leg elevates like a see-saw.",
+        "coachTip": "Keep hips square."
+      },
+      {
+        "step": 3,
+        "title": "Hip Power",
+        "description": "Drive through standing foot to stand tall.",
+        "coachTip": "Exhale clean."
+      }
+    ]
+  },
+  {
+    "id": "ex-flat-db-press",
+    "name": "Flat Dumbbell Bench Press",
+    "split_day": "Tuesday",
+    "order_index": 1,
+    "target_muscle": "Pectoralis Major (Mid)",
+    "secondary_muscles": [
+      "Triceps",
+      "Front Delts"
+    ],
+    "bench_angle": "Flat",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 1,
+    "unlock_criteria": "Awakening Foundation",
+    "target_duration_mins": 8,
+    "default_sets": 4,
+    "default_reps_min": 8,
+    "default_reps_max": 12,
+    "default_rest_seconds": 90,
+    "instructions": [
+      "Lie back on flat bench, dumbbells held at chest level with neutral wrists.",
+      "Drive feet into floor, retract scapulae firmly into the pad.",
+      "Press dumbbells up in a slight inward arc without clanking at top.",
+      "Lower with 3-second controlled eccentric to nipple line."
+    ],
+    "form_cues": [
+      "Shoulder blades pinched tight",
+      "Elbows tucked 45-60 degrees",
+      "Wrists stacked above elbows"
+    ],
+    "common_mistakes": [
+      "Elbows flaring 90 degrees out",
+      "Shoulders rolling forward off bench at top",
+      "Bouncing weights off chest"
+    ],
+    "alternatives": [
+      "Dumbbell Floor Press",
+      "Incline Dumbbell Bench Press"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Bench Lock Setup",
+        "description": "Retract and depress shoulder blades into bench.",
+        "coachTip": "Firm leg drive."
+      },
+      {
+        "step": 2,
+        "title": "Inward Arc Press",
+        "description": "Press dumbbells up and slightly inward over sternum.",
+        "coachTip": "Squeeze pecs at lockout."
+      },
+      {
+        "step": 3,
+        "title": "Controlled Stretch",
+        "description": "Lower down slowly until dumbbell handles reach chest level.",
+        "coachTip": "Deep inhale."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-incline-db-press",
+    "name": "Incline Dumbbell Bench Press (30°)",
+    "split_day": "Tuesday",
+    "order_index": 2,
+    "target_muscle": "Upper Pectoralis (Clavicular)",
+    "secondary_muscles": [
+      "Front Delts",
+      "Triceps"
+    ],
+    "bench_angle": "Incline 30°",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 2,
+    "unlock_criteria": "Recruit Stage II",
+    "target_duration_mins": 8,
+    "default_sets": 4,
+    "default_reps_min": 8,
+    "default_reps_max": 12,
+    "default_rest_seconds": 90,
+    "instructions": [
+      "Set 20-in-1 bench to 30° incline.",
+      "Press dumbbells upward over upper chest with tucked elbows.",
+      "Lower until dumbbells touch upper clavicle line."
+    ],
+    "form_cues": [
+      "Bench at 30° not 60°",
+      "Keep chest puffed out"
+    ],
+    "common_mistakes": [
+      "Bench too steep (turns into shoulder press)",
+      "Arching lower back off bench"
+    ],
+    "alternatives": [
+      "High Incline Dumbbell Bench Press",
+      "Flat Dumbbell Bench Press"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Incline Position",
+        "description": "Lie against 30° backrest, feet planted.",
+        "coachTip": "Shoulder blades pinned."
+      },
+      {
+        "step": 2,
+        "title": "Upper Pec Drive",
+        "description": "Press upward over collarbones.",
+        "coachTip": "Exhale through teeth."
+      },
+      {
+        "step": 3,
+        "title": "Deep Stretch",
+        "description": "Lower smoothly with elbows at 45°.",
+        "coachTip": "Feel upper chest stretch."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-decline-db-press",
+    "name": "Decline Dumbbell Bench Press",
+    "split_day": "Tuesday",
+    "order_index": 3,
+    "target_muscle": "Lower Pectoralis",
+    "secondary_muscles": [
+      "Triceps"
+    ],
+    "bench_angle": "Decline",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Warrior",
+    "unlock_level": 10,
+    "unlock_criteria": "Warrior Bench Mastery",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Set 20-in-1 bench to decline angle with leg anchors.",
+      "Press dumbbells vertically over lower sternum.",
+      "Lower to lower chest border."
+    ],
+    "form_cues": [
+      "Tuck chin slightly",
+      "Drive through lower pecs"
+    ],
+    "common_mistakes": [
+      "Letting dumbbells drift toward face",
+      "Rushing the lowering phase"
+    ],
+    "alternatives": [
+      "Dumbbell Floor Press",
+      "Flat Dumbbell Bench Press"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Decline Anchor",
+        "description": "Secure legs on decline bench.",
+        "coachTip": "Grip handles firm."
+      },
+      {
+        "step": 2,
+        "title": "Lower Pec Line",
+        "description": "Press over bottom border of chest.",
+        "coachTip": "Control path."
+      },
+      {
+        "step": 3,
+        "title": "Pec Squeeze",
+        "description": "Squeeze lower chest hard.",
+        "coachTip": "Smooth cadence."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-flat-db-fly",
+    "name": "Flat Dumbbell Fly",
+    "split_day": "Tuesday",
+    "order_index": 4,
+    "target_muscle": "Pectoralis Stretch & Adduction",
+    "secondary_muscles": [
+      "Anterior Deltoids"
+    ],
+    "bench_angle": "Flat",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 3,
+    "unlock_criteria": "Recruit Stage III",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 15,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Lie flat holding dumbbells over chest with slight elbow bend (15°).",
+      "Lower arms wide to sides in hugging arc until deep chest stretch is felt.",
+      "Squeeze pecs to bring dumbbells back together over chest."
+    ],
+    "form_cues": [
+      "Lock elbow angle fixed",
+      "Imagine hugging a massive tree"
+    ],
+    "common_mistakes": [
+      "Straightening elbows (straining bicep tendon)",
+      "Dropping elbows below bench plane"
+    ],
+    "alternatives": [
+      "Incline Dumbbell Fly",
+      "Dumbbell Squeeze Press"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Elbow Arch Lock",
+        "description": "Micro-bend elbows and lock the angle.",
+        "coachTip": "Wrists neutral."
+      },
+      {
+        "step": 2,
+        "title": "Wide Arc",
+        "description": "Open arms wide like wings.",
+        "coachTip": "Deep inhale."
+      },
+      {
+        "step": 3,
+        "title": "Pec Hug",
+        "description": "Squeeze dumbbells together using inner pecs.",
+        "coachTip": "Exhale at top."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-incline-db-fly",
+    "name": "Incline Dumbbell Fly (30°)",
+    "split_day": "Tuesday",
+    "order_index": 5,
+    "target_muscle": "Upper Pectoralis Adduction",
+    "secondary_muscles": [
+      "Anterior Deltoids"
+    ],
+    "bench_angle": "Incline 30°",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Initiate",
+    "unlock_level": 5,
+    "unlock_criteria": "Initiate Chest Fly",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Set bench to 30°.",
+      "Open arms wide maintaining slight elbow bend.",
+      "Bring dumbbells together over eye line, squeezing upper chest."
+    ],
+    "form_cues": [
+      "Feel loaded stretch in collarbone region",
+      "Smooth cadence"
+    ],
+    "common_mistakes": [
+      "Dropping weights too fast",
+      "Collapsing elbows"
+    ],
+    "alternatives": [
+      "Flat Dumbbell Fly",
+      "Incline Dumbbell Bench Press"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Incline Arc",
+        "description": "Set bench at 30°, arms extended.",
+        "coachTip": "Pack scapula."
+      },
+      {
+        "step": 2,
+        "title": "Eccentric Opening",
+        "description": "Open wide horizontally.",
+        "coachTip": "Inhale controlled."
+      },
+      {
+        "step": 3,
+        "title": "Peak Adduction",
+        "description": "Squeeze pecs to bring weights together.",
+        "coachTip": "Contract upper pecs."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-db-floor-press",
+    "name": "Dumbbell Floor Press",
+    "split_day": "Tuesday",
+    "order_index": 6,
+    "target_muscle": "Pectoralis & Triceps Lockout",
+    "secondary_muscles": [
+      "Anterior Deltoid"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 1,
+    "unlock_criteria": "Awakening Foundation",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 8,
+    "default_reps_max": 12,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Lie on floor with knees bent and feet flat.",
+      "Press dumbbells up to arms length.",
+      "Lower until triceps lightly touch the floor, pause 1 second to eliminate stretch reflex, then press up."
+    ],
+    "form_cues": [
+      "Dead stop on floor eliminates shoulder impingement",
+      "Drive elbows through floor"
+    ],
+    "common_mistakes": [
+      "Bouncing triceps off floor violently",
+      "Lifting hips into bridge"
+    ],
+    "alternatives": [
+      "Flat Dumbbell Bench Press",
+      "Neutral-Grip Dumbbell Press"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Floor Anchor",
+        "description": "Lie supine on mat, feet flat, dumbbells over chest.",
+        "coachTip": "Back flat."
+      },
+      {
+        "step": 2,
+        "title": "Dead Stop",
+        "description": "Lower until upper arms rest on floor.",
+        "coachTip": "Hold 1 second pause."
+      },
+      {
+        "step": 3,
+        "title": "Explosive Push",
+        "description": "Press up explosively off floor.",
+        "coachTip": "Lock pecs."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-neutral-grip-db-press",
+    "name": "Neutral-Grip Dumbbell Press",
+    "split_day": "Tuesday",
+    "order_index": 7,
+    "target_muscle": "Pectoralis Major & Shoulder Joint Health",
+    "secondary_muscles": [
+      "Triceps"
+    ],
+    "bench_angle": "Flat",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 2,
+    "unlock_criteria": "Recruit Joint Health",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 8,
+    "default_reps_max": 12,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Lie on bench with palms facing each other (neutral grip).",
+      "Lower dumbbells alongside ribs with elbows tucked tight to torso.",
+      "Press upward, focusing on chest squeeze without shoulder strain."
+    ],
+    "form_cues": [
+      "Palms face each other throughout",
+      "Shoulder-friendly pressing path"
+    ],
+    "common_mistakes": [
+      "Flaring elbows outward",
+      "Loose grip on handles"
+    ],
+    "alternatives": [
+      "Flat Dumbbell Bench Press",
+      "Dumbbell Squeeze Press"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Parallel Grip",
+        "description": "Palms facing inwards toward ribs.",
+        "coachTip": "Shoulders retracted."
+      },
+      {
+        "step": 2,
+        "title": "Tucked Descent",
+        "description": "Lower handles grazing close to ribcage.",
+        "coachTip": "Zero shoulder pain."
+      },
+      {
+        "step": 3,
+        "title": "Vertical Drive",
+        "description": "Press straight up to lockout.",
+        "coachTip": "Exhale smoothly."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-db-squeeze-press",
+    "name": "Dumbbell Squeeze Press (Hex Press)",
+    "split_day": "Tuesday",
+    "order_index": 8,
+    "target_muscle": "Inner Pectoralis Contraction",
+    "secondary_muscles": [
+      "Triceps",
+      "Front Delts"
+    ],
+    "bench_angle": "Flat",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Initiate",
+    "unlock_level": 6,
+    "unlock_criteria": "Initiate Pec Density",
+    "target_duration_mins": 6,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Press two dumbbells together at their flat inner faces directly over your chest.",
+      "Keep squeezing them together forcefully as you lower to sternum and press back to top."
+    ],
+    "form_cues": [
+      "Crush dumbbells together with maximum force",
+      "Constant inward tension"
+    ],
+    "common_mistakes": [
+      "Allowing dumbbells to separate apart",
+      "Rushing through the movement"
+    ],
+    "alternatives": [
+      "Neutral-Grip Dumbbell Press",
+      "Flat Dumbbell Fly"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "The Clamp",
+        "description": "Press plates together tightly over sternum.",
+        "coachTip": "Constant inward pressure."
+      },
+      {
+        "step": 2,
+        "title": "Tension Descent",
+        "description": "Lower to chest while maintaining crushing force.",
+        "coachTip": "Inhale steady."
+      },
+      {
+        "step": 3,
+        "title": "Peak Clamp",
+        "description": "Press to arms length while crushing handles.",
+        "coachTip": "Maximum pec squeeze."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-single-arm-floor-press",
+    "name": "Single-Arm Dumbbell Floor Press",
+    "split_day": "Tuesday",
+    "order_index": 9,
+    "target_muscle": "Unilateral Chest & Anti-Rotational Core",
+    "secondary_muscles": [
+      "Core Obliques",
+      "Triceps"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "dumbbells",
+    "unlock_tier": "Warrior",
+    "unlock_level": 10,
+    "unlock_criteria": "Warrior Core Press",
+    "target_duration_mins": 6,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Lie on floor with dumbbell in one hand, non-working hand resting on belly.",
+      "Press dumbbell while bracing core to prevent torso from rolling toward the weight."
+    ],
+    "form_cues": [
+      "Keep both shoulder blades pinned flat",
+      "Strict core engagement"
+    ],
+    "common_mistakes": [
+      "Torso tilting toward loaded side",
+      "Shifting feet"
+    ],
+    "alternatives": [
+      "Dumbbell Floor Press",
+      "Alternating Dumbbell Bench Press"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Anti-Rotation Setup",
+        "description": "Hold single dumbbell on one side.",
+        "coachTip": "Pin both hips flat."
+      },
+      {
+        "step": 2,
+        "title": "Single Side Press",
+        "description": "Press up while fighting rotational force.",
+        "coachTip": "Core locked."
+      },
+      {
+        "step": 3,
+        "title": "Controlled Floor Touch",
+        "description": "Lower elbow to floor lightly.",
+        "coachTip": "Repeat on both sides."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-db-pullover",
+    "name": "Dumbbell Pullover",
+    "split_day": "Tuesday",
+    "order_index": 10,
+    "target_muscle": "Serratus Anterior & Upper Ribcage",
+    "secondary_muscles": [
+      "Lats",
+      "Triceps Long Head"
+    ],
+    "bench_angle": "Flat",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Initiate",
+    "unlock_level": 7,
+    "unlock_criteria": "Initiate Ribcage Expansion",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Lie perpendicular across flat bench with only upper shoulders supported.",
+      "Hold single dumbbell with diamond grip overhead.",
+      "Lower dumbbell backward behind head in gentle arc until deep ribcage stretch is felt.",
+      "Pull back over face using pecs and lats."
+    ],
+    "form_cues": [
+      "Keep hips slightly dropped",
+      "Soft elbow bend throughout"
+    ],
+    "common_mistakes": [
+      "Bending elbows excessively (turns into triceps extension)",
+      "Overstretching beyond shoulder comfort"
+    ],
+    "alternatives": [
+      "Flat Dumbbell Fly",
+      "Incline Dumbbell Fly"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Diamond Grip Setup",
+        "description": "Palms cup under top plate of dumbbell over eyes.",
+        "coachTip": "Hips level."
+      },
+      {
+        "step": 2,
+        "title": "Overhead Arc",
+        "description": "Lower dumbbell behind head in controlled arc.",
+        "coachTip": "Deep inhale into ribs."
+      },
+      {
+        "step": 3,
+        "title": "Pec Pull",
+        "description": "Pull dumbbell back to vertical position.",
+        "coachTip": "Exhale through teeth."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-standard-pushup",
+    "name": "Standard Strict Push-Up",
+    "split_day": "Tuesday",
+    "order_index": 11,
+    "target_muscle": "Pectoralis & Kinetic Chain",
+    "secondary_muscles": [
+      "Triceps",
+      "Anterior Delts",
+      "Core"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "bodyweight",
+    "unlock_tier": "Recruit",
+    "unlock_level": 1,
+    "unlock_criteria": "Awakening Foundation",
+    "target_duration_mins": 6,
+    "default_sets": 3,
+    "default_reps_min": 12,
+    "default_reps_max": 20,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Hands slightly wider than shoulders, body in rigid plank from head to heels.",
+      "Lower until chest is 1 inch off floor with elbows at 45°.",
+      "Push the ground away to return to top."
+    ],
+    "form_cues": [
+      "Body as straight as a steel rod",
+      "Full range of motion"
+    ],
+    "common_mistakes": [
+      "Sagging lower back (banana back)",
+      "Flaring elbows to 90 degrees",
+      "Head bobbing instead of chest reaching floor"
+    ],
+    "alternatives": [
+      "Incline Push-Up",
+      "Knee Push-Up"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Plank Alignment",
+        "description": "Hands under shoulders, glutes and abs squeezed tight.",
+        "coachTip": "Neutral neck."
+      },
+      {
+        "step": 2,
+        "title": "Chest to Floor",
+        "description": "Lower entire body in unison until chest hovers above floor.",
+        "coachTip": "Inhale down."
+      },
+      {
+        "step": 3,
+        "title": "Floor Push",
+        "description": "Drive palms into ground to full arm lockout.",
+        "coachTip": "Exhale sharp."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-incline-pushup",
+    "name": "Incline Push-Up (Hands on Bench)",
+    "split_day": "Tuesday",
+    "order_index": 12,
+    "target_muscle": "Lower Pectoralis (Beginner/Burnout)",
+    "secondary_muscles": [
+      "Triceps",
+      "Core"
+    ],
+    "bench_angle": "Flat",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Recruit",
+    "unlock_level": 1,
+    "unlock_criteria": "Awakening Foundation",
+    "target_duration_mins": 5,
+    "default_sets": 3,
+    "default_reps_min": 12,
+    "default_reps_max": 15,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Place hands on flat bench edge, feet back on floor in plank.",
+      "Lower chest to touch bench edge, then press back up."
+    ],
+    "form_cues": [
+      "Ideal for volume burnouts and beginners",
+      "Keep body rigid"
+    ],
+    "common_mistakes": [
+      "Piking hips upward",
+      "Sagging belly"
+    ],
+    "alternatives": [
+      "Standard Strict Push-Up",
+      "Knee Push-Up"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Bench Hands Setup",
+        "description": "Hands shoulder-width on bench pad.",
+        "coachTip": "Plank posture."
+      },
+      {
+        "step": 2,
+        "title": "Pad Touch",
+        "description": "Lower sternum to graze bench.",
+        "coachTip": "Controlled speed."
+      },
+      {
+        "step": 3,
+        "title": "Press Away",
+        "description": "Lock arms cleanly.",
+        "coachTip": "Consistent cadence."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-decline-pushup",
+    "name": "Decline Push-Up (Feet on Bench)",
+    "split_day": "Tuesday",
+    "order_index": 13,
+    "target_muscle": "Upper Pectoralis & Clavicular Head",
+    "secondary_muscles": [
+      "Anterior Delts",
+      "Triceps"
+    ],
+    "bench_angle": "Flat",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Initiate",
+    "unlock_level": 5,
+    "unlock_criteria": "Initiate Bodyweight Upper Pec",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 15,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Place toes on flat bench with hands on floor below shoulders.",
+      "Lower until nose and chest hover above floor, then press up."
+    ],
+    "form_cues": [
+      "Shifts bodyweight directly onto upper pecs",
+      "Brace core hard"
+    ],
+    "common_mistakes": [
+      "Arching lower spine",
+      "Flaring elbows wide"
+    ],
+    "alternatives": [
+      "Incline Dumbbell Bench Press",
+      "Standard Strict Push-Up"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Feet Elevated",
+        "description": "Place toes on bench surface, hands on mat.",
+        "coachTip": "Tight abs."
+      },
+      {
+        "step": 2,
+        "title": "Deep Upper Angle",
+        "description": "Lower chest between hands.",
+        "coachTip": "Feel upper chest load."
+      },
+      {
+        "step": 3,
+        "title": "Drive",
+        "description": "Press floor away forcefully.",
+        "coachTip": "Exhale at peak."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-knee-pushup",
+    "name": "Knee Push-Up",
+    "split_day": "Tuesday",
+    "order_index": 14,
+    "target_muscle": "Pectoralis Foundation",
+    "secondary_muscles": [
+      "Triceps"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "bodyweight",
+    "unlock_tier": "Recruit",
+    "unlock_level": 1,
+    "unlock_criteria": "Awakening Foundation",
+    "target_duration_mins": 5,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 15,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Set knees on mat, hands under shoulders, torso straight from knees to head.",
+      "Perform controlled push-ups to build pressing strength."
+    ],
+    "form_cues": [
+      "Straight line from knees to crown",
+      "Full depth"
+    ],
+    "common_mistakes": [
+      "Piking butt backward",
+      "Cutting depth short"
+    ],
+    "alternatives": [
+      "Incline Push-Up",
+      "Standard Strict Push-Up"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Knee Base",
+        "description": "Knees on mat, torso straight.",
+        "coachTip": "Pivoting from knees."
+      },
+      {
+        "step": 2,
+        "title": "Full Depth",
+        "description": "Lower chest to floor.",
+        "coachTip": "Smooth negative."
+      },
+      {
+        "step": 3,
+        "title": "Lockout",
+        "description": "Press to arm extension.",
+        "coachTip": "Good tempo."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-wide-grip-pushup",
+    "name": "Wide-Grip Push-Up",
+    "split_day": "Tuesday",
+    "order_index": 15,
+    "target_muscle": "Outer Pectoralis Stretch",
+    "secondary_muscles": [
+      "Anterior Delts"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "bodyweight",
+    "unlock_tier": "Recruit",
+    "unlock_level": 3,
+    "unlock_criteria": "Recruit Pec Stretch",
+    "target_duration_mins": 6,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 15,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Place hands 1.5x shoulder width apart.",
+      "Lower chest deeply into stretch, then press up."
+    ],
+    "form_cues": [
+      "Focus on outer pec stretch",
+      "Maintain elbow control"
+    ],
+    "common_mistakes": [
+      "Over-flaring elbows beyond comfort",
+      "Sagging neck"
+    ],
+    "alternatives": [
+      "Standard Strict Push-Up",
+      "Flat Dumbbell Fly"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Wide Base",
+        "description": "Hands wide on floor.",
+        "coachTip": "Fingers slightly angled out."
+      },
+      {
+        "step": 2,
+        "title": "Stretch Drop",
+        "description": "Lower chest smoothly.",
+        "coachTip": "Feel outer pecs stretch."
+      },
+      {
+        "step": 3,
+        "title": "Pec Squeeze",
+        "description": "Drive up through palm heels.",
+        "coachTip": "Exhale."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-close-grip-pushup",
+    "name": "Close-Grip Push-Up",
+    "split_day": "Tuesday",
+    "order_index": 16,
+    "target_muscle": "Inner Pectoralis & Triceps",
+    "secondary_muscles": [
+      "Triceps Medial Head"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "bodyweight",
+    "unlock_tier": "Initiate",
+    "unlock_level": 5,
+    "unlock_criteria": "Initiate Inner Pec",
+    "target_duration_mins": 6,
+    "default_sets": 3,
+    "default_reps_min": 8,
+    "default_reps_max": 12,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Place hands shoulder-width or slightly narrower.",
+      "Lower with elbows grazing ribs, pressing through palm heels."
+    ],
+    "form_cues": [
+      "Keep elbows pinned tight to ribcage",
+      "Inner chest and triceps focus"
+    ],
+    "common_mistakes": [
+      "Elbows flaring out",
+      "Spine sagging"
+    ],
+    "alternatives": [
+      "Standard Strict Push-Up",
+      "Diamond Push-Up"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Narrow Stance",
+        "description": "Hands 8-10 inches apart under sternum.",
+        "coachTip": "Tight core."
+      },
+      {
+        "step": 2,
+        "title": "Rib Brush",
+        "description": "Lower with elbows hugging torso.",
+        "coachTip": "Brush ribs."
+      },
+      {
+        "step": 3,
+        "title": "Triceps Lock",
+        "description": "Drive to straight arm lockout.",
+        "coachTip": "Hard contraction."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-db-crush-press",
+    "name": "Dumbbell Crush Press",
+    "split_day": "Tuesday",
+    "order_index": 17,
+    "target_muscle": "Sternal Head of Pectoralis",
+    "secondary_muscles": [
+      "Front Delts"
+    ],
+    "bench_angle": "Flat",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Initiate",
+    "unlock_level": 6,
+    "unlock_criteria": "Initiate Clamp Force",
+    "target_duration_mins": 6,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Press dumbbells together with maximum force on flat bench, pulsing through mid-range."
+    ],
+    "form_cues": [
+      "Constant inward crushing force",
+      "Intense pec burning"
+    ],
+    "common_mistakes": [
+      "Relaxing inward pressure",
+      "Fast uncontrolled reps"
+    ],
+    "alternatives": [
+      "Dumbbell Squeeze Press",
+      "Flat Dumbbell Bench Press"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Crush Setup",
+        "description": "Push dumbbell faces together with maximum strength.",
+        "coachTip": "Hold crush."
+      },
+      {
+        "step": 2,
+        "title": "Mid-Range Travel",
+        "description": "Lower 4 inches above chest.",
+        "coachTip": "Pecs screaming."
+      },
+      {
+        "step": 3,
+        "title": "Crush Lockout",
+        "description": "Press to top while squeezing.",
+        "coachTip": "Exhale."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-alternating-db-press",
+    "name": "Alternating Dumbbell Bench Press",
+    "split_day": "Tuesday",
+    "order_index": 18,
+    "target_muscle": "Pectoralis & Unilateral Stability",
+    "secondary_muscles": [
+      "Core",
+      "Triceps"
+    ],
+    "bench_angle": "Flat",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Warrior",
+    "unlock_level": 12,
+    "unlock_criteria": "Warrior Unilateral Chest",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 8,
+    "default_reps_max": 10,
+    "default_rest_seconds": 75,
+    "instructions": [
+      "Hold both dumbbells at top lockout.",
+      "Lower and press right dumbbell while left dumbbell stays locked overhead. Alternate sides."
+    ],
+    "form_cues": [
+      "Working arm does full stroke",
+      "Non-working arm provides isometric stabilization"
+    ],
+    "common_mistakes": [
+      "Dropping the static arm",
+      "Twisting hips on bench"
+    ],
+    "alternatives": [
+      "Flat Dumbbell Bench Press",
+      "Single-Arm Dumbbell Floor Press"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Top Hold",
+        "description": "Both dumbbells locked overhead.",
+        "coachTip": "Steady core."
+      },
+      {
+        "step": 2,
+        "title": "One Arm Lower",
+        "description": "Lower one dumbbell smoothly while other stays fixed.",
+        "coachTip": "Inhale."
+      },
+      {
+        "step": 3,
+        "title": "Press & Switch",
+        "description": "Press back to top, then lower opposite side.",
+        "coachTip": "Alternate cleanly."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-db-around-the-world",
+    "name": "Dumbbell Around-the-World",
+    "split_day": "Tuesday",
+    "order_index": 19,
+    "target_muscle": "Total Chest Perimeter & Rotator Mobility",
+    "secondary_muscles": [
+      "Deltoids",
+      "Lats"
+    ],
+    "bench_angle": "Flat",
+    "required_equipment": "bench_and_dumbbells",
+    "unlock_tier": "Vanguard",
+    "unlock_level": 20,
+    "unlock_criteria": "Vanguard Shoulder Health",
+    "target_duration_mins": 6,
+    "default_sets": 3,
+    "default_reps_min": 10,
+    "default_reps_max": 12,
+    "default_rest_seconds": 60,
+    "instructions": [
+      "Lie flat holding light dumbbells with palms facing ceiling.",
+      "Sweep dumbbells in wide circle along the floor plane from thighs to overhead, then reverse."
+    ],
+    "form_cues": [
+      "Use very light weight (1.25kg - 2.5kg plates)",
+      "Smooth continuous sweeping arc"
+    ],
+    "common_mistakes": [
+      "Using heavy weight (damages rotator cuff)",
+      "Lifting weights off floor plane"
+    ],
+    "alternatives": [
+      "Flat Dumbbell Fly",
+      "Dumbbell Pullover"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "Floor Plane Setup",
+        "description": "Lie flat, light dumbbells at thighs, palms up.",
+        "coachTip": "Light weights only."
+      },
+      {
+        "step": 2,
+        "title": "Circular Sweep",
+        "description": "Trace wide circle around body to overhead.",
+        "coachTip": "Feel chest perimeter open."
+      },
+      {
+        "step": 3,
+        "title": "Reverse Sweep",
+        "description": "Trace circle back to hips smoothly.",
+        "coachTip": "Slow rhythm."
+      }
+    ]
+  },
+  null,
+  {
+    "id": "ex-tempo-pushup",
+    "name": "Tempo Push-Up (4-2-1-0)",
+    "split_day": "Tuesday",
+    "order_index": 20,
+    "target_muscle": "Pectoralis Tension & Hypertrophy",
+    "secondary_muscles": [
+      "Triceps",
+      "Core"
+    ],
+    "bench_angle": "Floor / Standing",
+    "required_equipment": "bodyweight",
+    "unlock_tier": "Warrior",
+    "unlock_level": 15,
+    "unlock_criteria": "Warrior Tempo Mastery",
+    "target_duration_mins": 7,
+    "default_sets": 3,
+    "default_reps_min": 6,
+    "default_reps_max": 10,
+    "default_rest_seconds": 90,
+    "instructions": [
+      "Lower for 4 seconds, pause 2 seconds 1 inch off floor, explode up in 1 second, zero rest at top."
+    ],
+    "form_cues": [
+      "Strict adherence to 4-second count",
+      "No momentum bounce"
+    ],
+    "common_mistakes": [
+      "Rushing the 4-second descent",
+      "Resting at top"
+    ],
+    "alternatives": [
+      "Standard Strict Push-Up",
+      "Flat Dumbbell Bench Press"
+    ],
+    "demo_steps": [
+      {
+        "step": 1,
+        "title": "The 4-Second Drop",
+        "description": "Count: 1... 2... 3... 4... lowering slowly.",
+        "coachTip": "Strict cadence."
+      },
+      {
+        "step": 2,
+        "title": "The 2-Second Freeze",
+        "description": "Hold chest 1 inch off floor without touching.",
+        "coachTip": "Breathe through brace."
+      },
+      {
+        "step": 3,
+        "title": "Explosive Burst",
+        "description": "Power to lockout in 1 second.",
+        "coachTip": "Violent exhale."
+      }
+    ]
+  },
+  null
+]
