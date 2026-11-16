@@ -127,3 +127,70 @@ export async function getCustomPlanAction() {
   return await PlayerRepository.getCustomPlan(user.id);
 }
 
+/**
+ * Exports the Hunter's complete 30-day dossier before any granular micro-logs are pruned.
+ */
+export async function exportHunterDossierAction() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Unauthorized");
+
+  const [profile, attributes, workouts, activityLogs, nutritionLogs, hydrationLogs, measurements] =
+    await Promise.all([
+      PlayerRepository.getProfile(user.id),
+      PlayerRepository.getAttributes(user.id),
+      supabase.from("workout_sessions").select("*, workout_set_logs(*)").eq("user_id", user.id).limit(50),
+      supabase.from("activity_logs").select("*").eq("user_id", user.id).limit(50),
+      supabase.from("nutrition_logs").select("*").eq("user_id", user.id).limit(500),
+      supabase.from("hydration_logs").select("*").eq("user_id", user.id).limit(500),
+      supabase.from("body_measurements").select("*").eq("user_id", user.id).limit(50),
+    ]);
+
+  const dossier = {
+    system_version: "SD-Quest v2.0 // Solo Leveling Telemetry Engine",
+    exported_at: new Date().toISOString(),
+    hunter: {
+      name: profile?.name,
+      rank: profile?.rank,
+      level: profile?.current_level,
+      total_xp: profile?.current_xp,
+      attributes,
+    },
+    retention_period: "30-Day Rolling Granular Telemetry Window",
+    workout_history: workouts.data || [],
+    daily_activity: activityLogs.data || [],
+    nutrition_history: nutritionLogs.data || [],
+    hydration_history: hydrationLogs.data || [],
+    body_measurements: measurements.data || [],
+  };
+
+  return { success: true, dossier };
+}
+
+/**
+ * Server-safe rolling retention cleaner: cleans granular micro-logs older than 32 days
+ * to keep Supabase DB within free tier without losing Level, Rank, or progression stats.
+ */
+export async function pruneOldGranularLogsAction() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Unauthorized");
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 32);
+  const cutoffDateStr = cutoff.toISOString().split("T")[0];
+
+  await Promise.all([
+    supabase.from("hydration_logs").delete().eq("user_id", user.id).lt("log_date", cutoffDateStr),
+    supabase.from("nutrition_logs").delete().eq("user_id", user.id).lt("log_date", cutoffDateStr),
+  ]);
+
+  return { success: true, prunedBefore: cutoffDateStr };
+}
+

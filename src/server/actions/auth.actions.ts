@@ -88,41 +88,10 @@ export async function signupAction(formData: FormData): Promise<AuthActionResult
   });
 
   if (adminErr) {
-    // If the user already exists in auth, update their password and pre-confirm them
     if (adminErr.message.toLowerCase().includes("already") || adminErr.message.toLowerCase().includes("exists")) {
-      try {
-        const { data: usersData } = await adminClient.auth.admin.listUsers();
-        const existing = usersData.users.find(
-          (u) => u.email?.toLowerCase() === email.toLowerCase()
-        );
-        if (existing) {
-          await adminClient.auth.admin.updateUserById(existing.id, {
-            password,
-            email_confirm: true,
-          });
-        }
-      } catch (e) {
-        console.error("Admin user sync error:", e);
-      }
-
-      const { error: signInErr, data: signInData } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInErr) {
-        return {
-          error: "An account with this email exists. Please verify your password or use SIGN IN.",
-        };
-      }
-
-      if (signInData?.user) {
-        const profile = await PlayerRepository.getProfile(signInData.user.id);
-        if (!profile) {
-          redirect("/character-creation");
-        }
-      }
-      redirect("/");
+      return {
+        error: "An awakened hunter with this email already exists. Please log in with your credentials.",
+      };
     }
 
     return { error: adminErr.message };

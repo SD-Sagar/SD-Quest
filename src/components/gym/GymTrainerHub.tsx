@@ -438,32 +438,32 @@ export function GymTrainerHub({
         </div>
       )}
 
-      {/* Unfinished Session Notification Banner (suppressed if today's session is already completed) */}
+      {/* Unfinished Session Notification Banner (Solo Leveling Notification Style) */}
       {savedUnfinishedSession && !isTodayCompleted && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/70 via-slate-900 to-amber-950/70 border border-amber-500/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-pulse">
+        <div className="solo-notification-modal rounded-xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white">
           <div className="flex items-center gap-2.5">
-            <Zap className="w-5 h-5 text-amber-400 shrink-0" />
+            <Zap className="w-5 h-5 text-cyan-400 shrink-0 animate-pulse" />
             <div>
-              <span className="text-xs font-mono font-bold text-amber-300 block uppercase">
-                UNFINISHED WORKOUT SESSION {savedUnfinishedSession.dayName ? `(${savedUnfinishedSession.dayName.toUpperCase()})` : "PERSISTED"}
+              <span className="text-xs font-solo font-bold text-cyan-300 block uppercase mana-text-glow">
+                [ UNFINISHED WORKOUT SESSION {savedUnfinishedSession.dayName ? `(${savedUnfinishedSession.dayName.toUpperCase()})` : "PERSISTED"} ]
               </span>
-              <span className="text-[11px] text-slate-300">
+              <span className="text-[11px] text-slate-300 font-hud">
                 {savedUnfinishedSession.title} ({savedUnfinishedSession.exercises?.length || 0} exercises)
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleDiscardSavedSession}
-              className="px-3 py-1.5 rounded-xl text-[11px] font-mono text-slate-400 hover:text-white"
+              className="solo-btn-secondary py-1.5 px-3 text-xs"
             >
               DISCARD
             </button>
             <button
               onClick={handleResumeSavedSession}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-mono font-bold text-xs uppercase shadow transition"
+              className="solo-btn py-1.5 px-4 text-xs"
             >
-              RESUME WORKOUT
+              RESUME WORKOUT ◆
             </button>
           </div>
         </div>
@@ -669,19 +669,19 @@ export function GymTrainerHub({
                         triggerHaptic("medium");
                         setDevUnlockOverride(true);
                       }}
-                      className="w-full py-2.5 rounded-xl bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/30 text-purple-300 hover:text-white font-mono text-[11px] font-bold uppercase transition flex items-center justify-center gap-1.5"
+                      className="w-full solo-btn-secondary py-2 text-[11px]"
                     >
-                      <Sliders className="w-3.5 h-3.5" />
+                      <Sliders className="w-3.5 h-3.5 text-cyan-400" />
                       <span>DEV OVERRIDE // UNLOCK TODAY'S SESSION FOR TESTING</span>
                     </button>
                   </div>
                 ) : (
                   <button
                     onClick={handleLaunchSession}
-                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-950 transition flex items-center justify-center gap-2 group"
+                    className="w-full solo-btn py-3.5 text-xs font-solo"
                   >
-                    <Play className="w-4 h-4 fill-white group-hover:scale-110 transition-transform" />
-                    <span>START {currentSplit.day.toUpperCase()} TRAINING SESSION</span>
+                    <Play className="w-4 h-4 fill-white" />
+                    <span>START {currentSplit.day.toUpperCase()} TRAINING SESSION ◆</span>
                   </button>
                 )}
               </div>
@@ -936,23 +936,23 @@ export function GymTrainerHub({
         onLaunchIndividual={handleLaunchIndividualExercise}
       />
 
-      {/* Rank Volume Warning Modal */}
+      {/* Rank Volume Warning Modal (Solo Leveling Notification Modal) */}
       {warningModalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-          <div className="max-w-md w-full hunter-panel rounded-3xl border border-amber-500/50 p-6 space-y-4 shadow-2xl shadow-amber-950/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
+          <div className="max-w-md w-full solo-notification-modal rounded-xl p-6 space-y-4 shadow-2xl text-white">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
-                <AlertTriangle className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-xl bg-cyan-950/80 border border-cyan-400 flex items-center justify-center text-cyan-400 shrink-0">
+                <AlertTriangle className="w-5 h-5 text-cyan-400" />
               </div>
               <div>
-                <span className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-widest block">
-                  SYSTEM ADVISORY // {playerRank.toUpperCase()} RANK
+                <span className="text-[10px] font-solo font-bold text-cyan-300 uppercase tracking-widest block mana-text-glow">
+                  [ SYSTEM ADVISORY // {playerRank.toUpperCase()} RANK ]
                 </span>
-                <h3 className="text-base font-black text-white">{warningModalData.title}</h3>
+                <h3 className="text-base font-bold text-white font-solo">{warningModalData.title}</h3>
               </div>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed font-sans bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+            <p className="text-xs text-slate-300 leading-relaxed font-hud bg-[#070b14] p-3 rounded-xl border border-cyan-500/30">
               {warningModalData.message}
             </p>
 
@@ -960,7 +960,7 @@ export function GymTrainerHub({
               <button
                 type="button"
                 onClick={() => setWarningModalData(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono font-bold text-xs transition"
+                className="solo-btn-secondary py-2 px-3 text-xs"
               >
                 ABORT TRIAL
               </button>
@@ -971,9 +971,9 @@ export function GymTrainerHub({
                   setWarningModalData(null);
                   if (ex) executeIndividualExercise(ex);
                 }}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-mono font-bold text-xs uppercase shadow transition"
+                className="solo-btn py-2 px-4 text-xs"
               >
-                PROCEED ANYWAY (OVERRIDE)
+                PROCEED OVERRIDE ◆
               </button>
             </div>
           </div>

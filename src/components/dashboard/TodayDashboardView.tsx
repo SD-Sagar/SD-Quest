@@ -3,10 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/store";
-import { startWorkoutSession } from "@/store/slices/workoutUiSlice";
 import { triggerHaptic, calculateAge } from "@/lib/utils";
-import { calculateDumbbellPlates, calculateStepsCalories } from "@/lib/calculations/gym";
-import { getTodaysWorkoutsAction } from "@/server/actions/workout.actions";
+import { calculateStepsCalories } from "@/lib/calculations/gym";
 import { CharacterHUD } from "@/components/character/CharacterHUD";
 import { WaterMeter } from "@/components/hydration/WaterMeter";
 import { WalkingMeter } from "@/components/activity/WalkingMeter";
@@ -30,15 +28,11 @@ import {
 } from "@/types";
 import { DailySystemQuestCard } from "@/components/dashboard/DailySystemQuestCard";
 import {
-  Dumbbell,
-  Play,
-  Sparkles,
-  Flame,
-  CheckCircle2,
-  ChevronRight,
+  Droplets,
+  Footprints,
   Zap,
-  Clock,
-  Layers,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 interface TodayDashboardViewProps {
@@ -85,6 +79,7 @@ export function TodayDashboardView({
   const [isSmartModalOpen, setIsSmartModalOpen] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [todaysWorkouts, setTodaysWorkouts] = useState<any[]>(completedWorkouts || []);
+  const [showDetailedTelemetry, setShowDetailedTelemetry] = useState(false);
 
   useEffect(() => {
     setTodaysWorkouts(completedWorkouts || []);
@@ -152,7 +147,7 @@ export function TodayDashboardView({
     (w) => w.split_day === dayName && isFullSplitSession(w)
   );
 
-  // Accurate Physiological Calorie Telemetry (TDEE = BMR + Active Workout + Steps)
+  // Physiological Calorie Telemetry (TDEE = BMR + Active Workout + Steps)
   const age = calculateAge(profile.dob);
   const bmrBase =
     10 * (profile.weight_kg || 70) +
@@ -162,7 +157,6 @@ export function TodayDashboardView({
   const bmrCalories = Math.round(bmrBase);
 
   const workoutCalories = liveWorkouts.reduce((acc, w) => acc + (w.calories_burned || 0), 0);
-  const workoutTonnage = liveWorkouts.reduce((acc, w) => acc + (w.total_tonnage_kg || 0), 0);
   const stepsTelemetry = calculateStepsCalories(
     activity?.steps || 0,
     profile.weight_kg || 70.0,
@@ -179,147 +173,142 @@ export function TodayDashboardView({
     router.push(`/gym?split=${dayName}`);
   };
 
+  const hydrationTarget = 3000;
+  const stepsTarget = 6000;
+
   return (
-    <div className="min-h-screen bg-[#07080b] text-slate-100 selection:bg-cyan-500 selection:text-black">
+    <div className="min-h-screen bg-[#05070c] text-slate-100 selection:bg-cyan-500 selection:text-black">
       {/* Top Ambient Mana Glow */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[700px] h-[250px] bg-gradient-to-b from-cyan-600/10 via-purple-600/5 to-transparent blur-3xl pointer-events-none" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[700px] h-[250px] bg-gradient-to-b from-cyan-500/10 via-blue-600/5 to-transparent blur-3xl pointer-events-none" />
 
       {/* Desktop Navigation */}
       <DesktopNavbar />
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 relative z-10 pb-28 md:pb-12">
-        {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between pb-3">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5 relative z-10 pb-28 md:pb-12">
+        {/* Mobile Header Banner */}
+        <div className="md:hidden flex items-center justify-between pb-2.5">
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shadow-sm shadow-cyan-400" />
-            <span className="font-mono font-black text-xs tracking-widest text-cyan-400 uppercase">
+            <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#00e5ff]" />
+            <span className="font-solo font-bold text-xs tracking-widest text-cyan-400 uppercase">
               SD-QUEST // SYSTEM ACTIVE
             </span>
           </div>
-          <span className="text-[10px] font-mono text-slate-500 uppercase">
-            {profile.rank} • LVL {profile.current_level}
+          <span className="text-[10px] font-mono text-slate-400 uppercase font-hud">
+            {profile.rank} ◆ LVL {profile.current_level}
           </span>
         </div>
 
         {/* 12-Column Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column (Col 1 to 5): Character Status & Health Telemetry */}
-          <div className="lg:col-span-5 space-y-5">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Left Column (Col 1 to 5): Hunter Status HUD & Biometric Telemetry */}
+          <div className="lg:col-span-5 space-y-4">
+            {/* Authentic Solo Leveling Personal Status */}
             <CharacterHUD profile={profile} attributes={attributes} />
-            <WaterMeter logs={hydrationLogs} targetMl={3000} dateStr={todayDateStr} />
-            <WalkingMeter activity={activity} dateStr={todayDateStr} />
 
-            {/* Live Energy & Physiological Calorie Telemetry */}
-            <div className="hunter-panel rounded-3xl p-5 border border-slate-800 space-y-4 relative overflow-hidden">
+            {/* COMPACT BIOMETRIC TELEMETRY DOCK (Anti-Scroll Mobile First) */}
+            <div className="solo-frame rounded-2xl p-3 sm:p-4 space-y-2.5">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-orange-950/60 border border-orange-500/40 text-orange-400">
-                    <Flame className="w-4 h-4" />
+                <span className="text-[10px] font-solo font-bold text-cyan-300 uppercase tracking-widest flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-cyan-400" />
+                  BIOMETRIC TELEMETRY DOCK
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowDetailedTelemetry(!showDetailedTelemetry)}
+                  className="text-[10px] font-hud font-bold text-cyan-400 hover:text-white transition flex items-center gap-1 uppercase"
+                >
+                  <span>{showDetailedTelemetry ? "Hide Details" : "Telemetry Matrix"}</span>
+                  {showDetailedTelemetry ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              </div>
+
+              {/* 3-Pill Horizontal Telemetry Grid */}
+              <div className="grid grid-cols-3 gap-2 font-hud">
+                {/* 1. Hydration Pill */}
+                <div
+                  onClick={() => setShowDetailedTelemetry(true)}
+                  className="p-2 sm:p-2.5 rounded-xl bg-[#070b14]/90 border border-cyan-500/30 hover:border-cyan-400 cursor-pointer transition flex flex-col justify-between"
+                >
+                  <div className="flex items-center justify-between text-cyan-400 text-xs mb-1">
+                    <Droplets className="w-3.5 h-3.5" />
+                    <span className="text-[10px] font-mono font-bold">
+                      {Math.round((liveHydrationTotal / hydrationTarget) * 100)}%
+                    </span>
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                      ENERGY TELEMETRY (KCAL)
-                    </h3>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      Biomechanical Expenditure &amp; Intake
+                    <span className="text-white font-mono font-bold text-xs block leading-tight">
+                      {liveHydrationTotal} <span className="text-[9px] text-slate-400 font-normal">ml</span>
+                    </span>
+                    <span className="text-[9px] text-slate-400 uppercase font-mono">WATER</span>
+                  </div>
+                </div>
+
+                {/* 2. Steps Kinetic Pill */}
+                <div
+                  onClick={() => setShowDetailedTelemetry(true)}
+                  className="p-2 sm:p-2.5 rounded-xl bg-[#070b14]/90 border border-cyan-500/30 hover:border-cyan-400 cursor-pointer transition flex flex-col justify-between"
+                >
+                  <div className="flex items-center justify-between text-cyan-400 text-xs mb-1">
+                    <Footprints className="w-3.5 h-3.5" />
+                    <span className="text-[10px] font-mono font-bold">
+                      {Math.round(((activity?.steps || 0) / stepsTarget) * 100)}%
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-white font-mono font-bold text-xs block leading-tight">
+                      {(activity?.steps || 0).toLocaleString()}
+                    </span>
+                    <span className="text-[9px] text-slate-400 uppercase font-mono">STEPS</span>
+                  </div>
+                </div>
+
+                {/* 3. TDEE Expenditure Pill */}
+                <div
+                  onClick={() => setShowDetailedTelemetry(true)}
+                  className="p-2 sm:p-2.5 rounded-xl bg-[#070b14]/90 border border-cyan-500/30 hover:border-cyan-400 cursor-pointer transition flex flex-col justify-between"
+                >
+                  <div className="flex items-center justify-between text-cyan-400 text-xs mb-1">
+                    <Zap className="w-3.5 h-3.5" />
+                    <span className="text-[10px] font-mono font-bold">TDEE</span>
+                  </div>
+                  <div>
+                    <span className="text-white font-mono font-bold text-xs block leading-tight">
+                      {totalBurnedCalories} <span className="text-[9px] text-slate-400 font-normal">kcal</span>
+                    </span>
+                    <span className="text-[9px] text-slate-400 uppercase font-mono">
+                      IN: {consumedCalories}
                     </span>
                   </div>
                 </div>
-                <span className="text-xs font-mono font-bold text-orange-400">
-                  {totalBurnedCalories} kcal burned
-                </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block uppercase">EXPELLED (TDEE)</span>
-                  <span className="text-sm font-black text-white">
-                    {totalBurnedCalories}{" "}
-                    <span className="text-xs font-normal text-slate-400">kcal</span>
-                  </span>
-                  <span className="text-[9px] text-slate-400 block mt-0.5">
-                    Active: {activeCalories} (Gym: {workoutCalories} • Steps: {stepsCalories}) • BMR: {bmrCalories}
-                  </span>
-                </div>
-                <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block uppercase">CONSUMED (INTAKE)</span>
-                  <span className="text-sm font-black text-white">
-                    {consumedCalories}{" "}
-                    <span className="text-xs font-normal text-slate-400">/ {targetCalories}</span>
-                  </span>
-                  <span className="text-[9px] block mt-0.5 font-bold">
-                    {consumedCalories <= totalBurnedCalories ? (
-                      <span className="text-cyan-400">
-                        Deficit: -{totalBurnedCalories - consumedCalories} kcal
-                      </span>
-                    ) : (
-                      <span className="text-amber-400">
-                        Surplus: +{consumedCalories - totalBurnedCalories} kcal
-                      </span>
-                    )}
-                  </span>
-                </div>
-              </div>
+              {/* Collapsible Granular Meters (Opens on Demand, Zero Mobile Bloat) */}
+              {showDetailedTelemetry && (
+                <div className="space-y-4 pt-3 border-t border-cyan-500/20 animate-in fade-in duration-200">
+                  <WaterMeter logs={hydrationLogs} targetMl={hydrationTarget} dateStr={todayDateStr} />
+                  <WalkingMeter activity={activity} dateStr={todayDateStr} />
 
-              {/* Visual Balance Bar */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[10px] font-mono text-slate-400">
-                  <span>Intake vs Expenditure Ratio</span>
-                  <span
-                    className={
-                      consumedCalories <= totalBurnedCalories
-                        ? "text-cyan-400 font-bold"
-                        : "text-amber-400 font-bold"
-                    }
-                  >
-                    {totalBurnedCalories > 0
-                      ? Math.round((consumedCalories / totalBurnedCalories) * 100)
-                      : 0}
-                    % ratio
-                  </span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden relative">
-                  <div
-                    className="h-full bg-gradient-to-r from-orange-500 via-amber-500 to-cyan-400 transition-all duration-500"
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        totalBurnedCalories > 0
-                          ? (consumedCalories / totalBurnedCalories) * 100
-                          : 0
-                      )}%`,
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Today's Completed Sessions & Burns Mini-Ledger */}
-              {liveWorkouts.length > 0 && (
-                <div className="pt-2 border-t border-slate-800 space-y-1.5">
-                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
-                    TODAY&apos;S COMPLETED SESSIONS &amp; BURNS
-                  </span>
-                  <div className="space-y-1 max-h-32 overflow-y-auto scrollbar-thin">
-                    {liveWorkouts.map((w, idx) => (
-                      <div
-                        key={w.id || idx}
-                        className="px-2.5 py-1.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between text-[11px] font-mono"
-                      >
-                        <span className="text-slate-300 font-bold truncate max-w-[150px] sm:max-w-none">
-                          {w.title}
-                        </span>
-                        <div className="flex items-center gap-2 text-slate-400 shrink-0">
-                          <span className="text-cyan-400 font-bold">
-                            {Math.round(w.total_tonnage_kg || 0)}kg
-                          </span>
-                          <span>•</span>
-                          <span className="text-orange-400 font-bold">
-                            +{w.calories_burned || 0} kcal
-                          </span>
-                        </div>
+                  {/* Energy Telemetry Detailed Ledger */}
+                  <div className="p-3.5 rounded-xl bg-[#070b14] border border-cyan-500/30 space-y-2 font-hud">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-white uppercase">Expenditure Breakdown</span>
+                      <span className="text-cyan-400 font-mono font-bold">{totalBurnedCalories} kcal burned</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5 text-[10px] font-mono text-center">
+                      <div className="p-1.5 rounded bg-slate-900 border border-slate-800">
+                        <span className="text-slate-400 block">BMR</span>
+                        <span className="text-white font-bold">{bmrCalories} kcal</span>
                       </div>
-                    ))}
+                      <div className="p-1.5 rounded bg-slate-900 border border-slate-800">
+                        <span className="text-slate-400 block">GYM</span>
+                        <span className="text-cyan-400 font-bold">{workoutCalories} kcal</span>
+                      </div>
+                      <div className="p-1.5 rounded bg-slate-900 border border-slate-800">
+                        <span className="text-slate-400 block">STEPS</span>
+                        <span className="text-white font-bold">{stepsCalories} kcal</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -327,15 +316,15 @@ export function TodayDashboardView({
           </div>
 
           {/* Right Column (Col 6 to 12): Main Quest Dungeon Gate & Side Quests */}
-          <div className="lg:col-span-7 space-y-6">
+          <div className="lg:col-span-7 space-y-4">
             {/* Solo Leveling Mandatory Daily System Directive */}
             <DailySystemQuestCard
               workoutCompleted={isTodayWorkoutCompleted}
               isRestDay={isSunday}
               currentHydrationMl={liveHydrationTotal}
-              targetHydrationMl={2400}
+              targetHydrationMl={hydrationTarget}
               currentSteps={activity?.steps || 0}
-              targetSteps={6000}
+              targetSteps={stepsTarget}
               completedQuestsCount={quests.filter((q) => q.status === "completed").length}
               totalQuestsCount={quests.length}
               streakDays={3}
@@ -343,12 +332,12 @@ export function TodayDashboardView({
             />
 
             {/* Quests Engine */}
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                  ACTIVE QUESTS &amp; COMMITMENTS
+                <h2 className="text-xs font-bold text-white uppercase tracking-wider font-solo flex items-center gap-1.5">
+                  <span className="text-cyan-400">◆</span> ACTIVE DIRECTIVES &amp; COMMITMENTS
                 </h2>
-                <span className="text-[10px] font-mono text-cyan-400">
+                <span className="text-[10px] font-mono font-bold text-cyan-400 font-hud">
                   {quests.filter((q) => q.status === "completed").length + (isTodayWorkoutCompleted ? 1 : 0)} / {quests.length + 1} COMPLETED
                 </span>
               </div>
@@ -382,11 +371,10 @@ export function TodayDashboardView({
         onClose={() => setIsManualModalOpen(false)}
       />
 
-      {/* Android Mobile Bottom Navigation */}
+      {/* Mobile Bottom Navigation */}
       <div className="md:hidden">
         <BottomNav onStartWorkout={handleNavigateToGym} />
       </div>
     </div>
   );
 }
-

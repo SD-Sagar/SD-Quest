@@ -327,65 +327,65 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
   };
 
   // ---------------------------------------------------------------------------
-  // SCREEN: POST-WORKOUT HUNTER DEBRIEF MODAL
+  // SCREEN: POST-WORKOUT HUNTER DEBRIEF MODAL (Solo Leveling Notification Popup)
   // ---------------------------------------------------------------------------
   if (completedDebriefData) {
     return (
       <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl animate-in zoom-in-95 duration-200">
-        <div className="w-full max-w-lg hunter-panel rounded-3xl border border-cyan-500/60 p-6 sm:p-8 space-y-5 text-center shadow-2xl relative">
-          <div className="w-16 h-16 rounded-3xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center mx-auto text-cyan-400">
-            <Trophy className="w-8 h-8 fill-current" />
+        <div className="w-full max-w-md solo-notification-modal rounded-xl p-6 sm:p-7 space-y-4 text-center shadow-2xl text-white relative">
+          <div className="w-14 h-14 rounded-xl bg-cyan-950/80 border border-cyan-400 flex items-center justify-center mx-auto text-cyan-300 shadow-[0_0_15px_#00e5ff]">
+            <Trophy className="w-7 h-7 fill-current" />
           </div>
 
           <div className="space-y-1">
-            <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-400 uppercase tracking-widest">
-              SYSTEM REPORT // DIRECTIVE CONQUERED
+            <span className="text-[11px] font-solo font-bold text-cyan-300 uppercase tracking-widest block mana-text-glow">
+              [ NOTIFICATION // DIRECTIVE CONQUERED ]
             </span>
-            <h2 className="text-2xl font-black text-white tracking-tight mana-text-glow">
+            <h2 className="text-xl font-bold text-white tracking-wider font-solo white-text-glow">
               HUNTER SESSION DEBRIEF
             </h2>
-            <p className="text-xs text-slate-400 font-mono">
+            <p className="text-xs text-slate-300 font-hud">
               Biomechanical work logged and persisted to cloud.
             </p>
           </div>
 
           {/* Telemetry Stats Grid */}
-          <div className="grid grid-cols-3 gap-2.5 font-mono text-center">
-            <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
-              <span className="text-[10px] text-slate-500 uppercase block">KCAL EXPELLED</span>
-              <span className="text-lg font-black text-orange-400">
+          <div className="grid grid-cols-3 gap-2 font-mono text-center">
+            <div className="p-3 rounded-xl bg-[#070b14] border border-cyan-500/30 space-y-0.5">
+              <span className="text-[9px] text-slate-400 uppercase block font-hud">KCAL EXPELLED</span>
+              <span className="text-base font-black text-white">
                 {completedDebriefData.caloriesBurned}
               </span>
-              <span className="text-[9px] text-slate-400 block">kcal</span>
+              <span className="text-[9px] text-slate-400 block font-hud">kcal</span>
             </div>
-            <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
-              <span className="text-[10px] text-slate-500 uppercase block">TONNAGE MOVED</span>
-              <span className="text-lg font-black text-cyan-400">
+            <div className="p-3 rounded-xl bg-[#070b14] border border-cyan-500/30 space-y-0.5">
+              <span className="text-[9px] text-slate-400 uppercase block font-hud">TONNAGE MOVED</span>
+              <span className="text-base font-black text-cyan-400">
                 {completedDebriefData.tonnageKg}
               </span>
-              <span className="text-[9px] text-slate-400 block">kg</span>
+              <span className="text-[9px] text-slate-400 block font-hud">kg</span>
             </div>
-            <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
-              <span className="text-[10px] text-slate-500 uppercase block">XP HARVESTED</span>
-              <span className="text-lg font-black text-purple-400">
+            <div className="p-3 rounded-xl bg-[#070b14] border border-cyan-500/30 space-y-0.5">
+              <span className="text-[9px] text-slate-400 uppercase block font-hud">XP HARVESTED</span>
+              <span className="text-base font-black text-cyan-300">
                 +{completedDebriefData.totalXp}
               </span>
-              <span className="text-[9px] text-slate-400 block">XP</span>
+              <span className="text-[9px] text-slate-400 block font-hud">XP</span>
             </div>
           </div>
 
           {/* Individual Movement Calorie & Tonnage Breakdown */}
           {completedDebriefData.breakdown && completedDebriefData.breakdown.length > 0 && (
-            <div className="space-y-2 text-left pt-1">
-              <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 px-1">
+            <div className="space-y-1.5 text-left pt-1 font-hud">
+              <div className="flex items-center justify-between text-[10px] text-slate-400 px-1">
                 <span className="uppercase tracking-wider font-bold">MOVEMENTS WORKLOAD BREAKDOWN</span>
                 <span>{completedDebriefData.breakdown.length} Movements</span>
               </div>
-              <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+              <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
                 {completedDebriefData.breakdown.map((item, idx) => (
                   <div
                     key={idx}
-                    className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs font-mono"
+                    className="p-2 rounded-lg bg-[#070b14] border border-cyan-500/20 flex items-center justify-between text-xs font-mono"
                   >
                     <div className="min-w-0 flex-1">
                       <span className="text-white font-bold block truncate">{item.exerciseName}</span>
@@ -393,7 +393,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
                         {item.setsCount} sets • {item.tonnageKg} kg moved
                       </span>
                     </div>
-                    <span className="text-orange-400 font-bold text-xs shrink-0 pl-2">
+                    <span className="text-cyan-400 font-bold text-xs shrink-0 pl-2">
                       +{item.caloriesBurned} kcal
                     </span>
                   </div>
@@ -408,9 +408,9 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
               setCompletedDebriefData(null);
               router.refresh();
             }}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-950 transition"
+            className="w-full solo-btn py-3 text-xs font-solo"
           >
-            RETURN TO COMMAND HUB
+            RETURN TO COMMAND HUB ◆
           </button>
         </div>
       </div>
@@ -452,30 +452,30 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
             </button>
           </div>
 
-          {/* Pre-Completed Movement Smart Banner */}
+          {/* Pre-Completed Movement Smart Banner (Solo Leveling System Style) */}
           {currentExercise.isPreCompleted && (
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/80 via-slate-900 to-cyan-950/80 border border-purple-500/50 space-y-2.5 animate-in fade-in">
-              <div className="flex items-center gap-2 text-xs font-bold text-purple-300 font-mono">
-                <Sparkles className="w-4 h-4 text-purple-400" />
-                <span>INTELLIGENT SYSTEM RECOGNITION</span>
+            <div className="p-3.5 rounded-xl bg-[#070b14] border border-cyan-400 space-y-2 animate-in fade-in">
+              <div className="flex items-center gap-2 text-xs font-bold text-cyan-300 font-solo">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                <span>[ INTELLIGENT SYSTEM RECOGNITION ]</span>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-xs text-slate-300 leading-snug font-hud">
                 You already completed <strong>{currentExercise.definition.name}</strong> earlier today. Choose your path:
               </p>
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2 pt-1 font-hud">
                 <button
                   type="button"
                   onClick={() => dispatch(skipPreCompletedMovement())}
-                  className="flex-1 py-2.5 rounded-xl bg-slate-900 border border-cyan-500/40 text-cyan-300 text-xs font-bold font-mono hover:bg-slate-800"
+                  className="solo-btn-secondary flex-1 py-2 text-xs"
                 >
                   CREDIT DONE (SKIP)
                 </button>
                 <button
                   type="button"
                   onClick={() => dispatch(redoPreCompletedMovementForBonus({ bonusMultiplier: 0.25 }))}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold font-mono shadow-md hover:from-purple-500 hover:to-indigo-500"
+                  className="solo-btn flex-1 py-2 text-xs"
                 >
-                  RE-DO (+0.25x BONUS)
+                  RE-DO (+0.25x BONUS) ◆
                 </button>
               </div>
             </div>
@@ -714,46 +714,46 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
   }
 
   // ---------------------------------------------------------------------------
-  // 3. SCREEN: PHASE 3 COMPULSORY SKIPPING CHALLENGE
+  // 3. SCREEN: PHASE 3 COMPULSORY SKIPPING CHALLENGE (Solo Leveling System Trial)
   // ---------------------------------------------------------------------------
   if (session.status === "skipping") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in duration-200">
-        <div className="w-full max-w-md hunter-panel rounded-3xl border border-amber-500/50 p-6 sm:p-8 shadow-2xl relative space-y-6 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-950/80 border border-amber-500/40 text-amber-400 text-[10px] font-mono font-bold tracking-widest uppercase mx-auto">
-            <Zap className="w-3 h-3 text-amber-400" />
-            PHASE 3: COMPULSORY SKIPPING PROTOCOL
+        <div className="w-full max-w-md solo-notification-modal rounded-xl p-6 sm:p-7 shadow-2xl relative space-y-5 text-center text-white">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-cyan-950/80 border border-cyan-400 text-cyan-300 text-[10px] font-solo font-bold tracking-widest uppercase mx-auto">
+            <Zap className="w-3.5 h-3.5 text-cyan-400" />
+            [ PHASE 3: COMPULSORY SKIPPING PROTOCOL ]
           </div>
 
           <div className="space-y-1">
-            <h2 className="text-2xl font-black text-white tracking-tight">
+            <h2 className="text-xl font-bold text-white tracking-wider font-solo white-text-glow">
               FINAL SYSTEM TRIAL
             </h2>
-            <p className="text-xs text-slate-400 font-mono">
-              Target: {session.skippingTarget} Skips (+Agility & Endurance Yield)
+            <p className="text-xs text-slate-300 font-hud">
+              Target: {session.skippingTarget} Skips (+Agility &amp; Endurance Yield)
             </p>
           </div>
 
           {/* Stepper / Input */}
-          <div className="p-6 rounded-2xl bg-slate-900/90 border border-amber-500/30 space-y-4">
+          <div className="p-5 rounded-xl bg-[#070b14] border border-cyan-500/30 space-y-3 font-hud">
             <span className="text-[11px] text-slate-400 uppercase font-mono block">
-              Skips Completed
+              Skips Conquered
             </span>
             <div className="flex items-center justify-center gap-4">
               <button
                 type="button"
                 onClick={() => setSkipsCountInput(Math.max(0, skipsCountInput - 10))}
-                className="w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-white font-bold text-lg hover:border-slate-500 flex items-center justify-center"
+                className="w-12 h-12 rounded-xl bg-slate-900 border border-cyan-500/40 text-white font-bold text-lg hover:border-cyan-300 flex items-center justify-center font-mono"
               >
                 -10
               </button>
-              <span className="text-4xl font-black font-mono text-amber-400">
+              <span className="text-4xl font-black font-mono text-cyan-400 mana-text-glow">
                 {skipsCountInput}
               </span>
               <button
                 type="button"
                 onClick={() => setSkipsCountInput(skipsCountInput + 10)}
-                className="w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-white font-bold text-lg hover:border-slate-500 flex items-center justify-center"
+                className="w-12 h-12 rounded-xl bg-slate-900 border border-cyan-500/40 text-white font-bold text-lg hover:border-cyan-300 flex items-center justify-center font-mono"
               >
                 +10
               </button>
@@ -768,10 +768,10 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
               dispatch(finishSkippingPhase());
               handleFinishWorkout(skipsCountInput);
             }}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-black font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-950 transition flex items-center justify-center gap-2"
+            className="w-full solo-btn py-3 text-xs font-solo"
           >
             <Trophy className="w-4 h-4 fill-current" />
-            <span>{isPending ? "SYSTEM LOGGING SESSION..." : "CLAIM VICTORY & HARVEST XP"}</span>
+            <span>{isPending ? "SYSTEM LOGGING SESSION..." : "CLAIM VICTORY & HARVEST XP ◆"}</span>
           </button>
         </div>
       </div>
@@ -801,8 +801,8 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right font-mono">
-              <span className="text-[9px] text-slate-400 block">KCAL</span>
-              <span className="text-xs font-bold text-orange-400">~{accurateCal.totalCaloriesBurned}</span>
+              <span className="text-[9px] text-slate-400 block font-hud">KCAL</span>
+              <span className="text-xs font-bold text-cyan-400">~{accurateCal.totalCaloriesBurned}</span>
             </div>
             <button
               type="button"

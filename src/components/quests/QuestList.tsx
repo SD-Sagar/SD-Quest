@@ -426,16 +426,16 @@ export function QuestList({
                       COMPLETED ✓
                     </span>
                   ) : (
-                    <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950/80 border border-amber-500/40 px-2.5 py-0.5 rounded-full">
-                      PENDING ENTRY
+                    <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-2.5 py-0.5 rounded-full">
+                      PENDING ENTRY ◆
                     </span>
                   )}
                 </div>
 
-                <h4 className="text-base font-black text-white tracking-tight group-hover:text-cyan-300 transition-colors">
+                <h4 className="text-base font-black text-white tracking-tight group-hover:text-cyan-300 transition-colors font-solo">
                   {mainQuestSplit.title}
                 </h4>
-                <p className="text-xs text-slate-400 font-medium">
+                <p className="text-xs text-slate-400 font-medium font-hud">
                   {mainQuestSplit.subtitle}
                 </p>
 
@@ -443,9 +443,9 @@ export function QuestList({
                   <div className="flex items-center gap-2 text-xs font-mono text-slate-400 pt-1 flex-wrap">
                     <span>Conquered: {mainQuestSplit.sessionData.workout_set_logs?.length || 0} Sets</span>
                     <span>•</span>
-                    <span className="text-orange-400 font-bold">{mainQuestSplit.sessionData.calories_burned || 0} kcal</span>
+                    <span className="text-cyan-400 font-bold">{mainQuestSplit.sessionData.calories_burned || 0} kcal</span>
                     <span>•</span>
-                    <span className="text-cyan-400 font-bold">{Math.round(mainQuestSplit.sessionData.total_tonnage_kg || 0)}kg</span>
+                    <span className="text-white font-bold">{Math.round(mainQuestSplit.sessionData.total_tonnage_kg || 0)}kg</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-xs font-mono text-slate-400 pt-1 flex-wrap">
@@ -509,11 +509,11 @@ export function QuestList({
                 <span className="text-slate-400 text-[10px]">Reach Level 5 Initiate</span>
               </div>
               <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span className="text-purple-400 font-bold block text-[11px]">30-Day Volume</span>
+                <span className="text-white font-bold block text-[11px]">30-Day Volume</span>
                 <span className="text-slate-400 text-[10px]">Move 25,000kg Iron</span>
               </div>
               <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span className="text-emerald-400 font-bold block text-[11px]">Deep Focus</span>
+                <span className="text-cyan-300 font-bold block text-[11px]">Deep Focus</span>
                 <span className="text-slate-400 text-[10px]">20h Study Sprint</span>
               </div>
             </div>
@@ -522,7 +522,7 @@ export function QuestList({
               type="button"
               disabled={isSeeding}
               onClick={handleSeedRoadmap}
-              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-mono font-bold text-xs uppercase tracking-wider shadow-lg shadow-cyan-950 transition inline-flex items-center gap-2"
+              className="solo-btn"
             >
               <Sparkles className="w-4 h-4 text-cyan-300" />
               <span>{isSeeding ? "FORGING ROADMAP..." : "SEED INITIAL HUNTER MILESTONES"}</span>
@@ -532,15 +532,15 @@ export function QuestList({
 
         {/* HABITS EMPTY STATE & VISUALIZER */}
         {viewMode === "habits" && finalQuests.length === 0 && (
-          <div className="p-6 rounded-3xl hunter-panel border border-purple-500/30 space-y-4 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center mx-auto text-purple-400">
+          <div className="p-6 rounded-3xl solo-frame space-y-4 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-cyan-950/60 border border-cyan-500/40 flex items-center justify-center mx-auto text-cyan-400">
               <RotateCcw className="w-6 h-6" />
             </div>
             <div className="space-y-1">
-              <span className="text-[10px] font-mono font-bold text-purple-300 uppercase tracking-widest block">
+              <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest block font-solo">
                 DAILY HABITS PROTOCOL // ZERO ACTIVE HABITS
               </span>
-              <h3 className="text-base font-bold text-white">Automate Your Daily Discipline Loop</h3>
+              <h3 className="text-base font-bold text-white font-solo">Automate Your Daily Discipline Loop</h3>
               <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
                 Habits recur daily and reset automatically each dawn to maintain streak multiplier bonuses and attribute growth.
               </p>
@@ -548,7 +548,7 @@ export function QuestList({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left max-w-md mx-auto text-xs font-mono">
               <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span className="text-amber-400 font-bold block text-[11px]">100 Compulsory Skips</span>
+                <span className="text-white font-bold block text-[11px]">100 Compulsory Skips</span>
                 <span className="text-slate-400 text-[10px]">Agility +0.25 • Daily</span>
               </div>
               <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
@@ -556,11 +556,11 @@ export function QuestList({
                 <span className="text-slate-400 text-[10px]">Vitality +0.25 • Daily</span>
               </div>
               <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span className="text-emerald-400 font-bold block text-[11px]">6,000 Steps Scouting</span>
+                <span className="text-cyan-300 font-bold block text-[11px]">6,000 Steps Scouting</span>
                 <span className="text-slate-400 text-[10px]">Endurance +0.25 • Daily</span>
               </div>
               <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span className="text-purple-400 font-bold block text-[11px]">Evening Review</span>
+                <span className="text-white font-bold block text-[11px]">Evening Review</span>
                 <span className="text-slate-400 text-[10px]">Discipline +0.25 • Daily</span>
               </div>
             </div>
@@ -569,9 +569,9 @@ export function QuestList({
               type="button"
               disabled={isSeeding}
               onClick={handleSeedHabits}
-              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-mono font-bold text-xs uppercase tracking-wider shadow-lg shadow-purple-950 transition inline-flex items-center gap-2"
+              className="solo-btn"
             >
-              <Sparkles className="w-4 h-4 text-purple-300" />
+              <Sparkles className="w-4 h-4 text-cyan-300" />
               <span>{isSeeding ? "ACTIVATING PROTOCOLS..." : "SEED ESSENTIAL DAILY DISCIPLINE HABITS"}</span>
             </button>
           </div>
@@ -579,35 +579,11 @@ export function QuestList({
 
         {/* TODAY EMPTY STATE */}
         {viewMode === "today" && finalQuests.length === 0 && (
-          mainQuestSplit && (categoryFilter === "all" || categoryFilter === "fitness") ? (
-            <div className="p-4 text-center rounded-2xl bg-slate-950/40 border border-dashed border-slate-800">
-              <span className="text-xs text-slate-400 font-mono">
-                No side-quests scheduled. Conquering today&apos;s Main Quest fulfills your daily directive!
-              </span>
-              {!hideCreationButtons && (
-                <div className="flex items-center justify-center gap-2 shrink-0 pt-2">
-                  <button
-                    type="button"
-                    onClick={onOpenSmartModal}
-                    className="px-3 py-1.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-400 font-mono text-[11px] font-bold hover:bg-cyan-900/60 transition"
-                  >
-                    + Smart Task
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onOpenManualModal}
-                    className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 font-mono text-[11px] font-bold hover:bg-slate-800 transition"
-                  >
-                    + Manual Forge
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
+          mainQuestSplit && (categoryFilter === "all" || categoryFilter === "fitness") ? null : (
             <div className="p-8 text-center rounded-3xl hunter-panel border border-dashed border-slate-800 space-y-3">
               <Sparkles className="w-6 h-6 text-cyan-400 mx-auto" />
               <div className="space-y-1">
-                <h4 className="text-sm font-bold text-white">
+                <h4 className="text-sm font-bold text-white font-solo">
                   No Quests in {categoryFilter === "all" ? "Today's" : categoryFilter.toUpperCase()} Category
                 </h4>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto">
@@ -621,14 +597,15 @@ export function QuestList({
                   <button
                     type="button"
                     onClick={onOpenSmartModal}
-                    className="px-3.5 py-2 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-400 font-mono text-xs font-bold transition hover:bg-cyan-900/60"
+                    className="solo-btn"
                   >
+                    <Sparkles className="w-3.5 h-3.5" />
                     + Smart NLP Task
                   </button>
                   <button
                     type="button"
                     onClick={onOpenManualModal}
-                    className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 font-mono text-xs font-bold transition hover:bg-slate-800"
+                    className="solo-btn-secondary"
                   >
                     + Manual Forge
                   </button>
@@ -683,7 +660,7 @@ export function QuestList({
                   <div className="flex items-center gap-3 text-xs text-slate-400 font-mono flex-wrap">
                     <span>{workout.workout_set_logs?.length || 0} Sets Logged</span>
                     <span>•</span>
-                    <span className="text-orange-400 font-bold">{workout.calories_burned || 0} kcal Expelled</span>
+                    <span className="text-white font-bold">{workout.calories_burned || 0} kcal Expelled</span>
                     <span>•</span>
                     <span className="text-cyan-400 font-bold">{Math.round(workout.total_tonnage_kg || 0)}kg Moved</span>
                     <span>•</span>
@@ -694,8 +671,8 @@ export function QuestList({
                     <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-500/30">
                       +{workout.xp_earned || 250} XP AWARDED
                     </span>
-                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/30">
-                      ARCHIVE VERIFIED ✓
+                    <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-500/40">
+                      ARCHIVE VERIFIED ◆
                     </span>
                   </div>
                 </div>
@@ -713,19 +690,17 @@ export function QuestList({
                 className={`p-4 rounded-2xl border transition-all duration-200 relative overflow-hidden ${
                   isCompleted
                     ? "bg-slate-950/40 border-slate-800/60 opacity-60"
-                    : "hunter-panel border-slate-800 hover:border-slate-700 shadow-md"
+                    : "hunter-panel border-cyan-500/30 hover:border-cyan-400/60 shadow-md"
                 }`}
               >
                 {/* Priority Color Stripe */}
                 <div
                   className={`absolute top-0 left-0 bottom-0 w-1 ${
                     isCompleted
-                      ? "bg-emerald-500"
+                      ? "bg-cyan-600"
                       : quest.priority === "urgent"
-                      ? "bg-rose-500"
-                      : quest.priority === "high"
-                      ? "bg-amber-500"
-                      : "bg-cyan-500"
+                      ? "bg-cyan-400 shadow-[0_0_8px_#00e5ff]"
+                      : "bg-blue-600"
                   }`}
                 />
 
@@ -737,7 +712,7 @@ export function QuestList({
                       </span>
 
                       {quest.deadline && (
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-950/60 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-500/40 flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
                           Due: {quest.deadline.replace("T", " ")}
                         </span>

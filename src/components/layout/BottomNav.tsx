@@ -42,7 +42,7 @@ export function BottomNav({ onStartWorkout }: BottomNavProps) {
                 key={item.href}
                 href={item.href}
                 onClick={() => triggerHaptic("medium")}
-                className="relative -top-3 p-3 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-950/80 border border-cyan-400/50 flex flex-col items-center transition active:scale-95"
+                className="relative -top-3 p-3 rounded-2xl bg-gradient-to-b from-cyan-500 to-blue-700 text-white shadow-[0_0_18px_rgba(0,229,255,0.6)] border border-cyan-300 flex flex-col items-center transition active:scale-95"
               >
                 <Icon className="w-5 h-5 fill-white" />
               </Link>
