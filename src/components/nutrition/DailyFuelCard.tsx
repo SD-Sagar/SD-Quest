@@ -181,11 +181,14 @@ export function DailyFuelCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-500/30 px-3 py-1 rounded-xl">
-              ₹{totalCost.toFixed(0)} Spent Today
-            </span>
-          </div>
+          {/* Price display set to null per design */}
+          {false && (
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-500/30 px-3 py-1 rounded-xl">
+                ₹{totalCost.toFixed(0)} Spent Today
+              </span>
+            </div>
+          )}
         </div>
 
         {/* 4 Macro Progress Bars Grid */}
@@ -364,9 +367,6 @@ export function DailyFuelCard({
                     <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-md">
                       FITNESS FUEL
                     </span>
-                    <span className="text-xs font-mono font-bold text-emerald-400">
-                      ₹{item.estimatedCostInr}
-                    </span>
                   </div>
 
                   <h4 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
@@ -413,9 +413,6 @@ export function DailyFuelCard({
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-md">
                       HOUSEHOLD STAPLE
-                    </span>
-                    <span className="text-xs font-mono font-bold text-emerald-400">
-                      ₹{item.estimatedCostInr}
                     </span>
                   </div>
 
@@ -476,10 +473,6 @@ export function DailyFuelCard({
                         HIGH SUGAR SURPLUS
                       </span>
                     )}
-
-                    <span className="text-xs font-mono font-bold text-emerald-400">
-                      ₹{item.estimatedCostInr}
-                    </span>
                   </div>
 
                   <h4 className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors">
@@ -562,8 +555,6 @@ export function DailyFuelCard({
                     <span className="text-blue-400">{log.carbs_g}g C</span>
                     <span>•</span>
                     <span className="text-purple-400">{log.fat_g}g F</span>
-                    <span>•</span>
-                    <span className="text-emerald-400">₹{log.cost_inr}</span>
                   </div>
                 </div>
 

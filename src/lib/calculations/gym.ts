@@ -252,11 +252,11 @@ export function calculateAccurateWorkoutCalories(params: {
   // 2. Realistic Exercise Physiology Duration & MET Expenditure (Compendium / ACSM standard)
   const physicalDurationMinutes = Math.max(
     durationSeconds / 60,
-    sets.length > 0 ? sets.length * 1.9 : 15
+    sets.length > 0 ? sets.length * 2.3 : 15
   );
 
-  // Vigorous resistance training MET: 6.8 baseline, up to 7.6 for heavy leg/chest compound splits
-  const baseMet = legCompoundCount > 3 ? 7.6 : 6.8;
+  // Vigorous resistance training MET: 7.0 baseline, scaling to 8.2 for heavy compound / high-volume splits
+  const baseMet = sets.length >= 20 ? 8.2 : legCompoundCount > 3 ? 7.8 : 7.0;
 
   // Neuromuscular Adaptation & Conditioning Factor:
   // Day 1 Novices experience antagonist co-contraction and cardiovascular inefficiency (+16% metabolic overhead per rep).
@@ -268,18 +268,18 @@ export function calculateAccurateWorkoutCalories(params: {
   const metabolicKcalPerMinute = ((baseMet * 3.5 * weightKg) / 200) * metabolicConditioningFactor;
   const aerobicResistanceKcal = physicalDurationMinutes * metabolicKcalPerMinute;
 
-  // 3. Skipping Rope Plyometrics (~0.18 kcal per skip scaled to user bodyweight)
-  const skippingKcal = (skippingCount / 100) * 18.0 * (weightKg / 70);
+  // 3. Skipping Rope Plyometrics (MET 11.5 ~0.22 kcal per skip scaled to user bodyweight)
+  const skippingKcal = (skippingCount / 100) * 22.0 * (weightKg / 70);
 
   // 4. Excess Post-Exercise Oxygen Consumption (EPOC):
   // Day 1 Recruit performs lighter training, mild afterburn (+6%).
   // Day 100 Spartan moves heavy tonnage at high intensity, deep afterburn (+14%).
   const epocFactor = Math.min(0.14, 0.06 + (playerLevel - 1) * 0.002);
-  const epocAfterburnKcal = (aerobicResistanceKcal + mechanicalWorkKcal * 0.40) * epocFactor;
+  const epocAfterburnKcal = (aerobicResistanceKcal + mechanicalWorkKcal * 0.75) * epocFactor;
 
-  // Combined physiological expenditure
+  // Combined physiological expenditure (full displacement work + elevated resistance metabolism + EPOC)
   const totalCaloriesBurned = Math.round(
-    aerobicResistanceKcal + mechanicalWorkKcal * 0.40 + skippingKcal + epocAfterburnKcal
+    aerobicResistanceKcal + mechanicalWorkKcal * 0.75 + skippingKcal + epocAfterburnKcal
   );
 
   // Compute individual per-exercise calorie breakdown
@@ -287,7 +287,7 @@ export function calculateAccurateWorkoutCalories(params: {
   const exerciseBreakdown = Array.from(exerciseMap.entries()).map(([name, data]) => {
     const fractionOfSets = data.setsCount / totalSets;
     const aerobicPart = aerobicResistanceKcal * fractionOfSets;
-    const mechPart = (data.workJoules / (mechanicalEfficiency * 4184)) * 0.40;
+    const mechPart = (data.workJoules / (mechanicalEfficiency * 4184)) * 0.75;
     const epocPart = epocAfterburnKcal * fractionOfSets;
     const exerciseKcal = Math.round(aerobicPart + mechPart + epocPart);
 
@@ -295,7 +295,7 @@ export function calculateAccurateWorkoutCalories(params: {
       exerciseName: name,
       setsCount: data.setsCount,
       tonnageKg: Math.round(data.tonnageKg),
-      caloriesBurned: Math.max(10, exerciseKcal),
+      caloriesBurned: Math.max(15, exerciseKcal),
     };
   });
 

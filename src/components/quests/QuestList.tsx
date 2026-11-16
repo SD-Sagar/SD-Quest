@@ -580,12 +580,12 @@ export function QuestList({
         {/* TODAY EMPTY STATE */}
         {viewMode === "today" && finalQuests.length === 0 && (
           mainQuestSplit && (categoryFilter === "all" || categoryFilter === "fitness") ? (
-            <div className="p-4 text-center rounded-2xl bg-slate-950/40 border border-dashed border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div className="p-4 text-center rounded-2xl bg-slate-950/40 border border-dashed border-slate-800">
               <span className="text-xs text-slate-400 font-mono">
                 No side-quests scheduled. Conquering today&apos;s Main Quest fulfills your daily directive!
               </span>
-              {!hideCreationButtons ? (
-                <div className="flex items-center gap-2 shrink-0">
+              {!hideCreationButtons && (
+                <div className="flex items-center justify-center gap-2 shrink-0 pt-2">
                   <button
                     type="button"
                     onClick={onOpenSmartModal}
@@ -601,13 +601,6 @@ export function QuestList({
                     + Manual Forge
                   </button>
                 </div>
-              ) : (
-                <Link
-                  href="/quests"
-                  className="text-xs font-mono font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition shrink-0"
-                >
-                  <span>FORGE IN QUEST ENGINE →</span>
-                </Link>
               )}
             </div>
           ) : (
@@ -620,10 +613,10 @@ export function QuestList({
                 <p className="text-xs text-slate-400 max-w-sm mx-auto">
                   {!hideCreationButtons
                     ? "Use Smart NLP Parser or Manual Forge to schedule your next objective in this category:"
-                    : "Direct all focus to your Main Gym Dungeon, or forge new objectives in the Quest Engine."}
+                    : "Direct all focus to your Main Gym Dungeon directive above."}
                 </p>
               </div>
-              {!hideCreationButtons ? (
+              {!hideCreationButtons && (
                 <div className="flex items-center justify-center gap-2 pt-1">
                   <button
                     type="button"
@@ -640,13 +633,6 @@ export function QuestList({
                     + Manual Forge
                   </button>
                 </div>
-              ) : (
-                <Link
-                  href="/quests"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold hover:bg-slate-800 transition"
-                >
-                  <span>OPEN QUEST FORGE →</span>
-                </Link>
               )}
             </div>
           )

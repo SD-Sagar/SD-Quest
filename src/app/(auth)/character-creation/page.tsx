@@ -429,44 +429,28 @@ export default function CharacterCreationPage() {
           </div>
         )}
 
-        {/* STEP 3: NUTRITION & BUDGET */}
+        {/* STEP 3: NUTRITION & FUEL */}
         {step === 3 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
               <Utensils className="w-4 h-4" />
-              <span>STEP 3: AFFORDABLE NUTRITION FUEL &amp; BUDGET TARGETS</span>
+              <span>STEP 3: DAILY NUTRITION FUEL &amp; MACRO TARGETS</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
+            <div className="grid grid-cols-1 gap-3">
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
                 <label className="block text-xs font-bold text-white uppercase tracking-wider">
-                  Monthly Food Budget (INR ₹)
-                </label>
-                <input
-                  type="number"
-                  step="100"
-                  value={monthlyBudgetInr}
-                  onChange={(e) => setMonthlyBudgetInr(parseInt(e.target.value) || 4500)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-sm text-cyan-400 font-mono font-bold"
-                />
-                <span className="text-[10px] text-slate-500">
-                  Strictly realistic, affordable student/developer budget
-                </span>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
-                <label className="block text-xs font-bold text-white uppercase tracking-wider">
-                  Daily Chana Sattu (Grams)
+                  Daily Chana Sattu Protocol (Grams)
                 </label>
                 <input
                   type="number"
                   step="10"
                   value={sattuDailyGrams}
                   onChange={(e) => setSattuDailyGrams(parseInt(e.target.value) || 50)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-sm text-white font-mono font-bold"
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-sm text-cyan-400 font-mono font-bold"
                 />
-                <span className="text-[10px] text-slate-500">
-                  ~205 kcal, 10.5g protein per 50g (~₹12)
+                <span className="text-[11px] text-slate-400 block">
+                  ~205 kcal, 10.5g protein per 50g clean cellular fuel source
                 </span>
               </div>
             </div>

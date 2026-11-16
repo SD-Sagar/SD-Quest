@@ -262,26 +262,28 @@ export function SettingsClientView({
         </div>
       </div>
 
-      {/* Fuel & Budget */}
-      <div className="hunter-panel rounded-3xl border border-slate-800 p-5 sm:p-6 space-y-4">
-        <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
-          <Utensils className="w-4 h-4" />
-          <span>DAILY NUTRITION &amp; BUDGET CONTROL</span>
-        </div>
+      {/* Fuel & Budget - display set to null per design to preserve logic */}
+      {false && (
+        <div className="hunter-panel rounded-3xl border border-slate-800 p-5 sm:p-6 space-y-4">
+          <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
+            <Utensils className="w-4 h-4" />
+            <span>DAILY NUTRITION &amp; BUDGET CONTROL</span>
+          </div>
 
-        <div>
-          <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
-            Monthly Food Budget (INR ₹)
-          </label>
-          <input
-            type="number"
-            step="100"
-            value={monthlyBudgetInr}
-            onChange={(e) => setMonthlyBudgetInr(parseInt(e.target.value, 10) || 4500)}
-            className="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-xs text-cyan-400 font-mono font-bold"
-          />
+          <div>
+            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+              Monthly Food Budget (INR ₹)
+            </label>
+            <input
+              type="number"
+              step="100"
+              value={monthlyBudgetInr}
+              onChange={(e) => setMonthlyBudgetInr(parseInt(e.target.value, 10) || 4500)}
+              className="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-xs text-cyan-400 font-mono font-bold"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <button
         type="submit"

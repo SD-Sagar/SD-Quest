@@ -229,6 +229,10 @@ export function GymTrainerHub({
   );
 
   const handleLaunchSession = () => {
+    if (selectedDay !== todayName) {
+      triggerHaptic("warning");
+      return;
+    }
     triggerHaptic("heavy");
 
     const sessionExercises = curatedSessionList.map((masterEx) => {
@@ -291,7 +295,8 @@ export function GymTrainerHub({
       default_rest_seconds: exercise.default_rest_seconds,
     };
 
-    const isExtra = isTodayCompleted;
+    const isAnotherDay = selectedDay !== todayName;
+    const isExtra = isTodayCompleted || isAnotherDay;
     const multiplier = isExtra ? calculateExtraWorkoutXpMultiplier(todaysCompletedSessions.length) : 1.0;
 
     dispatch(
@@ -318,18 +323,29 @@ export function GymTrainerHub({
   const handleLaunchIndividualExercise = (exercise: MasterExercise) => {
     triggerHaptic("medium");
     const totalSetsToday = todaysCompletedSessions.reduce((acc, s) => acc + (s.workout_set_logs?.length || 0), 0);
+    const isAnotherDay = selectedDay !== todayName;
+    const isExtra = isTodayCompleted || isAnotherDay;
+
     const warning = getRankVolumeWarning({
       playerRank,
       playerLevel,
       totalSetsToday,
-      isExtraWorkout: isTodayCompleted,
+      isExtraWorkout: isExtra,
       exerciseName: exercise.name,
     });
 
-    if (warning.severity === "hazard" || warning.severity === "caution") {
+    if (warning.severity === "hazard" || warning.severity === "caution" || (isAnotherDay && isTodayCompleted)) {
       setWarningModalData({
-        title: warning.title,
-        message: warning.message,
+        title: isAnotherDay
+          ? `CROSS-DAY PROTOCOL // ${playerRank.toUpperCase()} ADVISORY`
+          : warning.title,
+        message: isAnotherDay
+          ? `You are selecting ${exercise.name} from ${selectedDay}'s split while today is ${todayName}. ${
+              isTodayCompleted
+                ? `Today's quota is already completed. Overworking this movement will count as a Solo Trial, but increases central nervous fatigue for a Level ${playerLevel} ${playerRank}.`
+                : `This will execute as an isolated Solo Trial and will NOT mark today's full ${todayName} protocol complete.`
+            }`
+          : warning.message,
         pendingExercise: exercise,
       });
       return;
@@ -631,7 +647,17 @@ export function GymTrainerHub({
                 </div>
 
                 {/* Start Workout Button or Locked + Dev Override */}
-                {isTodayCompleted && !devUnlockOverride ? (
+                {selectedDay !== todayName ? (
+                  <div className="w-full py-4 px-4 rounded-2xl bg-slate-900/90 border border-slate-800 text-slate-400 font-mono text-xs text-center flex flex-col items-center justify-center gap-1.5 shadow-inner">
+                    <div className="flex items-center gap-2 font-bold text-slate-300 uppercase tracking-wider">
+                      <Lock className="w-4 h-4 text-cyan-400" />
+                      <span>FUTURE PROTOCOL LOCKED // ONLY {todayName.toUpperCase()} CAN BE ENTERED AS FULL SPLIT</span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-sans">
+                      Inspect biomechanics or launch individual Solo Trials from the codex below.
+                    </span>
+                  </div>
+                ) : isTodayCompleted && !devUnlockOverride ? (
                   <div className="space-y-2 pt-1">
                     <div className="w-full py-4 rounded-2xl bg-cyan-950/40 border border-cyan-500/40 text-cyan-300 font-mono font-bold text-xs uppercase tracking-wider text-center flex items-center justify-center gap-2 shadow-inner">
                       <CheckCircle2 className="w-4 h-4 text-cyan-400" />
