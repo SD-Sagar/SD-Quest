@@ -56,9 +56,13 @@ import {
   OctagonAlert,
   Sparkles,
 } from "lucide-react";
-import { DayOfWeek, EquipmentInventory } from "@/types";
+import { DayOfWeek, EquipmentInventory, Profile } from "@/types";
 
-export function ActiveWorkoutModal() {
+interface ActiveWorkoutModalProps {
+  userProfile?: Profile | null;
+}
+
+export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}) {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const session = useAppSelector((state) => state.workoutUi);
@@ -75,6 +79,12 @@ export function ActiveWorkoutModal() {
     caloriesBurned: number;
     tonnageKg: number;
     totalXp: number;
+    breakdown?: {
+      exerciseName: string;
+      setsCount: number;
+      tonnageKg: number;
+      caloriesBurned: number;
+    }[];
   } | null>(null);
 
   const [skipsCountInput, setSkipsCountInput] = useState(100);
@@ -113,10 +123,10 @@ export function ActiveWorkoutModal() {
 
   const accurateCal = calculateAccurateWorkoutCalories({
     durationSeconds: elapsedSeconds,
-    heightCm: 175,
-    weightKg: 70,
-    playerLevel: 1,
-    playerRank: "Recruit",
+    heightCm: userProfile?.height_cm || 175,
+    weightKg: userProfile?.weight_kg || 70,
+    playerLevel: userProfile?.current_level || 1,
+    playerRank: userProfile?.rank || "Recruit",
     sets: allPerformedSets,
     skippingCount: session.skippingCompleted,
   });
@@ -266,8 +276,8 @@ export function ActiveWorkoutModal() {
         durationMinutes: Math.max(1, elapsedMins),
         targetDurationMinutes: session.targetDurationMinutes,
         completedEarly,
-        skippingTarget: session.skippingTarget,
-        skippingCompleted: finalSkips,
+        skippingTarget: session.isSingleExercise ? 0 : session.skippingTarget,
+        skippingCompleted: session.isSingleExercise ? 0 : finalSkips,
         skippedCount: session.skippedCount,
         caloriesBurned: accurateCal.totalCaloriesBurned,
         isExtraWorkout: session.isExtraWorkout,
@@ -276,11 +286,40 @@ export function ActiveWorkoutModal() {
         sets: performedSets,
       });
 
+      if (session.isSingleExercise) {
+        window.dispatchEvent(
+          new CustomEvent("workoutCompleted", {
+            detail: {
+              session: res?.session,
+              isSingleExercise: true,
+              exerciseName: session.exercises[0]?.definition.name,
+              caloriesBurned: accurateCal.totalCaloriesBurned,
+              tonnageKg: accurateCal.tonnageMovedKg,
+              xp: res?.rpgRewards?.xpGained || 25,
+            },
+          })
+        );
+        dispatch(endSession());
+        await clearActiveSessionAction().catch(() => {});
+        router.refresh();
+        return;
+      }
+
       setCompletedDebriefData({
         caloriesBurned: accurateCal.totalCaloriesBurned,
         tonnageKg: accurateCal.tonnageMovedKg,
         totalXp: res?.rpgRewards?.xpGained || 85,
+        breakdown: accurateCal.exerciseBreakdown,
       });
+
+      window.dispatchEvent(
+        new CustomEvent("workoutCompleted", {
+          detail: {
+            session: res?.session,
+            isSingleExercise: false,
+          },
+        })
+      );
 
       dispatch(endSession());
       router.refresh();
@@ -293,7 +332,7 @@ export function ActiveWorkoutModal() {
   if (completedDebriefData) {
     return (
       <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl animate-in zoom-in-95 duration-200">
-        <div className="w-full max-w-md hunter-panel rounded-3xl border border-cyan-500/60 p-6 sm:p-8 space-y-6 text-center shadow-2xl relative">
+        <div className="w-full max-w-lg hunter-panel rounded-3xl border border-cyan-500/60 p-6 sm:p-8 space-y-5 text-center shadow-2xl relative">
           <div className="w-16 h-16 rounded-3xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center mx-auto text-cyan-400">
             <Trophy className="w-8 h-8 fill-current" />
           </div>
@@ -334,6 +373,34 @@ export function ActiveWorkoutModal() {
               <span className="text-[9px] text-slate-400 block">XP</span>
             </div>
           </div>
+
+          {/* Individual Movement Calorie & Tonnage Breakdown */}
+          {completedDebriefData.breakdown && completedDebriefData.breakdown.length > 0 && (
+            <div className="space-y-2 text-left pt-1">
+              <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 px-1">
+                <span className="uppercase tracking-wider font-bold">MOVEMENTS WORKLOAD BREAKDOWN</span>
+                <span>{completedDebriefData.breakdown.length} Movements</span>
+              </div>
+              <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+                {completedDebriefData.breakdown.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs font-mono"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="text-white font-bold block truncate">{item.exerciseName}</span>
+                      <span className="text-[10px] text-slate-400">
+                        {item.setsCount} sets • {item.tonnageKg} kg moved
+                      </span>
+                    </div>
+                    <span className="text-orange-400 font-bold text-xs shrink-0 pl-2">
+                      +{item.caloriesBurned} kcal
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <button
             type="button"
@@ -843,7 +910,9 @@ export function ActiveWorkoutModal() {
           <Check className="w-5 h-5" />
           <span>
             {session.currentSetIndex + 1 === currentExercise?.sets.length
-              ? "COMPLETE FINAL SET & ADVANCE"
+              ? session.isSingleExercise
+                ? "COMPLETE SOLO TRIAL"
+                : "COMPLETE FINAL SET & ADVANCE"
               : `LOG SET ${session.currentSetIndex + 1} COMPLETE`}
           </span>
         </button>

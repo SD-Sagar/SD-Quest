@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/store";
 import { startWorkoutSession } from "@/store/slices/workoutUiSlice";
-import { triggerHaptic } from "@/lib/utils";
+import { triggerHaptic, calculateAge } from "@/lib/utils";
 import { calculateDumbbellPlates, calculateStepsCalories } from "@/lib/calculations/gym";
 import { getTodaysWorkoutsAction } from "@/server/actions/workout.actions";
 import { CharacterHUD } from "@/components/character/CharacterHUD";
@@ -94,28 +94,83 @@ export function TodayDashboardView({
   const isSunday = dayName === "Sunday";
   const todaySplitInfo = SPLIT_INFO[dayName] || SPLIT_INFO.Monday;
   
+  // Reactive states for zero-refresh dynamic telemetry updates
+  const [liveWorkouts, setLiveWorkouts] = useState(todaysWorkouts);
+  const [liveHydrationTotal, setLiveHydrationTotal] = useState(
+    hydrationLogs.reduce((acc, l) => acc + l.amount_ml, 0)
+  );
+
+  useEffect(() => {
+    setLiveWorkouts(todaysWorkouts);
+  }, [todaysWorkouts]);
+
+  useEffect(() => {
+    setLiveHydrationTotal(hydrationLogs.reduce((acc, l) => acc + l.amount_ml, 0));
+  }, [hydrationLogs]);
+
+  useEffect(() => {
+    const handleWorkoutCompleted = (e: any) => {
+      const session = e.detail?.session || e.detail;
+      if (session) {
+        setLiveWorkouts((prev) => [session, ...prev]);
+      }
+    };
+
+    const handleHydrationUpdated = (e: any) => {
+      if (typeof e.detail?.newTotal === "number") {
+        setLiveHydrationTotal(e.detail.newTotal);
+      }
+    };
+
+    const handleDayRollover = () => {
+      setLiveHydrationTotal(0);
+      setLiveWorkouts([]);
+      router.refresh();
+    };
+
+    window.addEventListener("workoutCompleted", handleWorkoutCompleted);
+    window.addEventListener("hydrationUpdated", handleHydrationUpdated);
+    window.addEventListener("dayRollover", handleDayRollover);
+
+    return () => {
+      window.removeEventListener("workoutCompleted", handleWorkoutCompleted);
+      window.removeEventListener("hydrationUpdated", handleHydrationUpdated);
+      window.removeEventListener("dayRollover", handleDayRollover);
+    };
+  }, [router]);
+
+  // A full split is completed only by a full training session, NOT a single exercise solo trial
   const isFullSplitSession = (s: any) =>
     !s.title?.toLowerCase().startsWith("solo trial") &&
     !s.notes?.includes("[SOLO_TRIAL]") &&
     !s.notes?.includes("[SINGLE_EXERCISE]");
 
   const isTodayWorkoutCompleted =
-    todaysWorkouts.length > 0 &&
-    todaysWorkouts.some((w) => w.split_day === dayName && isFullSplitSession(w));
-  const todaySession = todaysWorkouts.find(
+    liveWorkouts.length > 0 &&
+    liveWorkouts.some((w) => w.split_day === dayName && isFullSplitSession(w));
+  const todaySession = liveWorkouts.find(
     (w) => w.split_day === dayName && isFullSplitSession(w)
   );
 
-  // Accurate Physiological Calorie Telemetry
-  const workoutCalories = todaysWorkouts.reduce((acc, w) => acc + (w.calories_burned || 0), 0);
-  const workoutTonnage = todaysWorkouts.reduce((acc, w) => acc + (w.total_tonnage_kg || 0), 0);
+  // Accurate Physiological Calorie Telemetry (TDEE = BMR + Active Workout + Steps)
+  const age = calculateAge(profile.dob);
+  const bmrBase =
+    10 * (profile.weight_kg || 70) +
+    6.25 * (profile.height_cm || 175) -
+    5 * age +
+    (profile.sex?.toLowerCase() === "female" ? -161 : 5);
+  const bmrCalories = Math.round(bmrBase);
+
+  const workoutCalories = liveWorkouts.reduce((acc, w) => acc + (w.calories_burned || 0), 0);
+  const workoutTonnage = liveWorkouts.reduce((acc, w) => acc + (w.total_tonnage_kg || 0), 0);
   const stepsTelemetry = calculateStepsCalories(
     activity?.steps || 0,
-    profile.weight_kg || 75.0,
+    profile.weight_kg || 70.0,
     profile.height_cm || 175.0
   );
   const stepsCalories = stepsTelemetry.caloriesBurned;
-  const totalBurnedCalories = workoutCalories + stepsCalories;
+  const activeCalories = workoutCalories + stepsCalories;
+  const totalBurnedCalories = bmrCalories + activeCalories;
   const consumedCalories = nutritionLogs.reduce((acc, l) => acc + (l.calories || 0), 0);
   const targetCalories = nutritionTargets?.target_calories || 2200;
 
@@ -178,13 +233,13 @@ export function TodayDashboardView({
 
               <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                 <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block uppercase">EXPELLED (BURNED)</span>
+                  <span className="text-[10px] text-slate-400 block uppercase">EXPELLED (TDEE)</span>
                   <span className="text-sm font-black text-white">
                     {totalBurnedCalories}{" "}
                     <span className="text-xs font-normal text-slate-400">kcal</span>
                   </span>
                   <span className="text-[9px] text-slate-400 block mt-0.5">
-                    Gym: {workoutCalories} • Steps: {stepsCalories}
+                    Active: {activeCalories} (Gym: {workoutCalories} • Steps: {stepsCalories}) • BMR: {bmrCalories}
                   </span>
                 </div>
                 <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
@@ -238,6 +293,36 @@ export function TodayDashboardView({
                   />
                 </div>
               </div>
+
+              {/* Today's Completed Sessions & Burns Mini-Ledger */}
+              {liveWorkouts.length > 0 && (
+                <div className="pt-2 border-t border-slate-800 space-y-1.5">
+                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                    TODAY&apos;S COMPLETED SESSIONS &amp; BURNS
+                  </span>
+                  <div className="space-y-1 max-h-32 overflow-y-auto scrollbar-thin">
+                    {liveWorkouts.map((w, idx) => (
+                      <div
+                        key={w.id || idx}
+                        className="px-2.5 py-1.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between text-[11px] font-mono"
+                      >
+                        <span className="text-slate-300 font-bold truncate max-w-[150px] sm:max-w-none">
+                          {w.title}
+                        </span>
+                        <div className="flex items-center gap-2 text-slate-400 shrink-0">
+                          <span className="text-cyan-400 font-bold">
+                            {Math.round(w.total_tonnage_kg || 0)}kg
+                          </span>
+                          <span>•</span>
+                          <span className="text-orange-400 font-bold">
+                            +{w.calories_burned || 0} kcal
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -247,7 +332,7 @@ export function TodayDashboardView({
             <DailySystemQuestCard
               workoutCompleted={isTodayWorkoutCompleted}
               isRestDay={isSunday}
-              currentHydrationMl={hydrationLogs.reduce((acc, l) => acc + l.amount_ml, 0)}
+              currentHydrationMl={liveHydrationTotal}
               targetHydrationMl={2400}
               currentSteps={activity?.steps || 0}
               targetSteps={6000}
@@ -287,7 +372,7 @@ export function TodayDashboardView({
       </main>
 
       {/* Modals */}
-      <ActiveWorkoutModal />
+      <ActiveWorkoutModal userProfile={profile} />
       <SmartQuestModal
         isOpen={isSmartModalOpen}
         onClose={() => setIsSmartModalOpen(false)}

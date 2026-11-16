@@ -29,6 +29,7 @@ import {
   ExerciseDefinition,
   DayOfWeek,
   HunterRank,
+  Profile,
 } from "@/types";
 import {
   Dumbbell,
@@ -70,6 +71,7 @@ interface GymTrainerHubProps {
   playerRank: HunterRank;
   initialCompletedSessions?: any[];
   initialActiveSession?: any | null;
+  profile?: Profile | null;
 }
 
 export function GymTrainerHub({
@@ -79,6 +81,7 @@ export function GymTrainerHub({
   playerRank = "Recruit",
   initialCompletedSessions = [],
   initialActiveSession = null,
+  profile = null,
 }: GymTrainerHubProps) {
   const dispatch = useAppDispatch();
 
@@ -105,6 +108,12 @@ export function GymTrainerHub({
   const [savedUnfinishedSession, setSavedUnfinishedSession] = useState<any | null>(initialActiveSession || null);
   const [todaysCompletedSessions, setTodaysCompletedSessions] = useState<any[]>(initialCompletedSessions || []);
   const [devUnlockOverride, setDevUnlockOverride] = useState(false);
+  const [soloTrialPrompt, setSoloTrialPrompt] = useState<{
+    exerciseName: string;
+    caloriesBurned: number;
+    tonnageKg: number;
+    xp: number;
+  } | null>(null);
   const [warningModalData, setWarningModalData] = useState<{
     title: string;
     message: string;
@@ -134,6 +143,27 @@ export function GymTrainerHub({
     getTodaysWorkoutsAction().then((sessions) => {
       setTodaysCompletedSessions(sessions || []);
     }).catch(() => {});
+
+    const handleWorkoutCompleted = (e: any) => {
+      const session = e.detail?.session || e.detail;
+      if (session) {
+        setTodaysCompletedSessions((prev) => [session, ...prev]);
+        setSavedUnfinishedSession(null);
+      }
+      if (e.detail?.isSingleExercise) {
+        setSoloTrialPrompt({
+          exerciseName: e.detail.exerciseName || "Movement Trial",
+          caloriesBurned: e.detail.caloriesBurned || 0,
+          tonnageKg: e.detail.tonnageKg || 0,
+          xp: e.detail.xp || 25,
+        });
+        setTimeout(() => {
+          setSoloTrialPrompt(null);
+        }, 6500);
+      }
+    };
+    window.addEventListener("workoutCompleted", handleWorkoutCompleted);
+    return () => window.removeEventListener("workoutCompleted", handleWorkoutCompleted);
   }, []);
 
   const currentSplit = SPLIT_SCHEDULE.find((s) => s.day === selectedDay) || SPLIT_SCHEDULE[1];
@@ -269,7 +299,7 @@ export function GymTrainerHub({
         dayName: currentSplit.day,
         title: `Solo Trial: ${exercise.name}`,
         targetMuscles: exercise.target_muscle,
-        skippingTarget: 50,
+        skippingTarget: 0,
         isSingleExercise: true,
         isExtraWorkout: isExtra,
         extraWorkoutMultiplier: multiplier,
@@ -355,6 +385,42 @@ export function GymTrainerHub({
           <span>CUSTOM PLAN (HUNTER FORGED)</span>
         </button>
       </div>
+
+      {/* Solo Trial Completion System Toast */}
+      {soloTrialPrompt && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-cyan-950/90 via-slate-900 to-indigo-950/90 border border-cyan-500/60 flex items-center justify-between gap-3 shadow-xl shadow-cyan-950/60 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shrink-0">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wider block">
+                  SYSTEM DIRECTIVE // SOLO TRIAL CONQUERED
+                </span>
+                <span className="text-[9px] font-mono font-bold px-2 py-0.2 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-500/40">
+                  VERIFIED ✓
+                </span>
+              </div>
+              <h4 className="text-sm font-bold text-white">{soloTrialPrompt.exerciseName}</h4>
+              <div className="flex items-center gap-2 text-xs font-mono text-slate-300 mt-0.5">
+                <span className="text-orange-400 font-bold">+{soloTrialPrompt.caloriesBurned} kcal expelled</span>
+                <span>•</span>
+                <span className="text-cyan-400 font-bold">{Math.round(soloTrialPrompt.tonnageKg)}kg moved</span>
+                <span>•</span>
+                <span className="text-purple-400 font-bold">+{soloTrialPrompt.xp} XP</span>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSoloTrialPrompt(null)}
+            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs"
+          >
+            DISMISS
+          </button>
+        </div>
+      )}
 
       {/* Unfinished Session Notification Banner (suppressed if today's session is already completed) */}
       {savedUnfinishedSession && !isTodayCompleted && (
@@ -889,7 +955,7 @@ export function GymTrainerHub({
       )}
 
       {/* Active Workout Session Modal */}
-      <ActiveWorkoutModal />
+      <ActiveWorkoutModal userProfile={profile} />
     </div>
   );
 }

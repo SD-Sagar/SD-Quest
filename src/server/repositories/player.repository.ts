@@ -107,6 +107,39 @@ export class PlayerRepository {
     return data as PlayerAttributes;
   }
 
+  static async applyPoisonDebuff(userId: string, durationHours: number): Promise<Profile | null> {
+    const supabase = await createClient();
+    const expiresAt = new Date(Date.now() + durationHours * 3600 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ poison_expires_at: expiresAt })
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Failed to apply poison debuff:", error);
+      return null;
+    }
+    return data as Profile;
+  }
+
+  static async clearPoisonDebuff(userId: string): Promise<Profile | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ poison_expires_at: null })
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Failed to clear poison debuff:", error);
+      return null;
+    }
+    return data as Profile;
+  }
+
   static async grantXpAndAttributes(params: {
     userId: string;
     xpDelta: number;
@@ -116,13 +149,31 @@ export class PlayerRepository {
     notes?: string;
   }) {
     const supabase = await createClient();
+
+    let finalXpDelta = params.xpDelta;
+    let finalNotes = params.notes || "";
+
+    // Check if hunter is currently under Poison Debuff (-35% XP Reducer)
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("poison_expires_at")
+      .eq("id", params.userId)
+      .single();
+
+    if (profile?.poison_expires_at && new Date(profile.poison_expires_at).getTime() > Date.now()) {
+      finalXpDelta = Math.max(1, Math.round(params.xpDelta * 0.65));
+      finalNotes = finalNotes
+        ? `${finalNotes} [POISON DEBUFF ACTIVE: -35% XP]`
+        : "[POISON DEBUFF ACTIVE: -35% XP]";
+    }
+
     const { data, error } = await supabase.rpc("grant_xp_and_attributes", {
       p_user_id: params.userId,
-      p_xp_delta: params.xpDelta,
+      p_xp_delta: finalXpDelta,
       p_attr_deltas: params.attrDeltas,
       p_source_type: params.sourceType,
       p_source_id: params.sourceId || null,
-      p_notes: params.notes || null,
+      p_notes: finalNotes || null,
     });
 
     if (error) {

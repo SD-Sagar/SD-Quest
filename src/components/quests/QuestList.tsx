@@ -72,6 +72,16 @@ export function QuestList({
         setCompletedWorkouts(sessions || []);
       })
       .catch(() => {});
+
+    const handleWorkoutCompleted = (e: any) => {
+      const session = e.detail?.session || e.detail;
+      if (session) {
+        setCompletedWorkouts((prev) => [session, ...prev]);
+      }
+    };
+
+    window.addEventListener("workoutCompleted", handleWorkoutCompleted);
+    return () => window.removeEventListener("workoutCompleted", handleWorkoutCompleted);
   }, []);
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -572,24 +582,33 @@ export function QuestList({
           mainQuestSplit && (categoryFilter === "all" || categoryFilter === "fitness") ? (
             <div className="p-4 text-center rounded-2xl bg-slate-950/40 border border-dashed border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-2">
               <span className="text-xs text-slate-400 font-mono">
-                No side-quests scheduled. Conquering today's Main Quest fulfills your daily directive!
+                No side-quests scheduled. Conquering today&apos;s Main Quest fulfills your daily directive!
               </span>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={onOpenSmartModal}
-                  className="px-3 py-1.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-400 font-mono text-[11px] font-bold hover:bg-cyan-900/60 transition"
+              {!hideCreationButtons ? (
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={onOpenSmartModal}
+                    className="px-3 py-1.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-400 font-mono text-[11px] font-bold hover:bg-cyan-900/60 transition"
+                  >
+                    + Smart Task
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onOpenManualModal}
+                    className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 font-mono text-[11px] font-bold hover:bg-slate-800 transition"
+                  >
+                    + Manual Forge
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/quests"
+                  className="text-xs font-mono font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition shrink-0"
                 >
-                  + Smart Task
-                </button>
-                <button
-                  type="button"
-                  onClick={onOpenManualModal}
-                  className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 font-mono text-[11px] font-bold hover:bg-slate-800 transition"
-                >
-                  + Manual Forge
-                </button>
-              </div>
+                  <span>FORGE IN QUEST ENGINE →</span>
+                </Link>
+              )}
             </div>
           ) : (
             <div className="p-8 text-center rounded-3xl hunter-panel border border-dashed border-slate-800 space-y-3">
@@ -599,25 +618,36 @@ export function QuestList({
                   No Quests in {categoryFilter === "all" ? "Today's" : categoryFilter.toUpperCase()} Category
                 </h4>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  Use Smart NLP Parser or Manual Forge to schedule your next objective in this category:
+                  {!hideCreationButtons
+                    ? "Use Smart NLP Parser or Manual Forge to schedule your next objective in this category:"
+                    : "Direct all focus to your Main Gym Dungeon, or forge new objectives in the Quest Engine."}
                 </p>
               </div>
-              <div className="flex items-center justify-center gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={onOpenSmartModal}
-                  className="px-3.5 py-2 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-400 font-mono text-xs font-bold transition hover:bg-cyan-900/60"
+              {!hideCreationButtons ? (
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={onOpenSmartModal}
+                    className="px-3.5 py-2 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-400 font-mono text-xs font-bold transition hover:bg-cyan-900/60"
+                  >
+                    + Smart NLP Task
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onOpenManualModal}
+                    className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 font-mono text-xs font-bold transition hover:bg-slate-800"
+                  >
+                    + Manual Forge
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/quests"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold hover:bg-slate-800 transition"
                 >
-                  + Smart NLP Task
-                </button>
-                <button
-                  type="button"
-                  onClick={onOpenManualModal}
-                  className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 font-mono text-xs font-bold transition hover:bg-slate-800"
-                >
-                  + Manual Forge
-                </button>
-              </div>
+                  <span>OPEN QUEST FORGE →</span>
+                </Link>
+              )}
             </div>
           )
         )}

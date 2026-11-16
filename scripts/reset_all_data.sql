@@ -5,6 +5,7 @@
 
 -- Ensure any missing optional columns are present
 ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS calories_burned INT DEFAULT 0;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS poison_expires_at TIMESTAMPTZ DEFAULT NULL;
 
 -- OPTION A: WIPE ALL GAME DATA BUT KEEP YOUR EMAIL & PASSWORD (RECOMMENDED)
 -- This clears all character stats, workouts, quests, plans, and equipment so

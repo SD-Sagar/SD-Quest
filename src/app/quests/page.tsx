@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { QuestRepository } from "@/server/repositories/quest.repository";
 import { WorkoutRepository } from "@/server/repositories/workout.repository";
@@ -27,7 +28,10 @@ export default async function QuestsPage() {
 
   if (!user) redirect("/login");
 
-  const today = new Date();
+  const cookieStore = await cookies();
+  const userDateCookie = cookieStore.get("user_date")?.value;
+  const userTzCookie = cookieStore.get("user_tz")?.value;
+
   const daysMap: DayOfWeek[] = [
     "Sunday",
     "Monday",
@@ -37,7 +41,31 @@ export default async function QuestsPage() {
     "Friday",
     "Saturday",
   ];
-  const dayName: DayOfWeek = daysMap[today.getDay()];
+
+  let todayDateStr: string;
+  let dayName: DayOfWeek;
+
+  if (userDateCookie && /^\d{4}-\d{2}-\d{2}$/.test(userDateCookie)) {
+    todayDateStr = userDateCookie;
+    const [y, m, d] = userDateCookie.split("-").map(Number);
+    const localDate = new Date(y, m - 1, d);
+    dayName = daysMap[localDate.getDay()];
+  } else if (userTzCookie) {
+    try {
+      const now = new Date();
+      todayDateStr = new Intl.DateTimeFormat("en-CA", { timeZone: userTzCookie }).format(now);
+      const dayStr = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: userTzCookie }).format(now);
+      dayName = dayStr as DayOfWeek;
+    } catch {
+      const today = new Date();
+      todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      dayName = daysMap[today.getDay()];
+    }
+  } else {
+    const today = new Date();
+    todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    dayName = daysMap[today.getDay()];
+  }
   const todaySplitInfo = SPLIT_INFO[dayName] || SPLIT_INFO.Monday;
 
   const [quests, todaysWorkouts] = await Promise.all([

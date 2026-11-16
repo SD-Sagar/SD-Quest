@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { EquipmentInventory, WorkoutSession, WorkoutSetLog, ExerciseDefinition, TrainingSplitDay } from "@/types";
+import { getExerciseDumbbellMultiplier } from "@/lib/calculations/gym";
 import { PlayerRepository } from "./player.repository";
 
 export class WorkoutRepository {
@@ -84,7 +85,14 @@ export class WorkoutRepository {
 
     return ((data || []) as any[]).map((s) => {
       const parsedKcal = s.notes?.match(/\[KCAL:(\d+)\]/)?.[1];
-      const cal = s.calories_burned ?? (parsedKcal ? parseInt(parsedKcal, 10) : Math.round((s.total_tonnage_kg || 0) * 0.045 + (s.duration_minutes || 0) * 5));
+      const parsedNum = parsedKcal ? parseInt(parsedKcal, 10) : 0;
+      const cal =
+        s.calories_burned && Number(s.calories_burned) > 0
+          ? Number(s.calories_burned)
+          : parsedNum > 0
+          ? parsedNum
+          : Math.round((s.total_tonnage_kg || 0) * 0.045 + (s.duration_minutes || 0) * 5);
+
       return {
         ...s,
         calories_burned: cal,
@@ -111,7 +119,14 @@ export class WorkoutRepository {
 
     return ((data || []) as any[]).map((s) => {
       const parsedKcal = s.notes?.match(/\[KCAL:(\d+)\]/)?.[1];
-      const cal = s.calories_burned ?? (parsedKcal ? parseInt(parsedKcal, 10) : Math.round((s.total_tonnage_kg || 0) * 0.045 + (s.duration_minutes || 0) * 5));
+      const parsedNum = parsedKcal ? parseInt(parsedKcal, 10) : 0;
+      const cal =
+        s.calories_burned && Number(s.calories_burned) > 0
+          ? Number(s.calories_burned)
+          : parsedNum > 0
+          ? parsedNum
+          : Math.round((s.total_tonnage_kg || 0) * 0.045 + (s.duration_minutes || 0) * 5);
+
       return {
         ...s,
         calories_burned: cal,
@@ -139,10 +154,11 @@ export class WorkoutRepository {
   }): Promise<{ session: WorkoutSession; rpgRewards: any; caloriesBurned: number }> {
     const supabase = await createClient();
 
-    // 1. Calculate actual tonnage from sets
+    // 1. Calculate actual tonnage from sets based on realistic dumbbell count (pair vs single vs bodyweight)
     let totalTonnageKg = 0;
     for (const s of params.sets) {
-      totalTonnageKg += s.weight_kg * s.reps * 2;
+      const multiplier = getExerciseDumbbellMultiplier(s.exercise_name);
+      totalTonnageKg += s.weight_kg * s.reps * multiplier;
     }
 
     const finalCaloriesBurned = params.caloriesBurned || Math.round(totalTonnageKg * 0.045 + params.durationMinutes * 5);
@@ -153,25 +169,45 @@ export class WorkoutRepository {
     }
     sessionNotes = `${sessionNotes} [KCAL:${finalCaloriesBurned}]`.trim();
 
-    // 2. Insert session record (safely store calories in notes to prevent schema cache errors)
-    const { data: session, error: sessionError } = await supabase
+    // 2. Insert session record with resilient column fallback
+    const insertPayload: any = {
+      user_id: params.userId,
+      split_day: params.splitDay,
+      title: params.title,
+      target_muscles: params.targetMuscles,
+      duration_minutes: params.durationMinutes,
+      total_tonnage_kg: Math.round(totalTonnageKg),
+      skipping_target: params.skippingTarget,
+      skipping_completed: params.skippingCompleted,
+      calories_burned: finalCaloriesBurned,
+      status: "completed",
+      notes: sessionNotes,
+      started_at: new Date(Date.now() - params.durationMinutes * 60000).toISOString(),
+      completed_at: new Date().toISOString(),
+    };
+
+    let session: any = null;
+    let sessionError: any = null;
+
+    const firstTry = await supabase
       .from("workout_sessions")
-      .insert({
-        user_id: params.userId,
-        split_day: params.splitDay,
-        title: params.title,
-        target_muscles: params.targetMuscles,
-        duration_minutes: params.durationMinutes,
-        total_tonnage_kg: Math.round(totalTonnageKg),
-        skipping_target: params.skippingTarget,
-        skipping_completed: params.skippingCompleted,
-        status: "completed",
-        notes: sessionNotes,
-        started_at: new Date(Date.now() - params.durationMinutes * 60000).toISOString(),
-        completed_at: new Date().toISOString(),
-      })
+      .insert(insertPayload)
       .select()
       .single();
+
+    if (firstTry.error && firstTry.error.message?.includes("calories_burned")) {
+      delete insertPayload.calories_burned;
+      const secondTry = await supabase
+        .from("workout_sessions")
+        .insert(insertPayload)
+        .select()
+        .single();
+      session = secondTry.data;
+      sessionError = secondTry.error;
+    } else {
+      session = firstTry.data;
+      sessionError = firstTry.error;
+    }
 
     if (sessionError || !session) {
       throw new Error(`Failed to save workout session: ${sessionError?.message}`);

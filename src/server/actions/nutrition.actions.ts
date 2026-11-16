@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { NutritionRepository } from "@/server/repositories/nutrition.repository";
+import { PlayerRepository } from "@/server/repositories/player.repository";
+import { calculatePoisonDurationHours } from "@/lib/calculations/nutrition";
 import { MealType, DailyNutritionTargets } from "@/types";
 import { revalidatePath } from "next/cache";
 
@@ -28,6 +30,64 @@ export async function logMealAction(item: {
   revalidatePath("/");
   revalidatePath("/diet");
   return log;
+}
+
+export async function logPresetMealAction(item: {
+  log_date: string;
+  food_name: string;
+  serving_size: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  cost_inr?: number;
+  isPoisonous?: boolean;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Unauthorized");
+
+  const log = await NutritionRepository.addLog(user.id, {
+    log_date: item.log_date,
+    meal_type: "custom",
+    food_name: item.food_name,
+    serving_size: item.serving_size,
+    calories: item.calories,
+    protein_g: item.protein_g,
+    carbs_g: item.carbs_g,
+    fat_g: item.fat_g,
+    cost_inr: item.cost_inr || 0,
+    is_verified: true,
+  });
+
+  // If poisonous (Liquor/Alcohol), apply level-scaled poison debuff
+  if (item.isPoisonous) {
+    const profile = await PlayerRepository.getProfile(user.id);
+    const durationHours = calculatePoisonDurationHours(profile?.current_level || 1);
+    await PlayerRepository.applyPoisonDebuff(user.id, durationHours);
+  }
+
+  revalidatePath("/");
+  revalidatePath("/diet");
+  revalidatePath("/gym");
+  return log;
+}
+
+export async function clearPoisonAction() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Unauthorized");
+
+  const res = await PlayerRepository.clearPoisonDebuff(user.id);
+  revalidatePath("/");
+  revalidatePath("/diet");
+  return res;
 }
 
 export async function deleteMealLogAction(logId: string) {

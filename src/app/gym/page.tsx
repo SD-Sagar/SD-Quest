@@ -49,6 +49,7 @@ export default async function GymPage() {
           playerRank={profile?.rank || "Recruit"}
           initialCompletedSessions={completedWorkouts}
           initialActiveSession={profile?.active_session_state || null}
+          profile={profile}
         />
       </main>
       <div className="md:hidden">

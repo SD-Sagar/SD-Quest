@@ -37,6 +37,13 @@ export function WaterMeter({ logs, targetMl = 3000, dateStr }: WaterMeterProps) 
 
   // Midnight day-reset watcher: auto-resets water to 0ml when clock crosses 12:00 AM
   useEffect(() => {
+    const handleDayRollover = () => {
+      setOptimisticMl(0);
+      router.refresh();
+    };
+
+    window.addEventListener("dayRollover", handleDayRollover);
+
     const checkDayTransition = () => {
       const currentLocalDay = getClientLocalDate();
       if (dateStr !== currentLocalDay) {
@@ -44,8 +51,12 @@ export function WaterMeter({ logs, targetMl = 3000, dateStr }: WaterMeterProps) 
         router.refresh();
       }
     };
-    const timer = setInterval(checkDayTransition, 15000);
-    return () => clearInterval(timer);
+    const timer = setInterval(checkDayTransition, 10000);
+
+    return () => {
+      window.removeEventListener("dayRollover", handleDayRollover);
+      clearInterval(timer);
+    };
   }, [dateStr, router]);
 
   const currentMl = optimisticMl;
@@ -56,6 +67,11 @@ export function WaterMeter({ logs, targetMl = 3000, dateStr }: WaterMeterProps) 
     triggerHaptic("medium");
     const nextTotal = currentMl + 300;
     setOptimisticMl(nextTotal); // Instant UI feedback!
+    window.dispatchEvent(
+      new CustomEvent("hydrationUpdated", {
+        detail: { date: effectiveDateStr, amount: 300, newTotal: nextTotal },
+      })
+    );
 
     startTransition(async () => {
       await tapWaterAction(effectiveDateStr, 300);
@@ -67,6 +83,11 @@ export function WaterMeter({ logs, targetMl = 3000, dateStr }: WaterMeterProps) 
     triggerHaptic("light");
     const prevTotal = Math.max(0, currentMl - 300);
     setOptimisticMl(prevTotal); // Instant UI feedback!
+    window.dispatchEvent(
+      new CustomEvent("hydrationUpdated", {
+        detail: { date: effectiveDateStr, amount: -300, newTotal: prevTotal },
+      })
+    );
 
     startTransition(async () => {
       await undoWaterAction(effectiveDateStr);

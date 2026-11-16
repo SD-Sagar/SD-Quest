@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Profile, PlayerAttributes, AttributeType } from "@/types";
 import { calculateAge, triggerHaptic } from "@/lib/utils";
+import { getRemainingPoisonTime } from "@/lib/calculations/nutrition";
 import { StatAllocationModal } from "./StatAllocationModal";
 import {
   Flame,
@@ -14,6 +16,7 @@ import {
   Sparkles,
   AlertTriangle,
   HeartPulse,
+  Skull,
 } from "lucide-react";
 
 const ATTRIBUTE_CONFIG: Record<
@@ -78,6 +81,8 @@ export function CharacterHUD({
   const [isStatModalOpen, setIsStatModalOpen] = useState(false);
   const age = calculateAge(profile.dob);
   const unallocatedPoints = profile.unallocated_stat_points || 0;
+  const poisonInfo = getRemainingPoisonTime(profile.poison_expires_at);
+
   const xpPercentage = Math.min(
     100,
     Math.round((profile.current_xp / (profile.xp_to_next_level || 500)) * 100)
@@ -102,12 +107,33 @@ export function CharacterHUD({
       {/* Header Profile Plate */}
       <div className="flex items-center gap-4 relative z-10">
         <div className="relative">
-          {/* Avatar frame */}
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-950 border-2 border-cyan-500/40 p-1 flex items-center justify-center shadow-lg shadow-cyan-950/50">
-            <div className="w-full h-full rounded-xl bg-slate-900 flex items-center justify-center font-black text-2xl text-cyan-400">
+          {/* Avatar frame with toxic glow if poisoned */}
+          <div
+            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-950 p-1 flex items-center justify-center shadow-lg transition-all ${
+              poisonInfo.isPoisoned
+                ? "border-2 border-purple-500 shadow-purple-950/70 ring-2 ring-purple-500/50 animate-pulse"
+                : "border-2 border-cyan-500/40 shadow-cyan-950/50"
+            }`}
+          >
+            <div
+              className={`w-full h-full rounded-xl flex items-center justify-center font-black text-2xl ${
+                poisonInfo.isPoisoned ? "bg-purple-950/50 text-purple-300" : "bg-slate-900 text-cyan-400"
+              }`}
+            >
               {(profile.name || "H").charAt(0).toUpperCase()}
             </div>
           </div>
+
+          {/* Poison Skull Badge */}
+          {poisonInfo.isPoisoned && (
+            <div
+              className="absolute -top-1.5 -right-1.5 bg-purple-950 text-purple-300 p-1 rounded-full border border-purple-400 shadow-md animate-bounce"
+              title="Poison in system active"
+            >
+              <Skull className="w-3.5 h-3.5 text-purple-400" />
+            </div>
+          )}
+
           {/* Rank Badge */}
           <div className="absolute -bottom-2 -right-1 bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow border border-cyan-400/50 uppercase">
             {profile.rank}
@@ -160,6 +186,16 @@ export function CharacterHUD({
           </div>
 
           {/* Condition status banners */}
+          {poisonInfo.isPoisoned && (
+            <Link
+              href="/diet"
+              className="mt-2 flex items-center gap-1.5 text-xs text-purple-300 bg-purple-950/70 hover:bg-purple-900/80 border border-purple-500/50 px-2.5 py-1 rounded-xl shadow-sm transition"
+            >
+              <Skull className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+              <span>POISON IN SYSTEM ({poisonInfo.formattedString} left • -35% XP Reducer)</span>
+            </Link>
+          )}
+
           {profile.condition === "chicken" && (
             <button
               onClick={onOpenSanctuaryModal}

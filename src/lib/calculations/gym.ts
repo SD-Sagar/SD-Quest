@@ -121,6 +121,42 @@ export function checkDoubleProgression(
 }
 
 /**
+ * Detects whether an exercise uses a pair of dumbbells, single dumbbell, or bodyweight.
+ */
+export function getExerciseDumbbellMultiplier(exerciseName: string = ""): number {
+  const name = exerciseName.toLowerCase();
+
+  // Pure bodyweight / core calisthenics (external load is 0 or 1 plate held)
+  if (
+    name.includes("hollow body") ||
+    name.includes("accordion crunch") ||
+    name.includes("hanging knee") ||
+    name.includes("push up") ||
+    name.includes("pushup") ||
+    (name.includes("crunch") && !name.includes("dumbbell")) ||
+    name.includes("plank")
+  ) {
+    return 1;
+  }
+
+  // Single dumbbell movements
+  if (
+    name.includes("sumo squat") ||
+    name.includes("goblet squat") ||
+    name.includes("pullover") ||
+    name.includes("crunch pulse") ||
+    (name.includes("tricep extension") && !name.includes("pair")) ||
+    name.includes("single arm") ||
+    name.includes("one arm")
+  ) {
+    return 1;
+  }
+
+  // Default: Pair of dumbbells (e.g. DB Bench Press, Incline DB Press, DB Rows, DB Curls, DB Lunges)
+  return 2;
+}
+
+/**
  * Advanced Biomechanical & Physiological Calorie Expenditure Engine
  * Incorporates:
  * 1. Height & displacement mechanics (arm reach vs squat displacement).
@@ -143,6 +179,12 @@ export function calculateAccurateWorkoutCalories(params: {
   aerobicRestKcal: number;
   skippingKcal: number;
   tonnageMovedKg: number;
+  exerciseBreakdown: {
+    exerciseName: string;
+    setsCount: number;
+    tonnageKg: number;
+    caloriesBurned: number;
+  }[];
 } {
   const {
     durationSeconds,
@@ -158,10 +200,16 @@ export function calculateAccurateWorkoutCalories(params: {
   let mechanicalWorkJoules = 0;
   let legCompoundCount = 0;
 
+  // Track per-exercise sub-aggregates
+  const exerciseMap = new Map<string, { setsCount: number; tonnageKg: number; workJoules: number }>();
+
   // 1. Calculate Mechanical Work Per Rep based on anthropometric travel
   for (const s of sets) {
-    const pairWeight = s.weightKg * 2; // pair of dumbbells
-    totalTonnageKg += pairWeight * s.reps;
+    const exName = s.exerciseName || "Exercise Movement";
+    const multiplier = getExerciseDumbbellMultiplier(exName);
+    const effectiveLoad = s.weightKg * multiplier;
+    const setTonnage = effectiveLoad * s.reps;
+    totalTonnageKg += setTonnage;
 
     const muscle = (s.targetMuscle || s.exerciseName || "").toLowerCase();
     const isLegCompound =
@@ -179,42 +227,77 @@ export function calculateAccurateWorkoutCalories(params: {
 
     // For leg movements, lifter also displaces ~65% of upper bodyweight against gravity
     const bodyweightLoad = isLegCompound ? weightKg * 0.65 : 0;
-    const totalMassLifted = pairWeight + bodyweightLoad;
+    const totalMassLifted = effectiveLoad + bodyweightLoad;
 
     // Work = force * distance = (m * g) * d
     // Concentric lift + controlled eccentric lowering adds 30% eccentric energy expenditure
     const workPerRep = totalMassLifted * 9.81 * displacement * 1.30;
-    mechanicalWorkJoules += workPerRep * s.reps;
+    const setJoules = workPerRep * s.reps;
+    mechanicalWorkJoules += setJoules;
+
+    // Group by exercise
+    const existing = exerciseMap.get(exName) || { setsCount: 0, tonnageKg: 0, workJoules: 0 };
+    exerciseMap.set(exName, {
+      setsCount: existing.setsCount + 1,
+      tonnageKg: existing.tonnageKg + setTonnage,
+      workJoules: existing.workJoules + setJoules,
+    });
   }
 
-  // Muscular mechanical efficiency η ≈ 0.21. 1 kcal = 4184 Joules.
-  const mechanicalWorkKcal = mechanicalWorkJoules / (0.21 * 4184);
+  // 1. Muscular Mechanical Efficiency (η) scales with progression:
+  // Day 1 / Novice (η ≈ 0.19, more heat loss). Day 100+ / Spartan (η ≈ 0.23, peak biomechanical efficiency).
+  const mechanicalEfficiency = Math.min(0.23, 0.19 + (playerLevel - 1) * 0.001);
+  const mechanicalWorkKcal = mechanicalWorkJoules / (mechanicalEfficiency * 4184);
 
   // 2. Realistic Exercise Physiology Duration & MET Expenditure (Compendium / ACSM standard)
-  // Each performed set represents ~1.8 to 2.2 minutes of total cardiovascular and neuromuscular exertion (tempo + rest interval).
-  // If app elapsed time is short (e.g. user logged sets after training), we ground duration in biological set volume.
   const physicalDurationMinutes = Math.max(
     durationSeconds / 60,
     sets.length > 0 ? sets.length * 1.9 : 15
   );
 
-  // Vigorous resistance training MET: 6.5 baseline, up to 7.8 for heavy leg/chest compound splits
+  // Vigorous resistance training MET: 6.8 baseline, up to 7.6 for heavy leg/chest compound splits
   const baseMet = legCompoundCount > 3 ? 7.6 : 6.8;
 
-  // Conditioning Factor: Day 1 Recruit expends slightly more metabolic effort per unit work (+8%),
-  // while seasoned Spartans have optimized muscular efficiency
-  const conditioningFactor = Math.max(0.94, 1.08 - (playerLevel - 1) * 0.005);
+  // Neuromuscular Adaptation & Conditioning Factor:
+  // Day 1 Novices experience antagonist co-contraction and cardiovascular inefficiency (+16% metabolic overhead per rep).
+  // By Day 15 (Level 5-10) it normalizes (+8%), and by Day 100 (Level 25+) motor efficiency is locked in (0% wasted overhead).
+  const neuromuscularOverhead = Math.max(0.0, 0.16 - (playerLevel - 1) * 0.006);
+  const metabolicConditioningFactor = 1.0 + neuromuscularOverhead;
 
   // ACSM Caloric Burn Formula: kcal/min = (MET * 3.5 * weightKg) / 200
-  const metabolicKcalPerMinute = ((baseMet * 3.5 * weightKg) / 200) * conditioningFactor;
+  const metabolicKcalPerMinute = ((baseMet * 3.5 * weightKg) / 200) * metabolicConditioningFactor;
   const aerobicResistanceKcal = physicalDurationMinutes * metabolicKcalPerMinute;
 
-  // 3. Skipping Rope Plyometrics
-  // ~0.18 kcal per skip scaled to user bodyweight (70kg baseline)
+  // 3. Skipping Rope Plyometrics (~0.18 kcal per skip scaled to user bodyweight)
   const skippingKcal = (skippingCount / 100) * 18.0 * (weightKg / 70);
 
-  // Combined physiological expenditure (metabolic baseline + mechanical load EPOC factor + plyometrics)
-  const totalCaloriesBurned = Math.round(aerobicResistanceKcal + mechanicalWorkKcal * 0.45 + skippingKcal);
+  // 4. Excess Post-Exercise Oxygen Consumption (EPOC):
+  // Day 1 Recruit performs lighter training, mild afterburn (+6%).
+  // Day 100 Spartan moves heavy tonnage at high intensity, deep afterburn (+14%).
+  const epocFactor = Math.min(0.14, 0.06 + (playerLevel - 1) * 0.002);
+  const epocAfterburnKcal = (aerobicResistanceKcal + mechanicalWorkKcal * 0.40) * epocFactor;
+
+  // Combined physiological expenditure
+  const totalCaloriesBurned = Math.round(
+    aerobicResistanceKcal + mechanicalWorkKcal * 0.40 + skippingKcal + epocAfterburnKcal
+  );
+
+  // Compute individual per-exercise calorie breakdown
+  const totalSets = Math.max(1, sets.length);
+  const exerciseBreakdown = Array.from(exerciseMap.entries()).map(([name, data]) => {
+    const fractionOfSets = data.setsCount / totalSets;
+    const aerobicPart = aerobicResistanceKcal * fractionOfSets;
+    const mechPart = (data.workJoules / (mechanicalEfficiency * 4184)) * 0.40;
+    const epocPart = epocAfterburnKcal * fractionOfSets;
+    const exerciseKcal = Math.round(aerobicPart + mechPart + epocPart);
+
+    return {
+      exerciseName: name,
+      setsCount: data.setsCount,
+      tonnageKg: Math.round(data.tonnageKg),
+      caloriesBurned: Math.max(10, exerciseKcal),
+    };
+  });
 
   return {
     totalCaloriesBurned: Math.max(30, totalCaloriesBurned),
@@ -222,6 +305,7 @@ export function calculateAccurateWorkoutCalories(params: {
     aerobicRestKcal: Math.round(aerobicResistanceKcal),
     skippingKcal: Math.round(skippingKcal),
     tonnageMovedKg: Math.round(totalTonnageKg),
+    exerciseBreakdown,
   };
 }
 

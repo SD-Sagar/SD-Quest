@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { StoreProvider } from "@/components/providers/StoreProvider";
 import { PwaRegister } from "@/components/providers/PwaRegister";
+import { ClientTimezoneSync } from "@/components/providers/ClientTimezoneSync";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-[#07080b] text-slate-100 selection:bg-cyan-500 selection:text-black">
         <StoreProvider>
           <PwaRegister />
+          <ClientTimezoneSync />
           {children}
         </StoreProvider>
       </body>

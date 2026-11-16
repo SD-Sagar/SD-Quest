@@ -35,6 +35,7 @@ export interface Profile {
   unallocated_stat_points?: number;
   last_mystery_box_claimed_date?: string | null;
   active_session_state?: any | null;
+  poison_expires_at?: string | null;
   lifetime_highest_level: number;
   lifetime_total_xp: number;
   rank: HunterRank;
@@ -153,6 +154,7 @@ export interface WorkoutSession {
   total_tonnage_kg: number;
   skipping_target: number;
   skipping_completed: number;
+  calories_burned?: number;
   estimated_calories_burned?: number;
   status: "in_progress" | "completed" | "abandoned";
   notes?: string | null;
