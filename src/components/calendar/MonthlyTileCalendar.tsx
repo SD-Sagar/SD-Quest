@@ -6,10 +6,13 @@ import {
   Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   CheckCircle2,
   Clock,
   Dumbbell,
   Layers,
+  Zap,
 } from "lucide-react";
 import { WorkoutSession, Quest } from "@/types";
 
@@ -18,10 +21,24 @@ interface MonthlyTileCalendarProps {
   quests?: Quest[];
 }
 
+function getFormattedDuration(s: WorkoutSession): string {
+  const durationMatch = s.notes?.match(/\[DURATION:(\d+)s\]/);
+  if (durationMatch) {
+    const totalSecs = parseInt(durationMatch[1], 10);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    if (mins === 0) return `${secs}s`;
+    if (secs === 0) return `${mins}m`;
+    return `${mins}m ${secs}s`;
+  }
+  return `${s.duration_minutes}m`;
+}
+
 export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalendarProps) {
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date("2026-11-01"));
   const [selectedDateStr, setSelectedDateStr] = useState("2026-11-15");
   const [todayStr, setTodayStr] = useState("2026-11-15");
+  const [isTelemetryCollapsed, setIsTelemetryCollapsed] = useState(false);
 
   useEffect(() => {
     const now = new Date();
@@ -190,79 +207,124 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
         </div>
       </div>
 
-      {/* Selected Date Telemetry Ledger */}
-      <div className="hunter-panel rounded-3xl p-5 border border-slate-800 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-          <span className="text-xs font-mono font-bold text-cyan-400 uppercase">
-            TELEMETRY FOR: {selectedDateStr}
-          </span>
-          <span className="text-[10px] font-mono text-slate-500">
-            {selectedSessions.length} WORKOUTS • {selectedQuests.length} SCHEDULED QUESTS
-          </span>
+      {/* Selected Date Telemetry Ledger (Collapsible / Expandable) */}
+      <div className="solo-frame rounded-2xl p-4 sm:p-5 space-y-3 font-hud">
+        <div className="flex items-center justify-between border-b border-cyan-500/20 pb-2.5">
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-cyan-400" />
+            <span className="text-xs font-solo font-bold text-cyan-300 uppercase tracking-wider">
+              TELEMETRY FOR: {selectedDateStr}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">
+              {selectedSessions.length} SESSIONS • {selectedQuests.length} QUESTS
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic("light");
+                setIsTelemetryCollapsed(!isTelemetryCollapsed);
+              }}
+              className="solo-btn-secondary py-1 px-2.5 text-[10px] flex items-center gap-1"
+            >
+              <span>{isTelemetryCollapsed ? "EXPAND MATRIX" : "COLLAPSE"}</span>
+              {isTelemetryCollapsed ? (
+                <ChevronDown className="w-3 h-3 text-cyan-400" />
+              ) : (
+                <ChevronUp className="w-3 h-3 text-cyan-400" />
+              )}
+            </button>
+          </div>
         </div>
 
-        {/* Workout Sessions on this Date */}
-        <div className="space-y-2">
-          <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
-            WORKOUT PERFORMANCE
-          </span>
-          {selectedSessions.length === 0 ? (
-            <p className="text-xs text-slate-500 font-mono py-1">
-              No completed workout recorded on this date.
-            </p>
-          ) : (
-            selectedSessions.map((s) => (
-              <div
-                key={s.id}
-                className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs font-mono"
-              >
-                <div>
-                  <span className="font-bold text-white block">{s.title}</span>
-                  <span className="text-slate-400 text-[11px] mt-0.5 block">
-                    Duration: {s.duration_minutes}m • Skips: {s.skipping_completed} /{" "}
-                    {s.skipping_target}
-                  </span>
+        {/* Collapsed State Summary Badge */}
+        {isTelemetryCollapsed ? (
+          <div className="p-3 rounded-xl bg-[#070b14] border border-cyan-500/20 flex items-center justify-between text-xs font-mono">
+            <span className="text-slate-300">
+              Total Volume Moved:{" "}
+              <strong className="text-cyan-400">
+                {selectedSessions
+                  .reduce((acc, s) => acc + (s.total_tonnage_kg || 0), 0)
+                  .toLocaleString()}{" "}
+                KG
+              </strong>
+            </span>
+            <span className="text-slate-400 text-[11px]">
+              {selectedSessions.length} Workouts • {selectedQuests.length} Quests
+            </span>
+          </div>
+        ) : (
+          <div className="space-y-3 animate-in fade-in duration-150">
+            {/* Workout Sessions on this Date */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-solo font-bold text-slate-300 uppercase tracking-wider block">
+                ◆ WORKOUT PERFORMANCE ({selectedSessions.length})
+              </span>
+              {selectedSessions.length === 0 ? (
+                <p className="text-xs text-slate-500 font-mono py-1">
+                  No completed workout recorded on this date.
+                </p>
+              ) : (
+                <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
+                  {selectedSessions.map((s) => (
+                    <div
+                      key={s.id}
+                      className="p-3 rounded-xl bg-[#070b14] border border-cyan-500/25 flex items-center justify-between text-xs font-mono hover:border-cyan-400/50 transition"
+                    >
+                      <div>
+                        <span className="font-bold text-white block font-solo text-xs">{s.title}</span>
+                        <span className="text-slate-400 text-[11px] mt-0.5 block font-hud">
+                          Duration: {getFormattedDuration(s)} • Skips: {s.skipping_completed} /{" "}
+                          {s.skipping_target}
+                        </span>
+                      </div>
+                      <span className="text-cyan-400 font-bold font-mono">
+                        {s.total_tonnage_kg.toLocaleString()} KG
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <span className="text-cyan-400 font-bold">
-                  {s.total_tonnage_kg.toLocaleString()} KG
-                </span>
-              </div>
-            ))
-          )}
-        </div>
+              )}
+            </div>
 
-        {/* Scheduled Quests on this Date */}
-        <div className="space-y-2 pt-2 border-t border-slate-800/80">
-          <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
-            SCHEDULED QUESTS &amp; COMMITMENTS
-          </span>
-          {selectedQuests.length === 0 ? (
-            <p className="text-xs text-slate-500 font-mono py-1">
-              No specific side quests due on this date.
-            </p>
-          ) : (
-            selectedQuests.map((q) => (
-              <div
-                key={q.id}
-                className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs font-mono"
-              >
-                <div>
-                  <span
-                    className={`font-bold block ${
-                      q.status === "completed" ? "line-through text-slate-500" : "text-white"
-                    }`}
-                  >
-                    {q.title}
-                  </span>
-                  <span className="text-[10px] text-slate-500 capitalize">
-                    {q.category} • {q.estimated_duration_minutes}m
-                  </span>
+            {/* Scheduled Quests on this Date */}
+            <div className="space-y-2 pt-2 border-t border-cyan-500/20">
+              <span className="text-[10px] font-solo font-bold text-slate-300 uppercase tracking-wider block">
+                ◆ SCHEDULED QUESTS &amp; COMMITMENTS ({selectedQuests.length})
+              </span>
+              {selectedQuests.length === 0 ? (
+                <p className="text-xs text-slate-500 font-mono py-1">
+                  No specific side quests due on this date.
+                </p>
+              ) : (
+                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+                  {selectedQuests.map((q) => (
+                    <div
+                      key={q.id}
+                      className="p-2.5 rounded-xl bg-[#070b14] border border-cyan-500/20 flex items-center justify-between text-xs font-mono"
+                    >
+                      <div>
+                        <span
+                          className={`font-bold block ${
+                            q.status === "completed" ? "line-through text-slate-500" : "text-white"
+                          }`}
+                        >
+                          {q.title}
+                        </span>
+                        <span className="text-[10px] text-slate-400 capitalize font-hud">
+                          {q.category} • {q.estimated_duration_minutes}m
+                        </span>
+                      </div>
+                      <span className="text-cyan-300 font-bold font-mono">+{q.xp_reward} XP</span>
+                    </div>
+                  ))}
                 </div>
-                <span className="text-cyan-400 font-bold">+{q.xp_reward} XP</span>
-              </div>
-            ))
-          )}
-        </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

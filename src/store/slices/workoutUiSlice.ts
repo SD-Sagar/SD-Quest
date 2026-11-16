@@ -31,9 +31,14 @@ export interface ActiveWorkoutUiState {
   startedAtTimestamp: number;
   speedBonusEarned: boolean;
   skippedCount: number;
+  isMinimized?: boolean;
   isSingleExercise?: boolean;
   isExtraWorkout?: boolean;
   extraWorkoutMultiplier?: number;
+  playerWeightKg?: number;
+  playerHeightCm?: number;
+  playerLevel?: number;
+  playerRank?: string;
   phase: WorkoutPhase;
   status: WorkoutUiStatus;
   coreExercisesCount: number;
@@ -64,6 +69,11 @@ const initialState: ActiveWorkoutUiState = {
   startedAtTimestamp: 0,
   speedBonusEarned: false,
   skippedCount: 0,
+  isMinimized: false,
+  playerWeightKg: 70,
+  playerHeightCm: 175,
+  playerLevel: 1,
+  playerRank: "Recruit",
   phase: "core",
   status: "idle",
   coreExercisesCount: 0,
@@ -86,6 +96,10 @@ export const workoutUiSlice = createSlice({
         isSingleExercise?: boolean;
         isExtraWorkout?: boolean;
         extraWorkoutMultiplier?: number;
+        playerWeightKg?: number;
+        playerHeightCm?: number;
+        playerLevel?: number;
+        playerRank?: string;
         exercises: {
           definition: ExerciseDefinition;
           defaultWeightKg: number;
@@ -111,6 +125,11 @@ export const workoutUiSlice = createSlice({
       state.startedAtTimestamp = Date.now();
       state.speedBonusEarned = false;
       state.skippedCount = 0;
+      state.isMinimized = false;
+      state.playerWeightKg = action.payload.playerWeightKg || 70;
+      state.playerHeightCm = action.payload.playerHeightCm || 175;
+      state.playerLevel = action.payload.playerLevel || 1;
+      state.playerRank = action.payload.playerRank || "Recruit";
       state.isSingleExercise = action.payload.isSingleExercise || false;
       state.isExtraWorkout = action.payload.isExtraWorkout || false;
       state.extraWorkoutMultiplier = action.payload.extraWorkoutMultiplier || 1.0;
@@ -312,6 +331,14 @@ export const workoutUiSlice = createSlice({
       }
     },
 
+    minimizeSession: (state) => {
+      state.isMinimized = true;
+    },
+
+    maximizeSession: (state) => {
+      state.isMinimized = false;
+    },
+
     swapCurrentExercise: (
       state,
       action: PayloadAction<{ newDefinition: ExerciseDefinition }>
@@ -323,7 +350,7 @@ export const workoutUiSlice = createSlice({
     },
 
     restoreWorkoutSession: (_state, action: PayloadAction<ActiveWorkoutUiState>) => {
-      return { ...action.payload };
+      return { ...action.payload, isMinimized: false };
     },
 
     endSession: () => {
@@ -349,6 +376,8 @@ export const {
   finishSkippingPhase,
   swapCurrentExercise,
   restoreWorkoutSession,
+  minimizeSession,
+  maximizeSession,
   endSession,
 } = workoutUiSlice.actions;
 

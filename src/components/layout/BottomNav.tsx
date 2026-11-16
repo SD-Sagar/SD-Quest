@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { triggerHaptic } from "@/lib/utils";
+import { useAppSelector, useAppDispatch } from "@/store";
+import { maximizeSession } from "@/store/slices/workoutUiSlice";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -19,6 +21,10 @@ interface BottomNavProps {
 
 export function BottomNav({ onStartWorkout }: BottomNavProps) {
   const pathname = usePathname();
+  const dispatch = useAppDispatch();
+  const isWorkoutMinimized = useAppSelector(
+    (state) => state.workoutUi.isActive && state.workoutUi.isMinimized
+  );
 
   const NAV_ITEMS = [
     { label: "Today", href: "/", icon: LayoutDashboard },
@@ -41,10 +47,34 @@ export function BottomNav({ onStartWorkout }: BottomNavProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => triggerHaptic("medium")}
-                className="relative -top-3 p-3 rounded-2xl bg-gradient-to-b from-cyan-500 to-blue-700 text-white shadow-[0_0_18px_rgba(0,229,255,0.6)] border border-cyan-300 flex flex-col items-center transition active:scale-95"
+                onClick={() => {
+                  triggerHaptic("medium");
+                  if (isWorkoutMinimized) {
+                    dispatch(maximizeSession());
+                  }
+                }}
+                className={`flex-1 py-1.5 flex flex-col items-center gap-1 text-[10px] font-mono font-bold transition group relative ${
+                  isActive
+                    ? "text-cyan-300"
+                    : "text-cyan-400 hover:text-white"
+                }`}
               >
-                <Icon className="w-5 h-5 fill-white" />
+                <div
+                  className={`p-1 rounded-lg transition-all relative ${
+                    isActive
+                      ? "bg-cyan-500/25 border border-cyan-300 shadow-[0_0_14px_#00e5ff]"
+                      : "bg-cyan-950/70 border border-cyan-500/50 shadow-[0_0_8px_rgba(0,229,255,0.3)] group-hover:border-cyan-300"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 text-cyan-300" />
+                  {isWorkoutMinimized && (
+                    <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-300" />
+                    </span>
+                  )}
+                </div>
+                <span className="font-solo tracking-wider">{item.label}</span>
               </Link>
             );
           }

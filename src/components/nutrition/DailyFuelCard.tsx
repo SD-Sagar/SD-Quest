@@ -30,6 +30,8 @@ import {
   Clock,
   Sparkles,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 interface DailyFuelCardProps {
@@ -68,6 +70,7 @@ export function DailyFuelCard({
   const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<FoodTab>("clean_staples");
   const [recentlyLoggedName, setRecentlyLoggedName] = useState<string | null>(null);
+  const [isLedgerCollapsed, setIsLedgerCollapsed] = useState(false);
 
   // Compute Daily Nutrient Totals
   const totalCalories = logs.reduce((sum, l) => sum + l.calories, 0);
@@ -507,7 +510,7 @@ export function DailyFuelCard({
         )}
       </div>
 
-      {/* 5. TODAY'S CONSUMED FUEL LEDGER (Clamped & Grouped Anti-Scroll) */}
+      {/* 5. TODAY'S CONSUMED FUEL LEDGER (Clamped & Collapsible Anti-Scroll) */}
       <div className="solo-frame rounded-2xl p-4 space-y-3 font-hud">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -516,12 +519,38 @@ export function DailyFuelCard({
               CONSUMED FUEL MANIFEST ({logs.length} ITEMS)
             </h4>
           </div>
-          <span className="text-xs font-mono font-bold text-cyan-300">
-            {totalCalories} kcal Total
-          </span>
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs font-mono font-bold text-cyan-300">
+              {totalCalories} kcal Total
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic("light");
+                setIsLedgerCollapsed(!isLedgerCollapsed);
+              }}
+              className="solo-btn-secondary py-1 px-2.5 text-[10px] flex items-center gap-1"
+            >
+              <span>{isLedgerCollapsed ? "EXPAND" : "COLLAPSE"}</span>
+              {isLedgerCollapsed ? (
+                <ChevronDown className="w-3 h-3 text-cyan-400" />
+              ) : (
+                <ChevronUp className="w-3 h-3 text-cyan-400" />
+              )}
+            </button>
+          </div>
         </div>
 
-        {groupedLogs.length === 0 ? (
+        {isLedgerCollapsed ? (
+          <div className="p-3 rounded-xl bg-[#070b14] border border-cyan-500/20 flex items-center justify-between text-xs font-mono">
+            <span className="text-slate-300">
+              Logged Fuel Intake: <strong className="text-cyan-400">{totalCalories} kcal</strong>
+            </span>
+            <span className="text-slate-400 text-[11px]">
+              {totalProtein}g P • {totalCarbs}g C • {totalFat}g F
+            </span>
+          </div>
+        ) : groupedLogs.length === 0 ? (
           <div className="p-6 text-center rounded-xl bg-[#070b14]/70 border border-dashed border-slate-800 space-y-1.5">
             <Utensils className="w-5 h-5 text-slate-600 mx-auto" />
             <p className="text-xs text-slate-400">
@@ -529,7 +558,7 @@ export function DailyFuelCard({
             </p>
           </div>
         ) : (
-          <div className="max-h-48 overflow-y-auto pr-1 space-y-2">
+          <div className="max-h-48 overflow-y-auto pr-1 space-y-2 animate-in fade-in duration-150">
             {groupedLogs.map((group) => (
               <div
                 key={group.key}

@@ -9,7 +9,6 @@ import { CharacterHUD } from "@/components/character/CharacterHUD";
 import { WaterMeter } from "@/components/hydration/WaterMeter";
 import { WalkingMeter } from "@/components/activity/WalkingMeter";
 import { QuestList } from "@/components/quests/QuestList";
-import { ActiveWorkoutModal } from "@/components/gym/ActiveWorkoutModal";
 import { SmartQuestModal } from "@/components/quests/SmartQuestModal";
 import { ManualQuestModal } from "@/components/quests/ManualQuestModal";
 import { DesktopNavbar } from "@/components/layout/DesktopNavbar";
@@ -361,7 +360,6 @@ export function TodayDashboardView({
       </main>
 
       {/* Modals */}
-      <ActiveWorkoutModal userProfile={profile} />
       <SmartQuestModal
         isOpen={isSmartModalOpen}
         onClose={() => setIsSmartModalOpen(false)}

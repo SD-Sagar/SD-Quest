@@ -22,7 +22,6 @@ import {
 import { getActiveSessionAction, clearActiveSessionAction } from "@/server/actions/player.actions";
 import { getTodaysWorkoutsAction } from "@/server/actions/workout.actions";
 import { ExerciseCodexModal } from "./ExerciseCodexModal";
-import { ActiveWorkoutModal } from "./ActiveWorkoutModal";
 import { CustomPlanManager } from "./CustomPlanManager";
 import {
   EquipmentInventory,
@@ -271,6 +270,10 @@ export function GymTrainerHub({
         title: `${currentSplit.day}: ${currentSplit.title}`,
         targetMuscles: currentSplit.subtitle,
         skippingTarget: dynamicSkippingTarget,
+        playerWeightKg: profile?.weight_kg || 70,
+        playerHeightCm: profile?.height_cm || 175,
+        playerLevel: profile?.current_level || 1,
+        playerRank: profile?.rank || "Recruit",
         exercises: sessionExercises,
       })
     );
@@ -308,6 +311,10 @@ export function GymTrainerHub({
         isSingleExercise: true,
         isExtraWorkout: isExtra,
         extraWorkoutMultiplier: multiplier,
+        playerWeightKg: profile?.weight_kg || 70,
+        playerHeightCm: profile?.height_cm || 175,
+        playerLevel: profile?.current_level || 1,
+        playerRank: profile?.rank || "Recruit",
         exercises: [
           {
             definition: def,
@@ -979,9 +986,6 @@ export function GymTrainerHub({
           </div>
         </div>
       )}
-
-      {/* Active Workout Session Modal */}
-      <ActiveWorkoutModal userProfile={profile} />
     </div>
   );
 }

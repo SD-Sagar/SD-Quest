@@ -18,6 +18,8 @@ import {
   logSkips,
   finishSkippingPhase,
   swapCurrentExercise,
+  minimizeSession,
+  maximizeSession,
   endSession,
 } from "@/store/slices/workoutUiSlice";
 import { finishWorkoutAction } from "@/server/actions/workout.actions";
@@ -55,8 +57,10 @@ import {
   Minus,
   OctagonAlert,
   Sparkles,
+  Minimize2,
+  Maximize2,
 } from "lucide-react";
-import { DayOfWeek, EquipmentInventory, Profile } from "@/types";
+import { DayOfWeek, EquipmentInventory, Profile, HunterRank } from "@/types";
 
 interface ActiveWorkoutModalProps {
   userProfile?: Profile | null;
@@ -123,10 +127,10 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
 
   const accurateCal = calculateAccurateWorkoutCalories({
     durationSeconds: elapsedSeconds,
-    heightCm: userProfile?.height_cm || 175,
-    weightKg: userProfile?.weight_kg || 70,
-    playerLevel: userProfile?.current_level || 1,
-    playerRank: userProfile?.rank || "Recruit",
+    heightCm: userProfile?.height_cm || session.playerHeightCm || 175,
+    weightKg: userProfile?.weight_kg || session.playerWeightKg || 70,
+    playerLevel: userProfile?.current_level || session.playerLevel || 1,
+    playerRank: (userProfile?.rank || session.playerRank || "Recruit") as HunterRank,
     sets: allPerformedSets,
     skippingCount: session.skippingCompleted,
   });
@@ -198,6 +202,48 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
   const elapsedMins = Math.floor(elapsedSeconds / 60);
   const elapsedSecsRem = elapsedSeconds % 60;
   const elapsedDisplay = `${String(elapsedMins).padStart(2, "0")}:${String(elapsedSecsRem).padStart(2, "0")}`;
+
+  // ---------------------------------------------------------------------------
+  // MINIMIZED FLOATING PIP MANA CAPSULE (Permits Browsing Dashboard / Other Tabs)
+  // ---------------------------------------------------------------------------
+  if (session.isActive && session.isMinimized) {
+    return (
+      <div className="fixed bottom-16 md:bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-lg solo-notification-modal rounded-xl p-3 shadow-2xl flex items-center justify-between gap-3 text-white animate-in slide-in-from-bottom-3 font-hud">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-cyan-950/80 border border-cyan-400 flex items-center justify-center text-cyan-300 shadow-[0_0_10px_#00e5ff] shrink-0">
+            <Dumbbell className="w-4 h-4 animate-pulse" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-solo font-bold text-cyan-400 tracking-wider uppercase truncate">
+                {session.isSingleExercise ? "SOLO TRIAL ACTIVE" : session.title}
+              </span>
+              <span className="text-[9px] font-mono text-cyan-300/80 bg-cyan-950/50 px-1.5 py-0.5 rounded border border-cyan-500/30 shrink-0">
+                ⏱ {elapsedDisplay}
+              </span>
+            </div>
+            <div className="text-[11px] font-mono text-slate-300 truncate">
+              {currentExercise?.definition.name || "Workout in progress"} • Set {session.currentSetIndex + 1}/{currentExercise?.sets.length || 0} • ~{accurateCal.totalCaloriesBurned} kcal
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic("medium");
+              dispatch(maximizeSession());
+            }}
+            className="solo-btn py-1.5 px-3 text-[10px] font-solo flex items-center gap-1 shadow-[0_0_10px_rgba(0,229,255,0.4)]"
+          >
+            <Maximize2 className="w-3.5 h-3.5 text-cyan-300" />
+            <span>RESUME UI ▲</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleSetComplete = () => {
     triggerHaptic("success");
@@ -283,6 +329,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
         isExtraWorkout: session.isExtraWorkout,
         extraWorkoutMultiplier: session.extraWorkoutMultiplier,
         isSingleExercise: session.isSingleExercise,
+        notes: `[DURATION:${elapsedSeconds}s]`,
         sets: performedSets,
       });
 
@@ -430,7 +477,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in duration-200 overflow-y-auto">
         <div className="w-full max-w-lg hunter-panel rounded-3xl border border-cyan-500/50 p-6 sm:p-8 shadow-2xl relative space-y-5 my-auto">
-          {/* Top Bar with Phase Badge & Emergency Stop */}
+          {/* Top Bar with Phase Badge, Minimize & Emergency Stop */}
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-400 text-[10px] font-mono font-bold tracking-widest uppercase">
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
@@ -442,14 +489,38 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
               • {session.currentExerciseIndex + 1}/{session.exercises.length}
             </span>
 
-            <button
-              type="button"
-              onClick={() => setShowAbandonConfirmModal(true)}
-              className="px-2.5 py-1 rounded-xl bg-red-950/60 border border-red-500/40 text-red-400 hover:bg-red-900/60 text-[10px] font-mono font-bold flex items-center gap-1 transition"
-            >
-              <OctagonAlert className="w-3 h-3" />
-              <span>EMERGENCY STOP</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic("light");
+                  dispatch(minimizeSession());
+                }}
+                className="px-2.5 py-1 rounded-xl bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-900/60 text-[10px] font-mono font-bold flex items-center gap-1 transition"
+                title="Minimize to floating capsule"
+              >
+                <Minimize2 className="w-3 h-3" />
+                <span>MINIMIZE ▼</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAbandonConfirmModal(true)}
+                className="px-2.5 py-1 rounded-xl bg-red-950/60 border border-red-500/40 text-red-400 hover:bg-red-900/60 text-[10px] font-mono font-bold flex items-center gap-1 transition"
+              >
+                <OctagonAlert className="w-3 h-3" />
+                <span>EMERGENCY STOP</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Real-time Session Duration & Calorie Meter */}
+          <div className="p-2.5 rounded-xl bg-[#060a12] border border-cyan-500/30 flex items-center justify-between text-xs font-mono">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              <span className="text-slate-300">SESSION TIME: <strong className="text-cyan-400">{elapsedDisplay}</strong></span>
+            </div>
+            <span className="text-cyan-300 font-bold font-hud">~{accurateCal.totalCaloriesBurned} KCAL EXPELLED</span>
           </div>
 
           {/* Pre-Completed Movement Smart Banner (Solo Leveling System Style) */}
@@ -667,7 +738,21 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
               <Clock className="w-4 h-4 animate-spin text-cyan-400" />
               REST PROTOCOL ACTIVE
             </span>
-            <span>NEXT: SET {session.currentSetIndex + 1} OF {currentExercise?.sets.length}</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic("light");
+                  dispatch(minimizeSession());
+                }}
+                className="px-2 py-0.5 rounded-lg bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[10px] hover:bg-cyan-900/60 transition flex items-center gap-1"
+                title="Minimize to floating capsule"
+              >
+                <Minimize2 className="w-3 h-3" />
+                <span>MINIMIZE ▼</span>
+              </button>
+              <span>NEXT: SET {session.currentSetIndex + 1} OF {currentExercise?.sets.length}</span>
+            </div>
           </div>
 
           <div className="my-4">
@@ -720,9 +805,23 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in duration-200">
         <div className="w-full max-w-md solo-notification-modal rounded-xl p-6 sm:p-7 shadow-2xl relative space-y-5 text-center text-white">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-cyan-950/80 border border-cyan-400 text-cyan-300 text-[10px] font-solo font-bold tracking-widest uppercase mx-auto">
-            <Zap className="w-3.5 h-3.5 text-cyan-400" />
-            [ PHASE 3: COMPULSORY SKIPPING PROTOCOL ]
+          <div className="flex items-center justify-between">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-cyan-950/80 border border-cyan-400 text-cyan-300 text-[10px] font-solo font-bold tracking-widest uppercase">
+              <Zap className="w-3.5 h-3.5 text-cyan-400" />
+              [ PHASE 3: COMPULSORY SKIPPING PROTOCOL ]
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic("light");
+                dispatch(minimizeSession());
+              }}
+              className="px-2 py-0.5 rounded-lg bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[10px] font-mono hover:bg-cyan-900/60 transition flex items-center gap-1"
+              title="Minimize to floating capsule"
+            >
+              <Minimize2 className="w-3 h-3" />
+              <span>MINIMIZE ▼</span>
+            </button>
           </div>
 
           <div className="space-y-1">
@@ -799,15 +898,27 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
               {currentExercise?.definition.name}
             </h2>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right font-mono">
-              <span className="text-[9px] text-slate-400 block font-hud">KCAL</span>
-              <span className="text-xs font-bold text-cyan-400">~{accurateCal.totalCaloriesBurned}</span>
+          <div className="flex items-center gap-2">
+            <div className="text-right font-mono mr-1">
+              <span className="text-[9px] text-slate-400 block font-hud">TIME • KCAL</span>
+              <span className="text-xs font-bold text-cyan-400">{elapsedDisplay} • ~{accurateCal.totalCaloriesBurned}</span>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic("light");
+                dispatch(minimizeSession());
+              }}
+              className="p-1.5 rounded-xl bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-900/60 transition"
+              title="Minimize to floating capsule"
+            >
+              <Minimize2 className="w-4 h-4" />
+            </button>
             <button
               type="button"
               onClick={() => setShowAbandonConfirmModal(true)}
               className="p-1.5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-400 hover:bg-red-900/60"
+              title="Emergency stop"
             >
               <OctagonAlert className="w-4 h-4" />
             </button>
