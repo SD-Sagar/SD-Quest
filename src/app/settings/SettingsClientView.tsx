@@ -266,7 +266,7 @@ export function SettingsClientView({
       <div className="hunter-panel rounded-3xl border border-slate-800 p-5 sm:p-6 space-y-4">
         <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
           <Utensils className="w-4 h-4" />
-          <span>BENGALI FUEL &amp; BUDGET CONTROL</span>
+          <span>DAILY NUTRITION &amp; BUDGET CONTROL</span>
         </div>
 
         <div>

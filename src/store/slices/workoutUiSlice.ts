@@ -31,6 +31,9 @@ export interface ActiveWorkoutUiState {
   startedAtTimestamp: number;
   speedBonusEarned: boolean;
   skippedCount: number;
+  isSingleExercise?: boolean;
+  isExtraWorkout?: boolean;
+  extraWorkoutMultiplier?: number;
   phase: WorkoutPhase;
   status: WorkoutUiStatus;
   coreExercisesCount: number;
@@ -39,6 +42,8 @@ export interface ActiveWorkoutUiState {
     definition: ExerciseDefinition;
     sets: ActiveSetState[];
     phase: "core" | "belly";
+    isPreCompleted?: boolean;
+    extraBonusMultiplier?: number;
   }[];
 }
 
@@ -78,11 +83,15 @@ export const workoutUiSlice = createSlice({
         targetMuscles: string;
         skippingTarget: number;
         targetDurationMinutes?: number;
+        isSingleExercise?: boolean;
+        isExtraWorkout?: boolean;
+        extraWorkoutMultiplier?: number;
         exercises: {
           definition: ExerciseDefinition;
           defaultWeightKg: number;
           plateBreakdown: string;
           phase?: "core" | "belly";
+          isPreCompleted?: boolean;
         }[];
       }>
     ) => {
@@ -98,11 +107,14 @@ export const workoutUiSlice = createSlice({
       state.restTimerActive = false;
       state.setupTimerSeconds = 60;
       state.setupTimerActive = true;
-      state.targetDurationMinutes = action.payload.targetDurationMinutes || 45;
+      state.targetDurationMinutes = action.payload.targetDurationMinutes || (action.payload.isSingleExercise ? 12 : 45);
       state.startedAtTimestamp = Date.now();
       state.speedBonusEarned = false;
       state.skippedCount = 0;
-      state.phase = "core";
+      state.isSingleExercise = action.payload.isSingleExercise || false;
+      state.isExtraWorkout = action.payload.isExtraWorkout || false;
+      state.extraWorkoutMultiplier = action.payload.extraWorkoutMultiplier || 1.0;
+      state.phase = action.payload.isSingleExercise ? "core" : "core";
       state.status = "setup"; // First exercise starts in Equipment Setup Mode!
 
       let coreCount = 0;
@@ -116,6 +128,7 @@ export const workoutUiSlice = createSlice({
         return {
           definition: item.definition,
           phase: exPhase,
+          isPreCompleted: item.isPreCompleted || false,
           sets: Array.from({ length: item.definition.default_sets }, (_, i) => ({
             setNumber: i + 1,
             weightKg: item.defaultWeightKg,
@@ -130,6 +143,47 @@ export const workoutUiSlice = createSlice({
 
       state.coreExercisesCount = coreCount;
       state.bellyExercisesCount = bellyCount;
+    },
+
+    abandonSession: () => {
+      return initialState;
+    },
+
+    skipPreCompletedMovement: (state) => {
+      const exercise = state.exercises[state.currentExerciseIndex];
+      if (exercise) {
+        exercise.sets.forEach((s) => {
+          s.completed = true;
+        });
+      }
+
+      state.restTimerActive = false;
+      if (state.currentExerciseIndex + 1 < state.exercises.length) {
+        state.currentExerciseIndex += 1;
+        state.currentSetIndex = 0;
+        state.setupTimerSeconds = 60;
+        state.setupTimerActive = true;
+        state.status = "setup";
+        state.phase = state.exercises[state.currentExerciseIndex].phase;
+      } else {
+        if (state.isSingleExercise) {
+          state.phase = "completed";
+          state.status = "completed";
+        } else {
+          state.phase = "skipping";
+          state.status = "skipping";
+        }
+      }
+    },
+
+    redoPreCompletedMovementForBonus: (state, action: PayloadAction<{ bonusMultiplier: number }>) => {
+      const exercise = state.exercises[state.currentExerciseIndex];
+      if (exercise) {
+        exercise.extraBonusMultiplier = action.payload.bonusMultiplier;
+        exercise.isPreCompleted = false; // User chose to redo it for the bonus!
+      }
+      state.setupTimerActive = false;
+      state.status = "lifting";
     },
 
     confirmStartExercise: (state) => {
@@ -183,9 +237,14 @@ export const workoutUiSlice = createSlice({
             state.status = "setup";
             state.phase = state.exercises[state.currentExerciseIndex].phase;
           } else {
-            // All lifting exercises complete -> Transition to Compulsory Skipping
-            state.phase = "skipping";
-            state.status = "skipping";
+            // All lifting exercises complete
+            if (state.isSingleExercise) {
+              state.phase = "completed";
+              state.status = "completed";
+            } else {
+              state.phase = "skipping";
+              state.status = "skipping";
+            }
           }
         }
       }
@@ -209,8 +268,13 @@ export const workoutUiSlice = createSlice({
         state.status = "setup";
         state.phase = state.exercises[state.currentExerciseIndex].phase;
       } else {
-        state.phase = "skipping";
-        state.status = "skipping";
+        if (state.isSingleExercise) {
+          state.phase = "completed";
+          state.status = "completed";
+        } else {
+          state.phase = "skipping";
+          state.status = "skipping";
+        }
       }
     },
 
@@ -275,6 +339,9 @@ export const {
   adjustSetupTimer,
   completeActiveSet,
   skipExerciseWithPenalty,
+  abandonSession,
+  skipPreCompletedMovement,
+  redoPreCompletedMovementForBonus,
   tickTimer,
   adjustTimer,
   skipTimer,

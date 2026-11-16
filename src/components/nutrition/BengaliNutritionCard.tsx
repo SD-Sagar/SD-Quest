@@ -103,7 +103,7 @@ export function BengaliNutritionCard({
             </div>
             <div>
               <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                AFFORDABLE BENGALI FUEL
+                DAILY NUTRITION FUEL &amp; MACROS
               </h3>
               <span className="text-[10px] text-slate-400 font-mono">
                 Budget: ₹{targets?.monthly_budget_inr || 4500}/mo • High Bioavailability
@@ -148,7 +148,7 @@ export function BengaliNutritionCard({
         {/* Quick One-Tap Staple Loggers */}
         <div className="pt-2 border-t border-slate-800 space-y-2">
           <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">
-            ONE-TAP BENGALI STAPLE LOGGERS
+            ONE-TAP STAPLE MEAL LOGGERS
           </span>
 
           <div className="grid grid-cols-3 gap-2">

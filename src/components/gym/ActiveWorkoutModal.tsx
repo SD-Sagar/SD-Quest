@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store";
 import {
   confirmStartExercise,
@@ -8,6 +9,9 @@ import {
   adjustSetupTimer,
   completeActiveSet,
   skipExerciseWithPenalty,
+  abandonSession,
+  skipPreCompletedMovement,
+  redoPreCompletedMovementForBonus,
   tickTimer,
   adjustTimer,
   skipTimer,
@@ -24,8 +28,10 @@ import {
   playTimerCompleteSound,
   playLevelUpSound,
 } from "@/lib/audio/soundEffects";
-import { calculateDumbbellPlates, calculateWorkoutCalories } from "@/lib/calculations/gym";
-import { MASTER_EXERCISE_CATALOG } from "@/lib/data/exerciseCatalog";
+import {
+  calculateDumbbellPlates,
+  calculateAccurateWorkoutCalories,
+} from "@/lib/calculations/gym";
 import confetti from "canvas-confetti";
 import {
   X,
@@ -47,10 +53,13 @@ import {
   Check,
   Plus,
   Minus,
+  OctagonAlert,
+  Sparkles,
 } from "lucide-react";
-import { DayOfWeek, EquipmentInventory, ExerciseDefinition } from "@/types";
+import { DayOfWeek, EquipmentInventory } from "@/types";
 
 export function ActiveWorkoutModal() {
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const session = useAppSelector((state) => state.workoutUi);
   const [isPending, startTransition] = useTransition();
@@ -60,21 +69,19 @@ export function ActiveWorkoutModal() {
   const [inputReps, setInputReps] = useState(10);
   const [inputRpe, setInputRpe] = useState(8);
   const [showInstructions, setShowInstructions] = useState(false);
-  const [showSwapModal, setShowSwapModal] = useState(false);
   const [showSkipConfirmModal, setShowSkipConfirmModal] = useState(false);
+  const [showAbandonConfirmModal, setShowAbandonConfirmModal] = useState(false);
+  const [completedDebriefData, setCompletedDebriefData] = useState<{
+    caloriesBurned: number;
+    tonnageKg: number;
+    totalXp: number;
+  } | null>(null);
+
   const [skipsCountInput, setSkipsCountInput] = useState(100);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const currentExercise = session.exercises[session.currentExerciseIndex];
   const currentSet = currentExercise?.sets[session.currentSetIndex];
-
-  // MET-based calories burned
-  const estimatedCalories = calculateWorkoutCalories(
-    elapsedSeconds,
-    70,
-    5.5,
-    session.skippingCompleted
-  );
 
   // Default inventory for plate solver
   const defaultInv: EquipmentInventory = {
@@ -93,6 +100,26 @@ export function ActiveWorkoutModal() {
   };
 
   const dynamicPlates = calculateDumbbellPlates(inputWeight, defaultInv, true);
+
+  // Flattened sets for accurate calorie calculation
+  const allPerformedSets = session.exercises.flatMap((ex) =>
+    ex.sets.map((s) => ({
+      weightKg: s.weightKg,
+      reps: s.reps,
+      exerciseName: ex.definition.name,
+      targetMuscle: ex.definition.target_muscle,
+    }))
+  );
+
+  const accurateCal = calculateAccurateWorkoutCalories({
+    durationSeconds: elapsedSeconds,
+    heightCm: 175,
+    weightKg: 70,
+    playerLevel: 1,
+    playerRank: "Recruit",
+    sets: allPerformedSets,
+    skippingCount: session.skippingCompleted,
+  });
 
   // Sync inputs with current set target when set changes
   useEffect(() => {
@@ -156,29 +183,20 @@ export function ActiveWorkoutModal() {
     }
   }, [session]);
 
-  if (!session.isActive) return null;
-
-  // Calculate live tonnage moved
-  const liveTonnageKg = session.exercises.reduce((totalEx, ex) => {
-    return (
-      totalEx +
-      ex.sets.reduce((totalSet, s) => {
-        if (s.completed) {
-          return totalSet + s.weightKg * s.reps * 2; // Pair of dumbbells
-        }
-        return totalSet;
-      }, 0)
-    );
-  }, 0);
+  if (!session.isActive && !completedDebriefData) return null;
 
   const elapsedMins = Math.floor(elapsedSeconds / 60);
   const elapsedSecsRem = elapsedSeconds % 60;
   const elapsedDisplay = `${String(elapsedMins).padStart(2, "0")}:${String(elapsedSecsRem).padStart(2, "0")}`;
-  const isCurrentlyEarly = elapsedMins <= session.targetDurationMinutes;
 
   const handleSetComplete = () => {
     triggerHaptic("success");
     playSetCompleteSound();
+
+    const isLastSetOfSingle =
+      session.isSingleExercise &&
+      session.currentSetIndex + 1 >= (currentExercise?.sets.length || 0);
+
     dispatch(
       completeActiveSet({
         actualWeightKg: Number(inputWeight),
@@ -186,19 +204,39 @@ export function ActiveWorkoutModal() {
         rpe: Number(inputRpe),
       })
     );
+
+    if (isLastSetOfSingle) {
+      handleFinishWorkout(0);
+    }
   };
 
   const handleConfirmSkipExercise = () => {
     setShowSkipConfirmModal(false);
     triggerHaptic("warning");
+    if (session.isSingleExercise) {
+      clearActiveSessionAction().catch(() => {});
+      dispatch(abandonSession());
+      return;
+    }
     dispatch(skipExerciseWithPenalty());
+  };
+
+  const handleEmergencyAbandon = async () => {
+    setShowAbandonConfirmModal(false);
+    triggerHaptic("heavy");
+
+    // If already in skipping phase, we preserve the core workout progress!
+    if (session.phase !== "skipping") {
+      await clearActiveSessionAction().catch(() => {});
+    }
+    dispatch(abandonSession());
   };
 
   const handleFinishWorkout = (finalSkips: number) => {
     triggerHaptic("heavy");
     playLevelUpSound();
     confetti({
-      particleCount: 150,
+      particleCount: 160,
       spread: 90,
       origin: { y: 0.6 },
     });
@@ -221,7 +259,7 @@ export function ActiveWorkoutModal() {
     );
 
     startTransition(async () => {
-      await finishWorkoutAction({
+      const res = await finishWorkoutAction({
         splitDay: session.dayName as DayOfWeek,
         title: session.title,
         targetMuscles: session.targetMuscles,
@@ -231,12 +269,86 @@ export function ActiveWorkoutModal() {
         skippingTarget: session.skippingTarget,
         skippingCompleted: finalSkips,
         skippedCount: session.skippedCount,
+        caloriesBurned: accurateCal.totalCaloriesBurned,
+        isExtraWorkout: session.isExtraWorkout,
+        extraWorkoutMultiplier: session.extraWorkoutMultiplier,
+        isSingleExercise: session.isSingleExercise,
         sets: performedSets,
       });
 
+      setCompletedDebriefData({
+        caloriesBurned: accurateCal.totalCaloriesBurned,
+        tonnageKg: accurateCal.tonnageMovedKg,
+        totalXp: res?.rpgRewards?.xpGained || 85,
+      });
+
       dispatch(endSession());
+      router.refresh();
     });
   };
+
+  // ---------------------------------------------------------------------------
+  // SCREEN: POST-WORKOUT HUNTER DEBRIEF MODAL
+  // ---------------------------------------------------------------------------
+  if (completedDebriefData) {
+    return (
+      <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl animate-in zoom-in-95 duration-200">
+        <div className="w-full max-w-md hunter-panel rounded-3xl border border-cyan-500/60 p-6 sm:p-8 space-y-6 text-center shadow-2xl relative">
+          <div className="w-16 h-16 rounded-3xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center mx-auto text-cyan-400">
+            <Trophy className="w-8 h-8 fill-current" />
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-400 uppercase tracking-widest">
+              SYSTEM REPORT // DIRECTIVE CONQUERED
+            </span>
+            <h2 className="text-2xl font-black text-white tracking-tight mana-text-glow">
+              HUNTER SESSION DEBRIEF
+            </h2>
+            <p className="text-xs text-slate-400 font-mono">
+              Biomechanical work logged and persisted to cloud.
+            </p>
+          </div>
+
+          {/* Telemetry Stats Grid */}
+          <div className="grid grid-cols-3 gap-2.5 font-mono text-center">
+            <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
+              <span className="text-[10px] text-slate-500 uppercase block">KCAL EXPELLED</span>
+              <span className="text-lg font-black text-orange-400">
+                {completedDebriefData.caloriesBurned}
+              </span>
+              <span className="text-[9px] text-slate-400 block">kcal</span>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
+              <span className="text-[10px] text-slate-500 uppercase block">TONNAGE MOVED</span>
+              <span className="text-lg font-black text-cyan-400">
+                {completedDebriefData.tonnageKg}
+              </span>
+              <span className="text-[9px] text-slate-400 block">kg</span>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
+              <span className="text-[10px] text-slate-500 uppercase block">XP HARVESTED</span>
+              <span className="text-lg font-black text-purple-400">
+                +{completedDebriefData.totalXp}
+              </span>
+              <span className="text-[9px] text-slate-400 block">XP</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setCompletedDebriefData(null);
+              router.refresh();
+            }}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-950 transition"
+          >
+            RETURN TO COMMAND HUB
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // 1. SCREEN: EQUIPMENT SETUP & TRANSITION MODE
@@ -250,15 +362,57 @@ export function ActiveWorkoutModal() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in duration-200 overflow-y-auto">
-        <div className="w-full max-w-lg hunter-panel rounded-3xl border border-cyan-500/50 p-6 sm:p-8 shadow-2xl relative space-y-6 my-auto">
-          {/* Phase Badge */}
+        <div className="w-full max-w-lg hunter-panel rounded-3xl border border-cyan-500/50 p-6 sm:p-8 shadow-2xl relative space-y-5 my-auto">
+          {/* Top Bar with Phase Badge & Emergency Stop */}
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-400 text-[10px] font-mono font-bold tracking-widest uppercase">
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-              {isBellyPhase ? "PHASE 2: DAILY BELLY PROTOCOL" : "PHASE 1: CORE SPLIT"} • MOVEMENT {session.currentExerciseIndex + 1}/{session.exercises.length}
+              {session.isSingleExercise
+                ? "FOCUSED SINGLE MOVEMENT TRIAL"
+                : isBellyPhase
+                ? "PHASE 2: DAILY BELLY PROTOCOL"
+                : "PHASE 1: CORE SPLIT"}{" "}
+              • {session.currentExerciseIndex + 1}/{session.exercises.length}
             </span>
-            <span className="text-xs font-mono text-slate-400">Total: {elapsedDisplay}</span>
+
+            <button
+              type="button"
+              onClick={() => setShowAbandonConfirmModal(true)}
+              className="px-2.5 py-1 rounded-xl bg-red-950/60 border border-red-500/40 text-red-400 hover:bg-red-900/60 text-[10px] font-mono font-bold flex items-center gap-1 transition"
+            >
+              <OctagonAlert className="w-3 h-3" />
+              <span>EMERGENCY STOP</span>
+            </button>
           </div>
+
+          {/* Pre-Completed Movement Smart Banner */}
+          {currentExercise.isPreCompleted && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/80 via-slate-900 to-cyan-950/80 border border-purple-500/50 space-y-2.5 animate-in fade-in">
+              <div className="flex items-center gap-2 text-xs font-bold text-purple-300 font-mono">
+                <Sparkles className="w-4 h-4 text-purple-400" />
+                <span>INTELLIGENT SYSTEM RECOGNITION</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                You already completed <strong>{currentExercise.definition.name}</strong> earlier today. Choose your path:
+              </p>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => dispatch(skipPreCompletedMovement())}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-900 border border-cyan-500/40 text-cyan-300 text-xs font-bold font-mono hover:bg-slate-800"
+                >
+                  CREDIT DONE (SKIP)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dispatch(redoPreCompletedMovementForBonus({ bonusMultiplier: 0.25 }))}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold font-mono shadow-md hover:from-purple-500 hover:to-indigo-500"
+                >
+                  RE-DO (+0.25x BONUS)
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Exercise Title */}
           <div className="space-y-1 text-center">
@@ -393,6 +547,39 @@ export function ActiveWorkoutModal() {
             </div>
           </div>
         )}
+
+        {/* Emergency Stop Confirmation Modal */}
+        {showAbandonConfirmModal && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <div className="w-full max-w-sm rounded-3xl bg-slate-950 border border-red-500/60 p-6 space-y-4 text-center shadow-2xl">
+              <OctagonAlert className="w-10 h-10 text-red-400 mx-auto animate-pulse" />
+              <h3 className="text-base font-black text-white uppercase tracking-wider">
+                EMERGENCY STOP PROTOCOL
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                {session.phase === "skipping"
+                  ? "Your core lifting sets are already completed and will be preserved! You can return directly to the Skipping Challenge later."
+                  : "Stopping now will reset today's session progress, allowing you to start freshly from the beginning later."}
+              </p>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAbandonConfirmModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-slate-300"
+                >
+                  RESUME WORKOUT
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEmergencyAbandon}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-black text-white shadow-lg shadow-red-950"
+                >
+                  STOP SESSION
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -427,10 +614,10 @@ export function ActiveWorkoutModal() {
             </div>
           </div>
 
-          <div className="p-3 rounded-2xl bg-slate-900 border border-slate-800 text-xs flex items-center justify-between">
+          <div className="p-3 rounded-2xl bg-slate-900 border border-slate-800 text-xs flex items-center justify-between font-mono">
             <span className="text-slate-400">Total Elapsed: {elapsedDisplay}</span>
-            <span className="text-cyan-400 font-mono font-bold">
-              Target: {session.targetDurationMinutes}m
+            <span className="text-orange-400 font-bold">
+              ~{accurateCal.totalCaloriesBurned} kcal Expelled
             </span>
           </div>
 
@@ -534,15 +721,29 @@ export function ActiveWorkoutModal() {
         <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
           <div>
             <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase tracking-widest block">
-              {currentExercise?.phase === "belly" ? "PHASE 2: DAILY BELLY" : "PHASE 1: CORE SPLIT"} • {session.dayName}
+              {session.isSingleExercise
+                ? "FOCUSED TRIAL"
+                : currentExercise?.phase === "belly"
+                ? "PHASE 2: DAILY BELLY"
+                : "PHASE 1: CORE SPLIT"}{" "}
+              • {session.dayName}
             </span>
             <h2 className="text-lg font-black text-white tracking-tight">
               {currentExercise?.definition.name}
             </h2>
           </div>
-          <div className="text-right font-mono">
-            <span className="text-[10px] text-slate-400 block">ELAPSED</span>
-            <span className="text-xs font-bold text-cyan-400">{elapsedDisplay}</span>
+          <div className="flex items-center gap-3">
+            <div className="text-right font-mono">
+              <span className="text-[9px] text-slate-400 block">KCAL</span>
+              <span className="text-xs font-bold text-orange-400">~{accurateCal.totalCaloriesBurned}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAbandonConfirmModal(true)}
+              className="p-1.5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-400 hover:bg-red-900/60"
+            >
+              <OctagonAlert className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
@@ -692,6 +893,39 @@ export function ActiveWorkoutModal() {
                   className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-black text-white shadow-lg shadow-red-950"
                 >
                   CONFIRM SKIP
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Emergency Stop Confirmation Modal */}
+        {showAbandonConfirmModal && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <div className="w-full max-w-sm rounded-3xl bg-slate-950 border border-red-500/60 p-6 space-y-4 text-center shadow-2xl">
+              <OctagonAlert className="w-10 h-10 text-red-400 mx-auto animate-pulse" />
+              <h3 className="text-base font-black text-white uppercase tracking-wider">
+                EMERGENCY STOP PROTOCOL
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                {session.phase === "skipping"
+                  ? "Your core lifting sets are already completed and will be preserved! You can return directly to the Skipping Challenge later."
+                  : "Stopping now will reset today's session progress, allowing you to start freshly from the beginning later."}
+              </p>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAbandonConfirmModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-slate-300"
+                >
+                  RESUME WORKOUT
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEmergencyAbandon}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-black text-white shadow-lg shadow-red-950"
+                >
+                  STOP SESSION
                 </button>
               </div>
             </div>

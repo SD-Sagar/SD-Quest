@@ -20,6 +20,7 @@ import {
   Info,
   Shield,
   Layers,
+  Play,
 } from "lucide-react";
 
 interface ExerciseCodexModalProps {
@@ -31,6 +32,7 @@ interface ExerciseCodexModalProps {
   playerRank: HunterRank;
   equipment: EquipmentInventory | null;
   onSelectForWorkout?: (exercise: MasterExercise) => void;
+  onLaunchIndividual?: (exercise: MasterExercise) => void;
 }
 
 export function ExerciseCodexModal({
@@ -42,6 +44,7 @@ export function ExerciseCodexModal({
   playerRank,
   equipment,
   onSelectForWorkout,
+  onLaunchIndividual,
 }: ExerciseCodexModalProps) {
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [calcWeight, setCalcWeight] = useState(15.0);
@@ -280,17 +283,17 @@ export function ExerciseCodexModal({
           >
             CLOSE
           </button>
-          {isUnlocked && onSelectForWorkout && (
+          {isUnlocked && onLaunchIndividual && (
             <button
               onClick={() => {
                 triggerHaptic("heavy");
-                onSelectForWorkout(exercise);
+                onLaunchIndividual(exercise);
                 onClose();
               }}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs tracking-wider transition flex items-center gap-1.5 shadow-lg shadow-cyan-950"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-black font-mono text-xs tracking-wider transition flex items-center gap-1.5 shadow-lg shadow-cyan-950"
             >
-              <span>ADD TO ACTIVE SESSION</span>
-              <ChevronRight className="w-4 h-4" />
+              <Play className="w-4 h-4 fill-white" />
+              <span>LAUNCH INDIVIDUAL WORKOUT</span>
             </button>
           )}
         </div>

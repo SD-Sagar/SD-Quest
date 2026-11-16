@@ -15,7 +15,8 @@ export default async function DietPage() {
 
   if (!user) redirect("/login");
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
   const [targets, foodCatalog, logs] = await Promise.all([
     NutritionRepository.getTargets(user.id),
@@ -32,7 +33,7 @@ export default async function DietPage() {
             AFFORDABLE NUTRITION & FUEL
           </h1>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            Section 9 • Bengali Staple Planner (Sattu, Eggs, Coffee, Rice/Dal) & Macro Tracking
+            Section 9 • Staple Meal Planner (Sattu, Eggs, Coffee, Rice/Dal) & Macro Tracking
           </p>
         </div>
 

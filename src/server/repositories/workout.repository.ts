@@ -82,7 +82,41 @@ export class WorkoutRepository {
       throw new Error(`Failed to fetch workout sessions: ${error.message}`);
     }
 
-    return (data || []) as WorkoutSession[];
+    return ((data || []) as any[]).map((s) => {
+      const parsedKcal = s.notes?.match(/\[KCAL:(\d+)\]/)?.[1];
+      const cal = s.calories_burned ?? (parsedKcal ? parseInt(parsedKcal, 10) : Math.round((s.total_tonnage_kg || 0) * 0.045 + (s.duration_minutes || 0) * 5));
+      return {
+        ...s,
+        calories_burned: cal,
+      } as WorkoutSession;
+    });
+  }
+
+  static async getTodaysCompletedWorkouts(userId: string): Promise<WorkoutSession[]> {
+    const supabase = await createClient();
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const { data, error } = await supabase
+      .from("workout_sessions")
+      .select("*, workout_set_logs(*)")
+      .eq("user_id", userId)
+      .eq("status", "completed")
+      .gte("completed_at", twentyFourHoursAgo.toISOString())
+      .order("completed_at", { ascending: false });
+
+    if (error) {
+      console.error("Failed to fetch today's workout sessions:", error);
+      return [];
+    }
+
+    return ((data || []) as any[]).map((s) => {
+      const parsedKcal = s.notes?.match(/\[KCAL:(\d+)\]/)?.[1];
+      const cal = s.calories_burned ?? (parsedKcal ? parseInt(parsedKcal, 10) : Math.round((s.total_tonnage_kg || 0) * 0.045 + (s.duration_minutes || 0) * 5));
+      return {
+        ...s,
+        calories_burned: cal,
+      } as WorkoutSession;
+    });
   }
 
   static async saveCompletedWorkout(params: {
@@ -96,19 +130,30 @@ export class WorkoutRepository {
     skippingTarget: number;
     skippingCompleted: number;
     skippedCount?: number;
+    caloriesBurned?: number;
+    isExtraWorkout?: boolean;
+    extraWorkoutMultiplier?: number;
+    isSingleExercise?: boolean;
     notes?: string;
     sets: Omit<WorkoutSetLog, "id" | "session_id" | "user_id" | "created_at">[];
-  }): Promise<{ session: WorkoutSession; rpgRewards: any }> {
+  }): Promise<{ session: WorkoutSession; rpgRewards: any; caloriesBurned: number }> {
     const supabase = await createClient();
 
     // 1. Calculate actual tonnage from sets
     let totalTonnageKg = 0;
     for (const s of params.sets) {
-      // 2 dumbbells: weight * reps * 2 (or total weight per pair)
       totalTonnageKg += s.weight_kg * s.reps * 2;
     }
 
-    // 2. Insert session record
+    const finalCaloriesBurned = params.caloriesBurned || Math.round(totalTonnageKg * 0.045 + params.durationMinutes * 5);
+
+    let sessionNotes = params.notes || "";
+    if (params.isSingleExercise && !sessionNotes.includes("[SOLO_TRIAL]")) {
+      sessionNotes = `${sessionNotes} [SOLO_TRIAL]`.trim();
+    }
+    sessionNotes = `${sessionNotes} [KCAL:${finalCaloriesBurned}]`.trim();
+
+    // 2. Insert session record (safely store calories in notes to prevent schema cache errors)
     const { data: session, error: sessionError } = await supabase
       .from("workout_sessions")
       .insert({
@@ -121,7 +166,7 @@ export class WorkoutRepository {
         skipping_target: params.skippingTarget,
         skipping_completed: params.skippingCompleted,
         status: "completed",
-        notes: params.notes || null,
+        notes: sessionNotes,
         started_at: new Date(Date.now() - params.durationMinutes * 60000).toISOString(),
         completed_at: new Date().toISOString(),
       })
@@ -157,23 +202,31 @@ export class WorkoutRepository {
       }
     }
 
-    // 4. Calculate calibrated real-life RPG rewards based on tonnage, skipping, and swift speed bonus
-    const xpBase = 85;
+    // 4. Calculate calibrated real-life RPG rewards with extra work multiplier support
+    let xpBase = params.isSingleExercise ? 25 : 85;
     const tonnageBonusXp = Math.min(25, Math.floor(totalTonnageKg / 300));
     const skipBonusXp = params.skippingCompleted >= params.skippingTarget ? 15 : 0;
     const speedBonusXp = params.completedEarly ? 15 : 0;
     const skipPenaltyXp = (params.skippedCount || 0) * 15;
-    const totalXp = Math.max(30, xpBase + tonnageBonusXp + skipBonusXp + speedBonusXp - skipPenaltyXp);
+    
+    let totalXp = Math.max(15, xpBase + tonnageBonusXp + skipBonusXp + speedBonusXp - skipPenaltyXp);
+
+    // Apply Extra Workout Multiplier if beyond daily quota
+    if (params.extraWorkoutMultiplier) {
+      totalXp = Math.max(10, Math.round(totalXp * params.extraWorkoutMultiplier));
+    }
 
     const disPenalty = (params.skippedCount || 0) * 0.10;
+    const attrMultiplier = params.extraWorkoutMultiplier || 1.0;
+
     const attrDeltas: Record<string, number> = {
-      strength: 0.35,
-      discipline: Math.max(0.05, 0.20 - disPenalty),
-      vitality: 0.15,
+      strength: Number((0.35 * attrMultiplier).toFixed(2)),
+      discipline: Number((Math.max(0.05, 0.20 - disPenalty) * attrMultiplier).toFixed(2)),
+      vitality: Number((0.15 * attrMultiplier).toFixed(2)),
     };
 
     if (params.skippingCompleted >= params.skippingTarget) {
-      attrDeltas.agility = (attrDeltas.agility || 0) + 0.20;
+      attrDeltas.agility = (attrDeltas.agility || 0) + Number((0.20 * attrMultiplier).toFixed(2));
     }
 
     if (params.completedEarly) {
@@ -188,13 +241,20 @@ export class WorkoutRepository {
       attrDeltas,
       sourceType: "workout",
       sourceId: session.id,
-      notes: `Cleared workout: ${params.title} (${Math.round(totalTonnageKg)}kg moved${params.completedEarly ? " • Swift Hunter Bonus" : ""}${params.skippedCount ? ` • ${params.skippedCount} Skipped` : ""})`,
+      notes: `Cleared workout: ${params.title} (${Math.round(totalTonnageKg)}kg • ${finalCaloriesBurned} kcal${params.extraWorkoutMultiplier ? ` • Extra Multiplier: ${params.extraWorkoutMultiplier}x` : ""})`,
     });
 
     // 6. Clear cross-device active session in Supabase
     await PlayerRepository.clearActiveSession(params.userId);
 
-    return { session: session as WorkoutSession, rpgRewards };
+    return {
+      session: {
+        ...session,
+        calories_burned: finalCaloriesBurned,
+      } as WorkoutSession,
+      rpgRewards,
+      caloriesBurned: finalCaloriesBurned,
+    };
   }
 }
 

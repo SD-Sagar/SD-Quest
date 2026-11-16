@@ -3,6 +3,9 @@
 -- Copy and paste this directly into: Supabase Dashboard -> SQL Editor -> Run
 -- =============================================================================
 
+-- Ensure any missing optional columns are present
+ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS calories_burned INT DEFAULT 0;
+
 -- OPTION A: WIPE ALL GAME DATA BUT KEEP YOUR EMAIL & PASSWORD (RECOMMENDED)
 -- This clears all character stats, workouts, quests, plans, and equipment so
 -- you can log in with your existing account and go through Character Creation fresh!

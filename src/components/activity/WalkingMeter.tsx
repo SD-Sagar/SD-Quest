@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { logDailyActivityAction } from "@/server/actions/activity.actions";
 import { triggerHaptic } from "@/lib/utils";
 import { Footprints, Flame, Timer, Compass, Plus } from "lucide-react";
@@ -12,11 +13,17 @@ interface WalkingMeterProps {
 }
 
 export function WalkingMeter({ activity, dateStr }: WalkingMeterProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isAdding, setIsAdding] = useState(false);
   const [stepInput, setStepInput] = useState(activity?.steps ? String(activity.steps) : "");
+  const [optimisticSteps, setOptimisticSteps] = useState<number>(activity?.steps || 0);
 
-  const currentSteps = activity?.steps || 0;
+  useEffect(() => {
+    setOptimisticSteps(activity?.steps || 0);
+  }, [activity?.steps]);
+
+  const currentSteps = optimisticSteps;
   const targetSteps = 6000;
   const percentage = Math.min(100, Math.round((currentSteps / targetSteps) * 100));
 
@@ -26,13 +33,16 @@ export function WalkingMeter({ activity, dateStr }: WalkingMeterProps) {
     if (isNaN(steps) || steps < 0) return;
 
     triggerHaptic("heavy");
+    setOptimisticSteps(steps);
+    setIsAdding(false);
+
     startTransition(async () => {
       await logDailyActivityAction({
         log_date: dateStr,
         steps,
         source: "manual",
       });
-      setIsAdding(false);
+      router.refresh();
     });
   };
 

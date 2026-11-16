@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/store";
 import { startWorkoutSession } from "@/store/slices/workoutUiSlice";
 import { triggerHaptic } from "@/lib/utils";
-import { calculateDumbbellPlates } from "@/lib/calculations/gym";
+import { calculateDumbbellPlates, calculateStepsCalories } from "@/lib/calculations/gym";
+import { getTodaysWorkoutsAction } from "@/server/actions/workout.actions";
 import { CharacterHUD } from "@/components/character/CharacterHUD";
 import { WaterMeter } from "@/components/hydration/WaterMeter";
 import { WalkingMeter } from "@/components/activity/WalkingMeter";
@@ -27,7 +29,17 @@ import {
   DayOfWeek,
 } from "@/types";
 import { DailySystemQuestCard } from "@/components/dashboard/DailySystemQuestCard";
-import { Dumbbell, Play, Sparkles } from "lucide-react";
+import {
+  Dumbbell,
+  Play,
+  Sparkles,
+  Flame,
+  CheckCircle2,
+  ChevronRight,
+  Zap,
+  Clock,
+  Layers,
+} from "lucide-react";
 
 interface TodayDashboardViewProps {
   profile: Profile;
@@ -41,7 +53,18 @@ interface TodayDashboardViewProps {
   nutritionTargets: DailyNutritionTargets | null;
   todayDateStr: string;
   dayName: DayOfWeek;
+  completedWorkouts?: any[];
 }
+
+const SPLIT_INFO: Record<DayOfWeek, { title: string; subtitle: string; isRest: boolean }> = {
+  Monday: { title: "Legs & Lower Body Foundation", subtitle: "Quads, Hamstrings, Glutes, Calves", isRest: false },
+  Tuesday: { title: "Chest Hypertrophy & Pectoral Power", subtitle: "Upper Chest, Mid Chest, Front Delts, Triceps", isRest: false },
+  Wednesday: { title: "Back Width & Thickness", subtitle: "Lats, Rhomboids, Trapezius, Biceps", isRest: false },
+  Thursday: { title: "Shoulder Overhead Power & Width", subtitle: "Lateral Deltoids, Anterior Deltoids", isRest: false },
+  Friday: { title: "Deltoid Specialization & Rear Delts", subtitle: "Rear Delts, Lateral Delts, Rotator Cuff", isRest: false },
+  Saturday: { title: "Arms Mastery (Biceps & Triceps)", subtitle: "Biceps, Triceps, Brachialis, Forearms", isRest: false },
+  Sunday: { title: "Honored Rest & Mobility Sanctuary", subtitle: "Zero Lifting • Parasympathetic Recovery & Vagus Reset", isRest: true },
+};
 
 export function TodayDashboardView({
   profile,
@@ -55,50 +78,50 @@ export function TodayDashboardView({
   nutritionTargets,
   todayDateStr,
   dayName,
+  completedWorkouts = [],
 }: TodayDashboardViewProps) {
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const [isSmartModalOpen, setIsSmartModalOpen] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [todaysWorkouts, setTodaysWorkouts] = useState<any[]>(completedWorkouts || []);
 
-  // Determine today's workout plan
+  useEffect(() => {
+    setTodaysWorkouts(completedWorkouts || []);
+  }, [completedWorkouts]);
+
+  // Determine today's workout split
   const isSunday = dayName === "Sunday";
+  const todaySplitInfo = SPLIT_INFO[dayName] || SPLIT_INFO.Monday;
+  
+  const isFullSplitSession = (s: any) =>
+    !s.title?.toLowerCase().startsWith("solo trial") &&
+    !s.notes?.includes("[SOLO_TRIAL]") &&
+    !s.notes?.includes("[SINGLE_EXERCISE]");
 
-  const handleLaunchWorkout = () => {
+  const isTodayWorkoutCompleted =
+    todaysWorkouts.length > 0 &&
+    todaysWorkouts.some((w) => w.split_day === dayName && isFullSplitSession(w));
+  const todaySession = todaysWorkouts.find(
+    (w) => w.split_day === dayName && isFullSplitSession(w)
+  );
+
+  // Accurate Physiological Calorie Telemetry
+  const workoutCalories = todaysWorkouts.reduce((acc, w) => acc + (w.calories_burned || 0), 0);
+  const workoutTonnage = todaysWorkouts.reduce((acc, w) => acc + (w.total_tonnage_kg || 0), 0);
+  const stepsTelemetry = calculateStepsCalories(
+    activity?.steps || 0,
+    profile.weight_kg || 75.0,
+    profile.height_cm || 175.0
+  );
+  const stepsCalories = stepsTelemetry.caloriesBurned;
+  const totalBurnedCalories = workoutCalories + stepsCalories;
+  const consumedCalories = nutritionLogs.reduce((acc, l) => acc + (l.calories || 0), 0);
+  const targetCalories = nutritionTargets?.target_calories || 2200;
+
+  const handleNavigateToGym = () => {
     triggerHaptic("heavy");
-
-    const defaultInv = equipment || {
-      id: "default",
-      user_id: profile.id,
-      has_bench: true,
-      bench_positions: [],
-      dumbbell_handle_weight_kg: 2.0,
-      plate_5kg_count: 8,
-      plate_2_5kg_count: 4,
-      plate_1_25kg_count: 8,
-      custom_plates: [],
-      updated_at: new Date().toISOString(),
-    };
-
-    // Filter exercises matching today's split
-    const relevantExercises = exerciseCatalog.slice(0, 3);
-    const exercisesForSession = relevantExercises.map((ex) => {
-      const plateResult = calculateDumbbellPlates(15.0, defaultInv, true);
-      return {
-        definition: ex,
-        defaultWeightKg: plateResult.achievableWeightKg,
-        plateBreakdown: plateResult.summaryString,
-      };
-    });
-
-    dispatch(
-      startWorkoutSession({
-        dayName,
-        title: `${dayName}: Physical Conditioning & Hypertrophy`,
-        targetMuscles: "Chest, Shoulders & Upper Body",
-        skippingTarget: 100,
-        exercises: exercisesForSession,
-      })
-    );
+    router.push(`/gym?split=${dayName}`);
   };
 
   return (
@@ -131,13 +154,98 @@ export function TodayDashboardView({
             <CharacterHUD profile={profile} attributes={attributes} />
             <WaterMeter logs={hydrationLogs} targetMl={3000} dateStr={todayDateStr} />
             <WalkingMeter activity={activity} dateStr={todayDateStr} />
+
+            {/* Live Energy & Physiological Calorie Telemetry */}
+            <div className="hunter-panel rounded-3xl p-5 border border-slate-800 space-y-4 relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-orange-950/60 border border-orange-500/40 text-orange-400">
+                    <Flame className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                      ENERGY TELEMETRY (KCAL)
+                    </h3>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Biomechanical Expenditure &amp; Intake
+                    </span>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold text-orange-400">
+                  {totalBurnedCalories} kcal burned
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block uppercase">EXPELLED (BURNED)</span>
+                  <span className="text-sm font-black text-white">
+                    {totalBurnedCalories}{" "}
+                    <span className="text-xs font-normal text-slate-400">kcal</span>
+                  </span>
+                  <span className="text-[9px] text-slate-400 block mt-0.5">
+                    Gym: {workoutCalories} • Steps: {stepsCalories}
+                  </span>
+                </div>
+                <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block uppercase">CONSUMED (INTAKE)</span>
+                  <span className="text-sm font-black text-white">
+                    {consumedCalories}{" "}
+                    <span className="text-xs font-normal text-slate-400">/ {targetCalories}</span>
+                  </span>
+                  <span className="text-[9px] block mt-0.5 font-bold">
+                    {consumedCalories <= totalBurnedCalories ? (
+                      <span className="text-cyan-400">
+                        Deficit: -{totalBurnedCalories - consumedCalories} kcal
+                      </span>
+                    ) : (
+                      <span className="text-amber-400">
+                        Surplus: +{consumedCalories - totalBurnedCalories} kcal
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Visual Balance Bar */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] font-mono text-slate-400">
+                  <span>Intake vs Expenditure Ratio</span>
+                  <span
+                    className={
+                      consumedCalories <= totalBurnedCalories
+                        ? "text-cyan-400 font-bold"
+                        : "text-amber-400 font-bold"
+                    }
+                  >
+                    {totalBurnedCalories > 0
+                      ? Math.round((consumedCalories / totalBurnedCalories) * 100)
+                      : 0}
+                    % ratio
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden relative">
+                  <div
+                    className="h-full bg-gradient-to-r from-orange-500 via-amber-500 to-cyan-400 transition-all duration-500"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        totalBurnedCalories > 0
+                          ? (consumedCalories / totalBurnedCalories) * 100
+                          : 0
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Right Column (Col 6 to 12): Main Quest Dungeon Gate & Side Quests */}
           <div className="lg:col-span-7 space-y-6">
             {/* Solo Leveling Mandatory Daily System Directive */}
             <DailySystemQuestCard
-              workoutCompleted={false}
+              workoutCompleted={isTodayWorkoutCompleted}
               isRestDay={isSunday}
               currentHydrationMl={hydrationLogs.reduce((acc, l) => acc + l.amount_ml, 0)}
               targetHydrationMl={2400}
@@ -149,65 +257,29 @@ export function TodayDashboardView({
               initialCrateClaimed={profile.last_mystery_box_claimed_date === todayDateStr}
             />
 
-            {/* Main Quest: Home-Gym Workout Launch Card */}
-            <div className="hunter-panel rounded-3xl p-5 sm:p-6 border border-cyan-500/40 relative overflow-hidden shadow-xl shadow-cyan-950/30">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase tracking-wider block">
-                    MAIN QUEST // {dayName.toUpperCase()} DUNGEON INSTANCE
-                  </span>
-                  <h3 className="text-xl font-black text-white tracking-tight mt-0.5">
-                    {isSunday ? "Sunday: Honored Recovery Protocol" : `${dayName}: Dumbbell Hypertrophy & Volume`}
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-1">
-                    20-in-1 Bench • 60kg Plates Solver • 100 Skips Objective
-                  </p>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-400 shrink-0 self-start sm:self-auto">
-                  <Dumbbell className="w-6 h-6" />
-                </div>
-              </div>
-
-              {!isSunday ? (
-                <>
-                  <div className="mt-4 flex items-center justify-between text-xs text-slate-400 font-mono pt-3 border-t border-slate-800">
-                    <span>Structured Exercises • Rest Countdown Timers</span>
-                    <span className="text-cyan-400 font-bold">+200-350 XP • STR & DIS</span>
-                  </div>
-
-                  <div className="mt-4 flex gap-3">
-                    <button
-                      onClick={handleLaunchWorkout}
-                      className="flex-1 py-4 rounded-2xl bg-gradient-to-r from-cyan-600 via-blue-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-cyan-950 transition active:scale-[0.98]"
-                    >
-                      <Play className="w-4 h-4 fill-white" />
-                      ENTER GATE // START LIVE WORKOUT
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="mt-4 p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-400 font-mono">
-                  Honored recovery day. Active stretching, hydration, and central nervous system replenishment.
-                </div>
-              )}
-            </div>
-
             {/* Quests Engine */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                  ACTIVE QUESTS & COMMITMENTS
+                  ACTIVE QUESTS &amp; COMMITMENTS
                 </h2>
                 <span className="text-[10px] font-mono text-cyan-400">
-                  {quests.filter((q) => q.status === "completed").length} / {quests.length} COMPLETED
+                  {quests.filter((q) => q.status === "completed").length + (isTodayWorkoutCompleted ? 1 : 0)} / {quests.length + 1} COMPLETED
                 </span>
               </div>
 
               <QuestList
                 quests={quests}
-                onOpenManualModal={() => setIsManualModalOpen(true)}
-                onOpenSmartModal={() => setIsSmartModalOpen(true)}
+                hideCreationButtons={true}
+                mainQuestSplit={{
+                  dayName,
+                  title: todaySplitInfo.title,
+                  subtitle: todaySplitInfo.subtitle,
+                  isRest: isSunday,
+                  isCompleted: isTodayWorkoutCompleted,
+                  sessionData: todaySession,
+                  onEnterGym: handleNavigateToGym,
+                }}
               />
             </div>
           </div>
@@ -227,7 +299,7 @@ export function TodayDashboardView({
 
       {/* Android Mobile Bottom Navigation */}
       <div className="md:hidden">
-        <BottomNav onStartWorkout={handleLaunchWorkout} />
+        <BottomNav onStartWorkout={handleNavigateToGym} />
       </div>
     </div>
   );

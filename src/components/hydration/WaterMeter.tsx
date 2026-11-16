@@ -1,6 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { tapWaterAction, undoWaterAction } from "@/server/actions/hydration.actions";
 import { triggerHaptic } from "@/lib/utils";
 import { Droplets, Plus, RotateCcw } from "lucide-react";
@@ -13,23 +14,63 @@ interface WaterMeterProps {
 }
 
 export function WaterMeter({ logs, targetMl = 3000, dateStr }: WaterMeterProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const totalMl = logs.reduce((sum, log) => sum + log.amount_ml, 0);
-  const percentage = Math.min(100, Math.round((totalMl / targetMl) * 100));
-  const remainingMl = Math.max(0, targetMl - totalMl);
+  // Client-side local date detection to properly handle midnight transitions in user timezone
+  const getClientLocalDate = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  const clientToday = getClientLocalDate();
+  // If the server provided a UTC date that is yesterday relative to client local time, client date takes priority
+  const effectiveDateStr = dateStr === clientToday ? dateStr : clientToday;
+
+  const serverTotalMl = logs.reduce((sum, log) => sum + log.amount_ml, 0);
+  // Optimistic local state: updates instantly on tap with zero wait or manual refresh needed
+  const [optimisticMl, setOptimisticMl] = useState<number>(serverTotalMl);
+
+  useEffect(() => {
+    setOptimisticMl(serverTotalMl);
+  }, [serverTotalMl]);
+
+  // Midnight day-reset watcher: auto-resets water to 0ml when clock crosses 12:00 AM
+  useEffect(() => {
+    const checkDayTransition = () => {
+      const currentLocalDay = getClientLocalDate();
+      if (dateStr !== currentLocalDay) {
+        setOptimisticMl(0);
+        router.refresh();
+      }
+    };
+    const timer = setInterval(checkDayTransition, 15000);
+    return () => clearInterval(timer);
+  }, [dateStr, router]);
+
+  const currentMl = optimisticMl;
+  const percentage = Math.min(100, Math.round((currentMl / targetMl) * 100));
+  const remainingMl = Math.max(0, targetMl - currentMl);
 
   const handleAddWater = () => {
     triggerHaptic("medium");
+    const nextTotal = currentMl + 300;
+    setOptimisticMl(nextTotal); // Instant UI feedback!
+
     startTransition(async () => {
-      await tapWaterAction(dateStr, 300);
+      await tapWaterAction(effectiveDateStr, 300);
+      router.refresh();
     });
   };
 
   const handleUndo = () => {
     triggerHaptic("light");
+    const prevTotal = Math.max(0, currentMl - 300);
+    setOptimisticMl(prevTotal); // Instant UI feedback!
+
     startTransition(async () => {
-      await undoWaterAction(dateStr);
+      await undoWaterAction(effectiveDateStr);
+      router.refresh();
     });
   };
 
@@ -87,7 +128,7 @@ export function WaterMeter({ logs, targetMl = 3000, dateStr }: WaterMeterProps) 
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-baseline mb-1">
             <span className="text-xl font-black font-mono text-white tracking-tight">
-              {totalMl} <span className="text-xs text-slate-400 font-normal">ml</span>
+              {currentMl} <span className="text-xs text-slate-400 font-normal">ml</span>
             </span>
             <span className="text-xs text-slate-500 font-mono">
               / {targetMl} ml Target

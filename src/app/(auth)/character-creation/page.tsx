@@ -47,7 +47,7 @@ export default function CharacterCreationPage() {
   const [plate125kgCount, setPlate125kgCount] = useState(4); // 5 kg
   const [plate1kgCount, setPlate1kgCount] = useState(4); // 4 kg -> Total ~67kg (or configured by user)
 
-  // Step 3: Affordable Bengali Fuel & Budget
+  // Step 3: Affordable Nutrition Fuel & Budget
   const [sattuDailyGrams, setSattuDailyGrams] = useState(50);
   const [boiledEggsWeeklyDays, setBoiledEggsWeeklyDays] = useState(4);
   const [monthlyBudgetInr, setMonthlyBudgetInr] = useState(4500);
@@ -434,7 +434,7 @@ export default function CharacterCreationPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
               <Utensils className="w-4 h-4" />
-              <span>STEP 3: AFFORDABLE BENGALI FUEL &amp; BUDGET TARGETS</span>
+              <span>STEP 3: AFFORDABLE NUTRITION FUEL &amp; BUDGET TARGETS</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

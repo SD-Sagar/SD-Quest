@@ -7,6 +7,7 @@ import { triggerHaptic } from "@/lib/utils";
 import { calculateDumbbellPlates } from "@/lib/calculations/gym";
 import { MASTER_EXERCISE_CATALOG, MasterExercise } from "@/lib/data/exerciseCatalog";
 import { getCustomPlanAction, saveCustomPlanAction } from "@/server/actions/player.actions";
+import { getTodaysWorkoutsAction } from "@/server/actions/workout.actions";
 import {
   DayOfWeek,
   EquipmentInventory,
@@ -82,6 +83,8 @@ export function CustomPlanManager({ equipment }: CustomPlanManagerProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [todaysCompletedSessions, setTodaysCompletedSessions] = useState<any[]>([]);
+  const [devUnlockOverride, setDevUnlockOverride] = useState(false);
 
   // New Custom Exercise Form State
   const [newExName, setNewExName] = useState("");
@@ -117,9 +120,18 @@ export function CustomPlanManager({ equipment }: CustomPlanManagerProps) {
         }
       })
       .catch((err) => console.error("Failed to load custom plan from Supabase:", err));
+
+    getTodaysWorkoutsAction()
+      .then((sessions) => {
+        setTodaysCompletedSessions(sessions || []);
+      })
+      .catch(() => {});
   }, []);
 
   const currentList = dayRoutines[selectedDay] || [];
+  const isTodayCustomCompleted =
+    todaysCompletedSessions.length > 0 &&
+    todaysCompletedSessions.some((s) => s.split_day === selectedDay);
 
   const handleSavePlan = async () => {
     triggerHaptic("heavy");
@@ -341,12 +353,12 @@ export function CustomPlanManager({ equipment }: CustomPlanManagerProps) {
           </div>
 
           {/* Save & Launch Buttons */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
             <button
               type="button"
               disabled={isSaving}
               onClick={handleSavePlan}
-              className={`px-4 py-2.5 rounded-2xl text-xs font-mono font-bold uppercase transition flex items-center gap-1.5 ${
+              className={`px-4 py-2.5 rounded-2xl text-xs font-mono font-bold uppercase transition flex items-center justify-center gap-1.5 ${
                 savedSuccess
                   ? "bg-emerald-600 text-white shadow-lg shadow-emerald-950"
                   : "bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/40"
@@ -356,15 +368,34 @@ export function CustomPlanManager({ equipment }: CustomPlanManagerProps) {
               <span>{savedSuccess ? "PERSISTED TO CLOUD ✓" : isSaving ? "SAVING..." : "SAVE ROUTINE"}</span>
             </button>
 
-            <button
-              type="button"
-              disabled={currentList.length === 0}
-              onClick={handleLaunchCustomSession}
-              className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-mono font-black uppercase shadow-lg shadow-purple-950 transition flex items-center gap-1.5 disabled:opacity-40"
-            >
-              <Play className="w-4 h-4 fill-white" />
-              <span>START CUSTOM SESSION</span>
-            </button>
+            {isTodayCustomCompleted && !devUnlockOverride ? (
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5">
+                <span className="px-3.5 py-2.5 rounded-2xl bg-purple-950/70 border border-purple-500/40 text-purple-300 font-mono text-[11px] font-bold uppercase text-center flex items-center justify-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
+                  <span>SESSION COMPLETED</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("medium");
+                    setDevUnlockOverride(true);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-purple-900/40 hover:bg-purple-900/70 border border-purple-500/30 text-purple-300 text-[10px] font-mono font-bold uppercase transition text-center"
+                >
+                  DEV OVERRIDE
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={currentList.length === 0}
+                onClick={handleLaunchCustomSession}
+                className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-mono font-black uppercase shadow-lg shadow-purple-950 transition flex items-center justify-center gap-1.5 disabled:opacity-40"
+              >
+                <Play className="w-4 h-4 fill-white" />
+                <span>START CUSTOM SESSION</span>
+              </button>
+            )}
           </div>
         </div>
 

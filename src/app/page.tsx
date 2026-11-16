@@ -51,9 +51,13 @@ export default async function HomePage() {
     };
   }
 
-  // 3. Compute current date and day
+  // 3. Compute current local date and day (preserves user timezone across midnight)
   const today = new Date();
-  const todayDateStr = today.toISOString().split("T")[0];
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const date = String(today.getDate()).padStart(2, "0");
+  const todayDateStr = `${year}-${month}-${date}`;
+
   const daysMap: DayOfWeek[] = [
     "Sunday",
     "Monday",
@@ -74,6 +78,7 @@ export default async function HomePage() {
     activity,
     nutritionLogs,
     nutritionTargets,
+    completedWorkouts,
   ] = await Promise.all([
     WorkoutRepository.getEquipment(user.id),
     WorkoutRepository.getExerciseCatalog(),
@@ -82,6 +87,7 @@ export default async function HomePage() {
     ActivityRepository.getActivityForDate(user.id, todayDateStr),
     NutritionRepository.getLogsForDate(user.id, todayDateStr),
     NutritionRepository.getTargets(user.id),
+    WorkoutRepository.getTodaysCompletedWorkouts(user.id),
   ]);
 
   return (
@@ -97,6 +103,7 @@ export default async function HomePage() {
       nutritionTargets={nutritionTargets}
       todayDateStr={todayDateStr}
       dayName={dayName}
+      completedWorkouts={completedWorkouts}
     />
   );
 }

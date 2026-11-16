@@ -8,6 +8,9 @@ ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS last_mystery_box_claimed_date DATE,
   ADD COLUMN IF NOT EXISTS active_session_state JSONB DEFAULT NULL;
 
+ALTER TABLE workout_sessions 
+  ADD COLUMN IF NOT EXISTS calories_burned INT DEFAULT 0;
+
 -- 2. ENSURE CUSTOM WORKOUT PLANS TABLE EXISTS WITH RLS
 CREATE TABLE IF NOT EXISTS custom_workout_plans (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

@@ -4,7 +4,11 @@ import { useState, useEffect } from "react";
 import { useAppDispatch } from "@/store";
 import { startWorkoutSession, restoreWorkoutSession } from "@/store/slices/workoutUiSlice";
 import { triggerHaptic } from "@/lib/utils";
-import { calculateDumbbellPlates } from "@/lib/calculations/gym";
+import {
+  calculateDumbbellPlates,
+  getRankVolumeWarning,
+  calculateExtraWorkoutXpMultiplier,
+} from "@/lib/calculations/gym";
 import {
   MasterExercise,
   getDayExercises,
@@ -16,6 +20,7 @@ import {
   getExerciseAttributeYield,
 } from "@/lib/data/exerciseCatalog";
 import { getActiveSessionAction, clearActiveSessionAction } from "@/server/actions/player.actions";
+import { getTodaysWorkoutsAction } from "@/server/actions/workout.actions";
 import { ExerciseCodexModal } from "./ExerciseCodexModal";
 import { ActiveWorkoutModal } from "./ActiveWorkoutModal";
 import { CustomPlanManager } from "./CustomPlanManager";
@@ -45,6 +50,7 @@ import {
   Flame,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
 } from "lucide-react";
 
 const SPLIT_SCHEDULE: { day: DayOfWeek; title: string; subtitle: string; isRest: boolean }[] = [
@@ -62,6 +68,8 @@ interface GymTrainerHubProps {
   exerciseCatalog: ExerciseDefinition[];
   playerLevel: number;
   playerRank: HunterRank;
+  initialCompletedSessions?: any[];
+  initialActiveSession?: any | null;
 }
 
 export function GymTrainerHub({
@@ -69,6 +77,8 @@ export function GymTrainerHub({
   exerciseCatalog,
   playerLevel = 1,
   playerRank = "Recruit",
+  initialCompletedSessions = [],
+  initialActiveSession = null,
 }: GymTrainerHubProps) {
   const dispatch = useAppDispatch();
 
@@ -92,14 +102,37 @@ export function GymTrainerHub({
   const [selectedExerciseForModal, setSelectedExerciseForModal] = useState<MasterExercise | null>(null);
   const [targetWeightCalc, setTargetWeightCalc] = useState(15.0);
   const [showFullLibrary, setShowFullLibrary] = useState(false);
-  const [savedUnfinishedSession, setSavedUnfinishedSession] = useState<any | null>(null);
+  const [savedUnfinishedSession, setSavedUnfinishedSession] = useState<any | null>(initialActiveSession || null);
+  const [todaysCompletedSessions, setTodaysCompletedSessions] = useState<any[]>(initialCompletedSessions || []);
+  const [devUnlockOverride, setDevUnlockOverride] = useState(false);
+  const [warningModalData, setWarningModalData] = useState<{
+    title: string;
+    message: string;
+    pendingExercise?: MasterExercise;
+  } | null>(null);
 
-  // Check for saved unfinished session in Supabase (Cross-device, NO localStorage)
+  // Sync initial props or refresh from Supabase
+  useEffect(() => {
+    if (initialActiveSession !== undefined) {
+      setSavedUnfinishedSession(initialActiveSession);
+    }
+  }, [initialActiveSession]);
+
+  useEffect(() => {
+    if (initialCompletedSessions !== undefined) {
+      setTodaysCompletedSessions(initialCompletedSessions);
+    }
+  }, [initialCompletedSessions]);
+
   useEffect(() => {
     getActiveSessionAction().then((saved) => {
       if (saved?.isActive && saved?.status !== "completed") {
         setSavedUnfinishedSession(saved);
       }
+    }).catch(() => {});
+
+    getTodaysWorkoutsAction().then((sessions) => {
+      setTodaysCompletedSessions(sessions || []);
     }).catch(() => {});
   }, []);
 
@@ -107,6 +140,30 @@ export function GymTrainerHub({
   const dayExercises = getDayExercises(selectedDay);
   const bellyExercises = getDailyBellyProtocol(selectedDay);
   const isSunday = selectedDay === "Sunday";
+
+  // A full split is completed only by a full training session, NOT a single exercise solo trial
+  const isFullSplitSession = (s: any) =>
+    !s.title?.toLowerCase().startsWith("solo trial") &&
+    !s.notes?.includes("[SOLO_TRIAL]") &&
+    !s.notes?.includes("[SINGLE_EXERCISE]");
+
+  const isTodayCompleted = todaysCompletedSessions.length > 0 && todaysCompletedSessions.some(
+    (s) => s.split_day === todayName && isFullSplitSession(s)
+  );
+
+  // If today's workout is already completed, automatically purge any leftover in-progress session
+  useEffect(() => {
+    if (isTodayCompleted && savedUnfinishedSession) {
+      clearActiveSessionAction().catch(() => {});
+      setSavedUnfinishedSession(null);
+    }
+  }, [isTodayCompleted, savedUnfinishedSession]);
+
+  const completedExerciseNames = new Set(
+    todaysCompletedSessions.flatMap((s) =>
+      (s.workout_set_logs || []).map((l: any) => l.exercise_name?.toLowerCase())
+    )
+  );
 
   const defaultInv: EquipmentInventory = equipment || {
     id: "default",
@@ -163,11 +220,14 @@ export function GymTrainerHub({
       };
 
       const solver = calculateDumbbellPlates(15.0, defaultInv, true);
+      const wasDoneEarlier = completedExerciseNames.has(masterEx.name.toLowerCase());
+
       return {
         definition: def,
         defaultWeightKg: solver.achievableWeightKg,
         plateBreakdown: solver.summaryString,
         phase: masterEx.phase,
+        isPreCompleted: wasDoneEarlier,
       };
     });
 
@@ -180,6 +240,72 @@ export function GymTrainerHub({
         exercises: sessionExercises,
       })
     );
+  };
+
+  const executeIndividualExercise = (exercise: MasterExercise) => {
+    const solver = calculateDumbbellPlates(15.0, defaultInv, true);
+    const def: ExerciseDefinition = {
+      id: exercise.id,
+      name: exercise.name,
+      target_muscle: exercise.target_muscle,
+      secondary_muscles: exercise.secondary_muscles,
+      bench_angle: exercise.bench_angle,
+      required_equipment: exercise.required_equipment,
+      instructions: exercise.instructions,
+      form_cues: exercise.form_cues,
+      common_mistakes: exercise.common_mistakes,
+      alternatives: exercise.alternatives,
+      default_sets: exercise.default_sets,
+      default_reps_min: exercise.default_reps_min,
+      default_reps_max: exercise.default_reps_max,
+      default_rest_seconds: exercise.default_rest_seconds,
+    };
+
+    const isExtra = isTodayCompleted;
+    const multiplier = isExtra ? calculateExtraWorkoutXpMultiplier(todaysCompletedSessions.length) : 1.0;
+
+    dispatch(
+      startWorkoutSession({
+        dayName: currentSplit.day,
+        title: `Solo Trial: ${exercise.name}`,
+        targetMuscles: exercise.target_muscle,
+        skippingTarget: 50,
+        isSingleExercise: true,
+        isExtraWorkout: isExtra,
+        extraWorkoutMultiplier: multiplier,
+        exercises: [
+          {
+            definition: def,
+            defaultWeightKg: solver.achievableWeightKg,
+            plateBreakdown: solver.summaryString,
+            phase: "core",
+          },
+        ],
+      })
+    );
+  };
+
+  const handleLaunchIndividualExercise = (exercise: MasterExercise) => {
+    triggerHaptic("medium");
+    const totalSetsToday = todaysCompletedSessions.reduce((acc, s) => acc + (s.workout_set_logs?.length || 0), 0);
+    const warning = getRankVolumeWarning({
+      playerRank,
+      playerLevel,
+      totalSetsToday,
+      isExtraWorkout: isTodayCompleted,
+      exerciseName: exercise.name,
+    });
+
+    if (warning.severity === "hazard" || warning.severity === "caution") {
+      setWarningModalData({
+        title: warning.title,
+        message: warning.message,
+        pendingExercise: exercise,
+      });
+      return;
+    }
+
+    executeIndividualExercise(exercise);
   };
 
   const handleResumeSavedSession = () => {
@@ -230,14 +356,14 @@ export function GymTrainerHub({
         </button>
       </div>
 
-      {/* Unfinished Session Notification Banner */}
-      {savedUnfinishedSession && (
+      {/* Unfinished Session Notification Banner (suppressed if today's session is already completed) */}
+      {savedUnfinishedSession && !isTodayCompleted && (
         <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/70 via-slate-900 to-amber-950/70 border border-amber-500/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-pulse">
           <div className="flex items-center gap-2.5">
             <Zap className="w-5 h-5 text-amber-400 shrink-0" />
             <div>
               <span className="text-xs font-mono font-bold text-amber-300 block uppercase">
-                UNFINISHED WORKOUT SESSION PERSISTED
+                UNFINISHED WORKOUT SESSION {savedUnfinishedSession.dayName ? `(${savedUnfinishedSession.dayName.toUpperCase()})` : "PERSISTED"}
               </span>
               <span className="text-[11px] text-slate-300">
                 {savedUnfinishedSession.title} ({savedUnfinishedSession.exercises?.length || 0} exercises)
@@ -438,14 +564,34 @@ export function GymTrainerHub({
                   </div>
                 </div>
 
-                {/* Start Workout Button */}
-                <button
-                  onClick={handleLaunchSession}
-                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-950 transition flex items-center justify-center gap-2 group"
-                >
-                  <Play className="w-4 h-4 fill-white group-hover:scale-110 transition-transform" />
-                  <span>START {currentSplit.day.toUpperCase()} TRAINING SESSION</span>
-                </button>
+                {/* Start Workout Button or Locked + Dev Override */}
+                {isTodayCompleted && !devUnlockOverride ? (
+                  <div className="space-y-2 pt-1">
+                    <div className="w-full py-4 rounded-2xl bg-cyan-950/40 border border-cyan-500/40 text-cyan-300 font-mono font-bold text-xs uppercase tracking-wider text-center flex items-center justify-center gap-2 shadow-inner">
+                      <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+                      <span>TODAY'S TRAINING QUOTA COMPLETED // SYSTEM LOCKED</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("medium");
+                        setDevUnlockOverride(true);
+                      }}
+                      className="w-full py-2.5 rounded-xl bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/30 text-purple-300 hover:text-white font-mono text-[11px] font-bold uppercase transition flex items-center justify-center gap-1.5"
+                    >
+                      <Sliders className="w-3.5 h-3.5" />
+                      <span>DEV OVERRIDE // UNLOCK TODAY'S SESSION FOR TESTING</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleLaunchSession}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-950 transition flex items-center justify-center gap-2 group"
+                  >
+                    <Play className="w-4 h-4 fill-white group-hover:scale-110 transition-transform" />
+                    <span>START {currentSplit.day.toUpperCase()} TRAINING SESSION</span>
+                  </button>
+                )}
               </div>
 
               {/* Curated Today's Session Pathway */}
@@ -528,9 +674,32 @@ export function GymTrainerHub({
                       </div>
 
                       <div className="shrink-0 flex items-center gap-2">
-                        <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-1 rounded-xl">
-                          ACTIVE SET
-                        </span>
+                        {completedExerciseNames.has(ex.name.toLowerCase()) ? (
+                          <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-2.5 py-1 rounded-xl flex items-center gap-1 shadow-sm shadow-cyan-950">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+                            COMPLETED ✓
+                          </span>
+                        ) : (isTodayCompleted && selectedDay === todayName) ? (
+                          <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950/60 border border-amber-500/30 px-2 py-1 rounded-xl flex items-center gap-1">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                            SKIPPED ⚠
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-1 rounded-xl">
+                            ACTIVE SET
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleLaunchIndividualExercise(ex);
+                          }}
+                          className="p-1.5 rounded-lg bg-cyan-950/70 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-black transition"
+                          title="Launch Individual Solo Trial"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                        </button>
                         <ChevronRight className="w-4 h-4 text-slate-500" />
                       </div>
                     </div>
@@ -584,11 +753,26 @@ export function GymTrainerHub({
                                 Bench: {ex.bench_angle} • {ex.target_muscle}
                               </span>
                             </div>
-                            {unlocked ? (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            ) : (
-                              <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                            )}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {unlocked && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleLaunchIndividualExercise(ex);
+                                  }}
+                                  className="p-1 rounded-md bg-cyan-950/70 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-black transition"
+                                  title="Launch Solo Trial"
+                                >
+                                  <Play className="w-3 h-3 fill-current" />
+                                </button>
+                              )}
+                              {unlocked ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              ) : (
+                                <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -657,7 +841,52 @@ export function GymTrainerHub({
         playerLevel={playerLevel}
         playerRank={playerRank}
         equipment={defaultInv}
+        onLaunchIndividual={handleLaunchIndividualExercise}
       />
+
+      {/* Rank Volume Warning Modal */}
+      {warningModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="max-w-md w-full hunter-panel rounded-3xl border border-amber-500/50 p-6 space-y-4 shadow-2xl shadow-amber-950/50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-widest block">
+                  SYSTEM ADVISORY // {playerRank.toUpperCase()} RANK
+                </span>
+                <h3 className="text-base font-black text-white">{warningModalData.title}</h3>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed font-sans bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+              {warningModalData.message}
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setWarningModalData(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono font-bold text-xs transition"
+              >
+                ABORT TRIAL
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const ex = warningModalData.pendingExercise;
+                  setWarningModalData(null);
+                  if (ex) executeIndividualExercise(ex);
+                }}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-mono font-bold text-xs uppercase shadow transition"
+              >
+                PROCEED ANYWAY (OVERRIDE)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Active Workout Session Modal */}
       <ActiveWorkoutModal />

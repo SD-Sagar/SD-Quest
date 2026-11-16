@@ -16,10 +16,11 @@ export default async function GymPage() {
 
   if (!user) redirect("/login");
 
-  const [profile, equipment, exerciseCatalog] = await Promise.all([
+  const [profile, equipment, exerciseCatalog, completedWorkouts] = await Promise.all([
     PlayerRepository.getProfile(user.id),
     WorkoutRepository.getEquipment(user.id),
     WorkoutRepository.getExerciseCatalog(),
+    WorkoutRepository.getTodaysCompletedWorkouts(user.id),
   ]);
 
   return (
@@ -46,6 +47,8 @@ export default async function GymPage() {
           exerciseCatalog={exerciseCatalog}
           playerLevel={profile?.current_level || 1}
           playerRank={profile?.rank || "Recruit"}
+          initialCompletedSessions={completedWorkouts}
+          initialActiveSession={profile?.active_session_state || null}
         />
       </main>
       <div className="md:hidden">

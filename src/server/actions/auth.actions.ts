@@ -165,7 +165,7 @@ export async function initializeCharacterAction(params: {
   plate2kgCount?: number;
   plate125kgCount: number;
   plate1kgCount?: number;
-  // Bengali Fuel & Budget
+  // Daily Fuel & Budget
   sattuDailyGrams: number;
   boiledEggsWeeklyDays: number;
   monthlyBudgetInr: number;
@@ -205,7 +205,7 @@ export async function initializeCharacterAction(params: {
       custom_plates: [],
     });
 
-    // 3. Initialize Nutrition Targets (Bengali staples & budget)
+    // 3. Initialize Nutrition Targets (daily staples & budget)
     await NutritionRepository.upsertTargets(user.id, {
       target_calories: 2200,
       target_protein_g: Math.round(params.weightKg * 1.6), // ~1.6g/kg

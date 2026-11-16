@@ -1,4 +1,4 @@
-import { EquipmentInventory, EquipmentPlate } from "@/types";
+import { EquipmentInventory, EquipmentPlate, HunterRank } from "@/types";
 
 export interface PlateCombinationResult {
   achievableWeightKg: number;
@@ -48,34 +48,33 @@ export function calculateDumbbellPlates(
   // Greedy plate solver
   for (const plate of sortedPlates) {
     const maxUsablePerSide = Math.floor(plate.count / divisor);
-    let countUsed = 0;
+    const neededPerSide = Math.floor(
+      (targetPerSide - currentPerSide + 0.001) / plate.weightKg
+    );
+    const take = Math.min(maxUsablePerSide, neededPerSide);
 
-    while (
-      countUsed < maxUsablePerSide &&
-      currentPerSide + plate.weightKg <= targetPerSide + 0.001
-    ) {
-      currentPerSide += plate.weightKg;
-      countUsed++;
-    }
-
-    if (countUsed > 0) {
-      platesPerSide.push({ weightKg: plate.weightKg, count: countUsed });
+    if (take > 0) {
+      platesPerSide.push({ weightKg: plate.weightKg, count: take });
+      currentPerSide += take * plate.weightKg;
     }
   }
 
-  const achievedTotalWeight = handleWeight + currentPerSide * 2;
-  const isExact = Math.abs(achievedTotalWeight - targetTotalWeightKg) < 0.1;
+  const achievableTotalPerDumbbell = Number(
+    (handleWeight + currentPerSide * 2).toFixed(2)
+  );
+  const isExact = Math.abs(achievableTotalPerDumbbell - targetTotalWeightKg) < 0.1;
 
-  let summaryString = `Handle (${handleWeight}kg)`;
-  if (platesPerSide.length > 0) {
-    const platesText = platesPerSide
-      .map((p) => `${p.count}×${p.weightKg}kg`)
-      .join(" + ");
-    summaryString += ` + [${platesText}] per side`;
-  }
+  // Build summary text
+  const breakdownParts = platesPerSide.map(
+    (p) => `${p.count}×${p.weightKg}kg`
+  );
+  const summaryString =
+    breakdownParts.length > 0
+      ? `Handle (${handleWeight}kg) + [${breakdownParts.join(" + ")}] per side`
+      : `Bare Handle (${handleWeight}kg)`;
 
   return {
-    achievableWeightKg: Number(achievedTotalWeight.toFixed(2)),
+    achievableWeightKg: achievableTotalPerDumbbell,
     isExact,
     platesPerSide,
     summaryString,
@@ -83,10 +82,9 @@ export function calculateDumbbellPlates(
 }
 
 /**
- * Double Progression Rule Evaluator
- * When all sets reach max target reps with controlled RPE, prescribe next weight step.
+ * Double Progression Rule (Section 7.3 of gym.txt)
  */
-export function evaluateDoubleProgression(
+export function checkDoubleProgression(
   sets: { actualReps: number; targetRepsMax: number; rpe?: number }[],
   currentWeightKg: number,
   nextAchievableWeightKg: number
@@ -123,28 +121,220 @@ export function evaluateDoubleProgression(
 }
 
 /**
- * MET-based workout calorie expenditure estimator.
- * Formula: Calories = Duration (hours) × MET × Bodyweight (kg)
- * Reference values:
- * - Dumbbell Resistance Training: 5.5 MET
- * - Heavy Leg / Back Compounds: 6.5 MET
- * - Core / Belly Protocol: 4.0 MET
- * - Jump Rope (100+ skips): 10.0 MET
- * - Mobility & Active Recovery: 2.5 MET
+ * Advanced Biomechanical & Physiological Calorie Expenditure Engine
+ * Incorporates:
+ * 1. Height & displacement mechanics (arm reach vs squat displacement).
+ * 2. Weight & body mass fraction lifted.
+ * 3. Exact mechanical work in Joules converted to metabolic kcal (efficiency η ≈ 0.21).
+ * 4. Duration, rest intervals, and metabolic conditioning factor based on player rank.
+ * 5. Compulsory skipping plyometric burn (MET 11.5).
  */
-export function calculateWorkoutCalories(
+export function calculateAccurateWorkoutCalories(params: {
+  durationSeconds: number;
+  heightCm: number;
+  weightKg: number;
+  playerLevel: number;
+  playerRank: HunterRank;
+  sets: { weightKg: number; reps: number; exerciseName?: string; targetMuscle?: string }[];
+  skippingCount?: number;
+}): {
+  totalCaloriesBurned: number;
+  mechanicalWorkKcal: number;
+  aerobicRestKcal: number;
+  skippingKcal: number;
+  tonnageMovedKg: number;
+} {
+  const {
+    durationSeconds,
+    heightCm = 175,
+    weightKg = 70,
+    playerLevel = 1,
+    sets = [],
+    skippingCount = 0,
+  } = params;
+
+  const heightM = heightCm / 100;
+  let totalTonnageKg = 0;
+  let mechanicalWorkJoules = 0;
+  let legCompoundCount = 0;
+
+  // 1. Calculate Mechanical Work Per Rep based on anthropometric travel
+  for (const s of sets) {
+    const pairWeight = s.weightKg * 2; // pair of dumbbells
+    totalTonnageKg += pairWeight * s.reps;
+
+    const muscle = (s.targetMuscle || s.exerciseName || "").toLowerCase();
+    const isLegCompound =
+      muscle.includes("quad") ||
+      muscle.includes("leg") ||
+      muscle.includes("squat") ||
+      muscle.includes("glute") ||
+      muscle.includes("lunge");
+
+    if (isLegCompound) legCompoundCount += 1;
+
+    // Vertical displacement travel distance
+    // Squats: ~0.45 of height. Bench/Presses: ~0.35 of height
+    const displacement = isLegCompound ? heightM * 0.45 : heightM * 0.35;
+
+    // For leg movements, lifter also displaces ~65% of upper bodyweight against gravity
+    const bodyweightLoad = isLegCompound ? weightKg * 0.65 : 0;
+    const totalMassLifted = pairWeight + bodyweightLoad;
+
+    // Work = force * distance = (m * g) * d
+    // Concentric lift + controlled eccentric lowering adds 30% eccentric energy expenditure
+    const workPerRep = totalMassLifted * 9.81 * displacement * 1.30;
+    mechanicalWorkJoules += workPerRep * s.reps;
+  }
+
+  // Muscular mechanical efficiency η ≈ 0.21. 1 kcal = 4184 Joules.
+  const mechanicalWorkKcal = mechanicalWorkJoules / (0.21 * 4184);
+
+  // 2. Realistic Exercise Physiology Duration & MET Expenditure (Compendium / ACSM standard)
+  // Each performed set represents ~1.8 to 2.2 minutes of total cardiovascular and neuromuscular exertion (tempo + rest interval).
+  // If app elapsed time is short (e.g. user logged sets after training), we ground duration in biological set volume.
+  const physicalDurationMinutes = Math.max(
+    durationSeconds / 60,
+    sets.length > 0 ? sets.length * 1.9 : 15
+  );
+
+  // Vigorous resistance training MET: 6.5 baseline, up to 7.8 for heavy leg/chest compound splits
+  const baseMet = legCompoundCount > 3 ? 7.6 : 6.8;
+
+  // Conditioning Factor: Day 1 Recruit expends slightly more metabolic effort per unit work (+8%),
+  // while seasoned Spartans have optimized muscular efficiency
+  const conditioningFactor = Math.max(0.94, 1.08 - (playerLevel - 1) * 0.005);
+
+  // ACSM Caloric Burn Formula: kcal/min = (MET * 3.5 * weightKg) / 200
+  const metabolicKcalPerMinute = ((baseMet * 3.5 * weightKg) / 200) * conditioningFactor;
+  const aerobicResistanceKcal = physicalDurationMinutes * metabolicKcalPerMinute;
+
+  // 3. Skipping Rope Plyometrics
+  // ~0.18 kcal per skip scaled to user bodyweight (70kg baseline)
+  const skippingKcal = (skippingCount / 100) * 18.0 * (weightKg / 70);
+
+  // Combined physiological expenditure (metabolic baseline + mechanical load EPOC factor + plyometrics)
+  const totalCaloriesBurned = Math.round(aerobicResistanceKcal + mechanicalWorkKcal * 0.45 + skippingKcal);
+
+  return {
+    totalCaloriesBurned: Math.max(30, totalCaloriesBurned),
+    mechanicalWorkKcal: Math.round(mechanicalWorkKcal),
+    aerobicRestKcal: Math.round(aerobicResistanceKcal),
+    skippingKcal: Math.round(skippingKcal),
+    tonnageMovedKg: Math.round(totalTonnageKg),
+  };
+}
+
+/**
+ * Calculates Caloric Expenditure from Daily Walking & Steps
+ */
+export function calculateStepsCalories(
+  steps: number,
+  weightKg: number = 70,
+  heightCm: number = 175
+): { distanceKm: number; caloriesBurned: number } {
+  // Stride length formula: height (cm) * 0.415
+  const strideMeters = (heightCm * 0.415) / 100;
+  const distanceKm = Number(((steps * strideMeters) / 1000).toFixed(2));
+  
+  // Standard human walking expenditure: ~0.73 kcal per kg per km
+  const caloriesBurned = Math.round(distanceKm * weightKg * 0.73);
+  return { distanceKm, caloriesBurned };
+}
+
+/**
+ * Generates Rank-Differentiated Over-Training & Volume Warnings
+ */
+export function getRankVolumeWarning(params: {
+  playerRank: HunterRank;
+  playerLevel: number;
+  totalSetsToday: number;
+  isExtraWorkout: boolean;
+  exerciseName?: string;
+}): {
+  severity: "none" | "caution" | "hazard" | "spartan_pass";
+  title: string;
+  message: string;
+  allowProceed: boolean;
+} {
+  const { playerRank, playerLevel, totalSetsToday, isExtraWorkout } = params;
+
+  if (playerRank === "Spartan" || playerLevel >= 40) {
+    return {
+      severity: "spartan_pass",
+      title: "SPARTAN RESILIENCE // THRESHOLD EXPANDED",
+      message: "The System acknowledges elite Spartan conditioning. Work capacity limiters deactivated. Caloric burn multiplier engaged.",
+      allowProceed: true,
+    };
+  }
+
+  if (playerRank === "Recruit" || playerLevel <= 4) {
+    if (isExtraWorkout || totalSetsToday >= 15) {
+      return {
+        severity: "hazard",
+        title: "SYSTEM WARNING: HIGH VOLUME HAZARD (RECRUIT RANK)",
+        message: "Your central nervous system and tendon attachments are still in Awakening adaptation. Continuing high volume may trigger Fatigue status (-20% next-day stat yield). Rest is strongly advised.",
+        allowProceed: true,
+      };
+    }
+  }
+
+  if (playerRank === "Initiate" || (playerLevel >= 5 && playerLevel <= 9)) {
+    if (totalSetsToday >= 20 || isExtraWorkout) {
+      return {
+        severity: "caution",
+        title: "SYSTEM ADVISORY: VOLUME EXCEEDS INITIATE STANDARD",
+        message: "You have completed your daily prescribed quota. Extra volume yields diminishing XP returns (0.25x). Ensure strict hydration and recovery.",
+        allowProceed: true,
+      };
+    }
+  }
+
+  if (playerRank === "Warrior" || playerRank === "Vanguard") {
+    if (totalSetsToday >= 28) {
+      return {
+        severity: "caution",
+        title: "WARRIOR ENDURANCE // HIGH VOLUME ACTIVE",
+        message: "Muscular fatigue accumulating. Extra volume authorized with calibrated diminishing returns.",
+        allowProceed: true,
+      };
+    }
+  }
+
+  return {
+    severity: "none",
+    title: "",
+    message: "",
+    allowProceed: true,
+  };
+}
+
+/**
+ * Calculates XP and stat yield for extra workouts beyond daily quota
+ * - 1st extra workout: 0.25x XP
+ * - 2nd extra workout: 0.50x XP
+ * - 3rd+ extra workout: 0.25x XP (diminishing return safeguard)
+ */
+export function calculateExtraWorkoutXpMultiplier(extraWorkoutNumber: number): number {
+  if (extraWorkoutNumber === 1) return 0.25;
+  if (extraWorkoutNumber === 2) return 0.50;
+  return 0.25;
+}
+
+// Backward compatibility export
+export const calculateWorkoutCalories = (
   durationSeconds: number,
   bodyweightKg: number = 70,
   averageMet: number = 5.5,
   skippingCount: number = 0
-): number {
-  const durationHours = Math.max(0, durationSeconds) / 3600;
-  const liftingCalories = durationHours * averageMet * bodyweightKg;
-
-  // Skipping calorie bonus (100 skips ≈ 15-20 kcal)
-  const skippingCalories = (skippingCount / 100) * 16;
-
-  return Math.round(liftingCalories + skippingCalories);
-}
-
-
+): number => {
+  return calculateAccurateWorkoutCalories({
+    durationSeconds,
+    heightCm: 175,
+    weightKg: bodyweightKg,
+    playerLevel: 1,
+    playerRank: "Recruit",
+    sets: [{ weightKg: 15, reps: 30 }],
+    skippingCount,
+  }).totalCaloriesBurned;
+};
