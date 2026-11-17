@@ -13,6 +13,7 @@ import { SmartQuestModal } from "@/components/quests/SmartQuestModal";
 import { ManualQuestModal } from "@/components/quests/ManualQuestModal";
 import { DesktopNavbar } from "@/components/layout/DesktopNavbar";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import {
   Profile,
   PlayerAttributes,
@@ -186,16 +187,14 @@ export function TodayDashboardView({
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5 relative z-10 pb-28 md:pb-12">
         {/* Mobile Header Banner */}
-        <div className="md:hidden flex items-center justify-between pb-2.5">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#00e5ff]" />
-            <span className="font-solo font-bold text-xs tracking-widest text-cyan-400 uppercase">
-              SD-QUEST // SYSTEM ACTIVE
+        <div className="md:hidden flex items-center justify-between pb-3 border-b border-cyan-950/40 mb-3">
+          <BrandLogo variant="horizontal" size="sm" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-950/50 border border-cyan-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="text-[10px] font-mono text-cyan-300 font-bold uppercase font-hud">
+              {profile.rank} ◆ LVL {profile.current_level}
             </span>
           </div>
-          <span className="text-[10px] font-mono text-slate-400 uppercase font-hud">
-            {profile.rank} ◆ LVL {profile.current_level}
-          </span>
         </div>
 
         {/* 12-Column Grid Layout */}

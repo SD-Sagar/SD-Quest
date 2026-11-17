@@ -251,62 +251,6 @@ export function QuestList({
 
   return (
     <div className="space-y-4">
-      {/* Primary Roadmap View Tabs */}
-      <div className="flex rounded-2xl bg-slate-900/90 p-1 border border-slate-800">
-        <button
-          onClick={() => {
-            triggerHaptic("light");
-            setViewMode("today");
-          }}
-          className={`flex-1 py-2 rounded-xl text-xs font-bold font-mono transition ${
-            viewMode === "today"
-              ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          TODAY
-        </button>
-        <button
-          onClick={() => {
-            triggerHaptic("light");
-            setViewMode("upcoming");
-          }}
-          className={`flex-1 py-2 rounded-xl text-xs font-bold font-mono transition ${
-            viewMode === "upcoming"
-              ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          ROADMAP
-        </button>
-        <button
-          onClick={() => {
-            triggerHaptic("light");
-            setViewMode("habits");
-          }}
-          className={`flex-1 py-2 rounded-xl text-xs font-bold font-mono transition ${
-            viewMode === "habits"
-              ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          HABITS
-        </button>
-        <button
-          onClick={() => {
-            triggerHaptic("light");
-            setViewMode("completed");
-          }}
-          className={`flex-1 py-2 rounded-xl text-xs font-bold font-mono transition ${
-            viewMode === "completed"
-              ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          ARCHIVE
-        </button>
-      </div>
-
       {/* Dual Creation Buttons (Only in Quest Forge page; Dashboard has clean navigation) */}
       {!hideCreationButtons ? (
         <div className="flex items-center gap-2">
@@ -350,43 +294,102 @@ export function QuestList({
         </div>
       )}
 
-      {/* Category Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        {CATEGORY_TABS.map((tab) => {
-          let count =
-            tab.value === "all"
-              ? modeFiltered.length
-              : modeFiltered.filter((q) => q.category === tab.value).length;
+      {/* Sticky Primary Roadmap View Tabs & Category Filters on Mobile & PC */}
+      <div className="sticky top-0 md:top-16 z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 py-2.5 bg-[#07080b]/92 backdrop-blur-xl border-b border-cyan-950/40 shadow-xl shadow-black/40 space-y-2 transition-all">
+        {/* Primary Roadmap View Tabs */}
+        <div className="flex rounded-2xl bg-slate-900/90 p-1 border border-slate-800 shadow-sm">
+          <button
+            onClick={() => {
+              triggerHaptic("light");
+              setViewMode("today");
+            }}
+            className={`flex-1 py-2 rounded-xl text-xs font-bold font-mono transition ${
+              viewMode === "today"
+                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            TODAY
+          </button>
+          <button
+            onClick={() => {
+              triggerHaptic("light");
+              setViewMode("upcoming");
+            }}
+            className={`flex-1 py-2 rounded-xl text-xs font-bold font-mono transition ${
+              viewMode === "upcoming"
+                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            ROADMAP
+          </button>
+          <button
+            onClick={() => {
+              triggerHaptic("light");
+              setViewMode("habits");
+            }}
+            className={`flex-1 py-2 rounded-xl text-xs font-bold font-mono transition ${
+              viewMode === "habits"
+                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            HABITS
+          </button>
+          <button
+            onClick={() => {
+              triggerHaptic("light");
+              setViewMode("completed");
+            }}
+            className={`flex-1 py-2 rounded-xl text-xs font-bold font-mono transition ${
+              viewMode === "completed"
+                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            ARCHIVE
+          </button>
+        </div>
 
-          // Main Quest is counted under Fitness and All Categories when in Today view
-          if (viewMode === "today" && mainQuestSplit) {
-            if (tab.value === "all" || tab.value === "fitness") {
-              count += 1;
+        {/* Category Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+          {CATEGORY_TABS.map((tab) => {
+            let count =
+              tab.value === "all"
+                ? modeFiltered.length
+                : modeFiltered.filter((q) => q.category === tab.value).length;
+
+            // Main Quest is counted under Fitness and All Categories when in Today view
+            if (viewMode === "today" && mainQuestSplit) {
+              if (tab.value === "all" || tab.value === "fitness") {
+                count += 1;
+              }
             }
-          }
 
-          return (
-            <button
-              key={tab.value}
-              onClick={() => {
-                triggerHaptic("light");
-                setCategoryFilter(tab.value);
-              }}
-              className={`px-3 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                categoryFilter === tab.value
-                  ? "bg-slate-800 text-cyan-300 border border-cyan-500/40"
-                  : "bg-slate-900/40 text-slate-500 border border-slate-800/60 hover:text-slate-300"
-              }`}
-            >
-              <span>{tab.label}</span>
-              {count > 0 && (
-                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-slate-800 text-cyan-400 font-mono">
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={tab.value}
+                onClick={() => {
+                  triggerHaptic("light");
+                  setCategoryFilter(tab.value);
+                }}
+                className={`px-3 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  categoryFilter === tab.value
+                    ? "bg-slate-800 text-cyan-300 border border-cyan-500/40"
+                    : "bg-slate-900/40 text-slate-500 border border-slate-800/60 hover:text-slate-300"
+                }`}
+              >
+                <span>{tab.label}</span>
+                {count > 0 && (
+                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-slate-800 text-cyan-400 font-mono">
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Quests List Container */}

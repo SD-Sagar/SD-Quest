@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { loginAction, signupAction } from "@/server/actions/auth.actions";
 import { triggerHaptic } from "@/lib/utils";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { Mail, Key, ArrowRight, Sparkles, UserPlus, ShieldAlert } from "lucide-react";
 
 export default function LoginPage() {
@@ -41,14 +42,12 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md hunter-panel rounded-3xl border border-cyan-500/40 p-6 sm:p-8 shadow-2xl relative z-10 space-y-6">
         {/* Title Plate */}
-        <div className="text-center space-y-1.5">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono font-bold uppercase tracking-widest mb-1">
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono font-bold uppercase tracking-widest">
             <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
             HUNTER AUTHENTICATION GATE
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight mana-text-glow">
-            SD-QUEST
-          </h1>
+          <BrandLogo variant="full" size="lg" />
           <p className="text-xs text-slate-400 font-medium">
             YOUR LIFE. YOUR QUEST. YOUR RULES.
           </p>

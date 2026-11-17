@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/server/actions/auth.actions";
 import { triggerHaptic } from "@/lib/utils";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import {
   Sparkles,
   LayoutDashboard,
@@ -38,18 +39,8 @@ export function DesktopNavbar({ onOpenSanctuary }: DesktopNavbarProps) {
     <header className="hidden md:block sticky top-0 z-40 bg-[#07080b]/90 border-b border-slate-800/80 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-xl bg-cyan-950/80 border border-cyan-500/50 flex items-center justify-center text-cyan-400 group-hover:border-cyan-400 transition shadow-sm shadow-cyan-950">
-            <Sparkles className="w-4 h-4 animate-pulse" />
-          </div>
-          <div>
-            <span className="font-black tracking-tight text-white font-mono text-sm block mana-text-glow">
-              SD-QUEST
-            </span>
-            <span className="text-[9px] text-slate-500 font-mono tracking-widest block -mt-1 uppercase">
-              REAL-LIFE RPG SYSTEM
-            </span>
-          </div>
+        <Link href="/" className="flex items-center group">
+          <BrandLogo variant="horizontal" size="md" priority />
         </Link>
 
         {/* Links */}

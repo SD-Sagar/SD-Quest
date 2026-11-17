@@ -377,38 +377,40 @@ export function GymTrainerHub({
 
   return (
     <div className="space-y-6">
-      {/* 1. TWO INDEPENDENT WORKOUT MODES (SYSTEM PLAN | CUSTOM PLAN) */}
-      <div className="flex rounded-2xl bg-slate-900/90 p-1 border border-slate-800 shadow-xl">
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic("light");
-            setWorkoutMode("system");
-          }}
-          className={`flex-1 py-3 rounded-xl text-xs font-mono font-black transition flex items-center justify-center gap-2 ${
-            workoutMode === "system"
-              ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/60 shadow-lg shadow-cyan-950/50"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>SYSTEM PLAN (AI CURATED)</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic("light");
-            setWorkoutMode("custom");
-          }}
-          className={`flex-1 py-3 rounded-xl text-xs font-mono font-black transition flex items-center justify-center gap-2 ${
-            workoutMode === "custom"
-              ? "bg-purple-500/20 text-purple-300 border border-purple-500/60 shadow-lg shadow-purple-950/50"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          <Sliders className="w-4 h-4" />
-          <span>CUSTOM PLAN (HUNTER FORGED)</span>
-        </button>
+      {/* 1. TWO INDEPENDENT WORKOUT MODES (SYSTEM PLAN | CUSTOM PLAN) - STICKY ON MOBILE & PC */}
+      <div className="sticky top-0 md:top-16 z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 py-2.5 bg-[#07080b]/92 backdrop-blur-xl border-b border-cyan-950/40 shadow-xl shadow-black/40 transition-all">
+        <div className="flex rounded-2xl bg-slate-900/90 p-1 border border-slate-800 shadow-xl">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic("light");
+              setWorkoutMode("system");
+            }}
+            className={`flex-1 py-2.5 sm:py-3 rounded-xl text-xs font-mono font-black transition flex items-center justify-center gap-2 ${
+              workoutMode === "system"
+                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/60 shadow-lg shadow-cyan-950/50"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>SYSTEM PLAN (AI CURATED)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic("light");
+              setWorkoutMode("custom");
+            }}
+            className={`flex-1 py-2.5 sm:py-3 rounded-xl text-xs font-mono font-black transition flex items-center justify-center gap-2 ${
+              workoutMode === "custom"
+                ? "bg-purple-500/20 text-purple-300 border border-purple-500/60 shadow-lg shadow-purple-950/50"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Sliders className="w-4 h-4" />
+            <span>CUSTOM PLAN (HUNTER FORGED)</span>
+          </button>
+        </div>
       </div>
 
       {/* Solo Trial Completion System Toast */}
