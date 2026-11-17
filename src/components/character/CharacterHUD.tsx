@@ -12,6 +12,8 @@ import {
   HeartPulse,
   Skull,
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 interface CharacterHUDProps {
@@ -36,6 +38,7 @@ export function CharacterHUD({
   onOpenSanctuaryModal,
 }: CharacterHUDProps) {
   const [isStatModalOpen, setIsStatModalOpen] = useState(false);
+  const [isAttributesExpanded, setIsAttributesExpanded] = useState(false);
   const age = calculateAge(profile.dob);
   const unallocatedPoints = profile.unallocated_stat_points || 0;
   const poisonInfo = getRemainingPoisonTime(profile.poison_expires_at);
@@ -184,40 +187,59 @@ export function CharacterHUD({
         </div>
       </div>
 
-      {/* 3. AUTHENTIC [ PERSONAL STATUS ] STATS SCREEN (Reference Image 2) */}
-      <div className="relative z-10 pt-1 space-y-2.5">
-        <div className="p-2 rounded bg-cyan-950/40 border border-cyan-500/40 text-center relative overflow-hidden">
-          <span className="text-[11px] font-solo font-bold text-cyan-300 uppercase tracking-widest mana-text-glow">
-            ◆ PERSONAL STATUS ◆
-          </span>
-        </div>
+      {/* 3. AUTHENTIC [ PERSONAL STATUS ] STATS SCREEN (Expandable / Collapsible) */}
+      <div className="relative z-10 pt-1 space-y-2.5 font-hud">
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic("light");
+            setIsAttributesExpanded(!isAttributesExpanded);
+          }}
+          className="w-full p-2 rounded bg-cyan-950/40 hover:bg-cyan-900/40 border border-cyan-500/40 text-center relative overflow-hidden flex items-center justify-between px-3 transition group"
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="text-cyan-400 text-xs">◆</span>
+            <span className="text-[11px] font-solo font-bold text-cyan-300 uppercase tracking-widest mana-text-glow">
+              PERSONAL STATUS ATTRIBUTES
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 text-[10px] font-mono text-cyan-400 group-hover:text-white transition">
+            <span>{isAttributesExpanded ? "COLLAPSE ▲" : "EXPAND STATS ▼"}</span>
+            {isAttributesExpanded ? (
+              <ChevronUp className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5" />
+            )}
+          </div>
+        </button>
 
         {/* 2-Column Bracketed Stats matching Reference 2: [Strength Lv. X] [Agility Lv. Y] */}
-        <div className="grid grid-cols-2 gap-2 font-hud">
-          {attributeKeys.map((attrKey) => {
-            const score = Number(attributes[attrKey]) || 10.0;
-            const highestKey = `highest_${attrKey}` as keyof PlayerAttributes;
-            const peak = Number(attributes[highestKey]) || score;
-            const meta = ATTRIBUTE_LABELS[attrKey];
+        {isAttributesExpanded && (
+          <div className="grid grid-cols-2 gap-2 font-hud animate-in fade-in slide-in-from-top-1 duration-150">
+            {attributeKeys.map((attrKey) => {
+              const score = Number(attributes[attrKey]) || 10.0;
+              const meta = ATTRIBUTE_LABELS[attrKey];
 
-            return (
-              <div
-                key={attrKey}
-                className="solo-bracket flex items-center justify-between hover:border-cyan-400 hover:shadow-[0_0_10px_rgba(0,229,255,0.25)] transition duration-150"
-              >
-                <div className="min-w-0 flex items-center gap-1.5 truncate">
-                  <span className="text-cyan-400 text-xs font-mono">◆</span>
-                  <span className="text-slate-300 text-xs font-bold truncate">
-                    [{meta.name} Lv. {Math.floor(score)}]
+              return (
+                <div
+                  key={attrKey}
+                  className="solo-bracket flex items-center justify-between hover:border-cyan-400 hover:shadow-[0_0_10px_rgba(0,229,255,0.25)] transition duration-150"
+                >
+                  <div className="min-w-0 flex items-center gap-1.5 truncate">
+                    <span className="text-cyan-400 text-xs font-mono">◆</span>
+                    <span className="text-slate-300 text-xs font-bold truncate">
+                      [{meta.name} Lv. {Math.floor(score)}]
+                    </span>
+                  </div>
+                  <span className="text-white font-mono font-black text-xs shrink-0 pl-1">
+                    {score.toFixed(1)}
                   </span>
                 </div>
-                <span className="text-white font-mono font-black text-xs shrink-0 pl-1">
-                  {score.toFixed(1)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Stat Allocation Modal */}

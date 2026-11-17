@@ -705,7 +705,7 @@ export function GymTrainerHub({
                   </span>
                 </div>
 
-                <div className="space-y-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {curatedSessionList.map((ex, i) => (
                     <div
                       key={ex.id}
@@ -713,26 +713,26 @@ export function GymTrainerHub({
                         triggerHaptic("light");
                         setSelectedExerciseForModal(ex);
                       }}
-                      className="p-4 rounded-2xl bg-slate-900/80 border border-slate-700/80 hover:border-cyan-500/60 hover:bg-slate-900 transition-all cursor-pointer flex items-center justify-between gap-3"
+                      className="p-3.5 sm:p-4 rounded-2xl bg-[#090d18] border border-cyan-500/20 hover:border-cyan-400/60 hover:bg-[#0c1222] transition-all cursor-pointer flex items-center justify-between gap-2.5 group"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 flex items-center justify-center font-mono font-black text-xs shrink-0">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 group-hover:border-cyan-400 group-hover:bg-cyan-500/20 flex items-center justify-center font-mono font-black text-xs shrink-0 transition">
                           #{i + 1}
                         </div>
 
                         <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-bold text-white truncate">{ex.name}</span>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-cyan-300 border border-slate-700 shrink-0">
-                              Bench: {ex.bench_angle}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs sm:text-sm font-bold text-white truncate max-w-[150px] sm:max-w-none">{ex.name}</span>
+                            <span className="text-[9px] sm:text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-cyan-950/60 text-cyan-300 border border-cyan-500/30 shrink-0">
+                              {ex.bench_angle}
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-2 text-xs text-slate-400">
-                            <span>{ex.target_muscle}</span>
+                          <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-400">
+                            <span className="truncate">{ex.target_muscle}</span>
                             <span>•</span>
-                            <span>
-                              {ex.default_sets} Sets × {ex.default_reps_min}-{ex.default_reps_max} Reps
+                            <span className="shrink-0">
+                              {ex.default_sets}S × {ex.default_reps_min}-{ex.default_reps_max}R
                             </span>
                           </div>
 
@@ -740,29 +740,29 @@ export function GymTrainerHub({
                           {(() => {
                             const yields = getExerciseAttributeYield(ex);
                             return (
-                              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                              <div className="flex items-center gap-1 flex-wrap pt-0.5">
                                 {yields.strength && (
-                                  <span className="px-1.5 py-0.5 rounded bg-red-950/70 border border-red-500/30 text-red-300 text-[9px] font-mono font-bold">
+                                  <span className="px-1 py-0.2 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[8px] sm:text-[9px] font-mono font-bold">
                                     STR +{yields.strength.toFixed(2)}
                                   </span>
                                 )}
                                 {yields.discipline && (
-                                  <span className="px-1.5 py-0.5 rounded bg-cyan-950/70 border border-cyan-500/30 text-cyan-300 text-[9px] font-mono font-bold">
+                                  <span className="px-1 py-0.2 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[8px] sm:text-[9px] font-mono font-bold">
                                     DIS +{yields.discipline.toFixed(2)}
                                   </span>
                                 )}
                                 {yields.endurance && (
-                                  <span className="px-1.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/30 text-emerald-300 text-[9px] font-mono font-bold">
+                                  <span className="px-1 py-0.2 rounded bg-blue-950/80 border border-blue-500/40 text-blue-300 text-[8px] sm:text-[9px] font-mono font-bold">
                                     END +{yields.endurance.toFixed(2)}
                                   </span>
                                 )}
                                 {yields.agility && (
-                                  <span className="px-1.5 py-0.5 rounded bg-amber-950/70 border border-amber-500/30 text-amber-300 text-[9px] font-mono font-bold">
+                                  <span className="px-1 py-0.2 rounded bg-slate-900 border border-cyan-400/30 text-cyan-200 text-[8px] sm:text-[9px] font-mono font-bold">
                                     AGI +{yields.agility.toFixed(2)}
                                   </span>
                                 )}
                                 {yields.vitality && (
-                                  <span className="px-1.5 py-0.5 rounded bg-blue-950/70 border border-blue-500/30 text-blue-300 text-[9px] font-mono font-bold">
+                                  <span className="px-1 py-0.2 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[8px] sm:text-[9px] font-mono font-bold">
                                     VIT +{yields.vitality.toFixed(2)}
                                   </span>
                                 )}
@@ -772,20 +772,20 @@ export function GymTrainerHub({
                         </div>
                       </div>
 
-                      <div className="shrink-0 flex items-center gap-2">
+                      <div className="shrink-0 flex items-center gap-1.5 sm:gap-2">
                         {completedExerciseNames.has(ex.name.toLowerCase()) ? (
-                          <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-2.5 py-1 rounded-xl flex items-center gap-1 shadow-sm shadow-cyan-950">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
-                            COMPLETED ✓
+                          <span className="text-[9px] sm:text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/90 border border-cyan-400/60 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl flex items-center gap-1 shadow-sm shadow-cyan-950">
+                            <CheckCircle2 className="w-3 h-3 text-cyan-400" />
+                            <span className="hidden xs:inline">DONE</span>
                           </span>
                         ) : (isTodayCompleted && selectedDay === todayName) ? (
-                          <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950/60 border border-amber-500/30 px-2 py-1 rounded-xl flex items-center gap-1">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                            SKIPPED ⚠
+                          <span className="text-[9px] sm:text-[10px] font-mono font-bold text-slate-400 bg-slate-900/80 border border-slate-700/60 px-2 py-0.5 rounded-xl flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 text-slate-400" />
+                            <span className="hidden xs:inline">SKIP</span>
                           </span>
                         ) : (
-                          <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-1 rounded-xl">
-                            ACTIVE SET
+                          <span className="text-[9px] sm:text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl">
+                            ACTIVE
                           </span>
                         )}
                         <button
@@ -799,7 +799,7 @@ export function GymTrainerHub({
                         >
                           <Play className="w-3.5 h-3.5 fill-current" />
                         </button>
-                        <ChevronRight className="w-4 h-4 text-slate-500" />
+                        <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition" />
                       </div>
                     </div>
                   ))}
