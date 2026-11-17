@@ -1,4 +1,10 @@
 import { EquipmentInventory, EquipmentPlate, HunterRank } from "@/types";
+import {
+  calculateWorkoutSessionCalories,
+  calculateWalkingCalories,
+  resolveExerciseMetCategory,
+  CALORIE_UNCERTAINTY_DISCLAIMER,
+} from "./calorieEngine";
 
 export interface PlateCombinationResult {
   achievableWeightKg: number;
@@ -157,53 +163,49 @@ export function getExerciseDumbbellMultiplier(exerciseName: string = ""): number
 }
 
 /**
- * Advanced Biomechanical & Physiological Calorie Expenditure Engine
- * Incorporates:
- * 1. Height & displacement mechanics (arm reach vs squat displacement).
- * 2. Weight & body mass fraction lifted.
- * 3. Exact mechanical work in Joules converted to metabolic kcal (efficiency η ≈ 0.21).
- * 4. Duration, rest intervals, and metabolic conditioning factor based on player rank.
- * 5. Compulsory skipping plyometric burn (MET 11.5).
+ * Scientifically Grounded Calorie Engine (2024 Adult Compendium of Physical Activities)
+ * Strictly fulfills kcal.txt:
+ * - Decoupled from arbitrary rank/XP multipliers (Rule 11)
+ * - Zero mechanical tonnage double-counting (Rule 10)
+ * - MET applied to full exercise block duration including rest intervals (Rule 4)
+ * - Calculates Active Calories (primary) and Gross Calories (secondary) (Rule 6, 44)
+ * - Independent skipping calculation (Rule 7)
  */
 export function calculateAccurateWorkoutCalories(params: {
   durationSeconds: number;
-  heightCm: number;
+  heightCm?: number;
   weightKg: number;
-  playerLevel: number;
-  playerRank: HunterRank;
+  playerLevel?: number;
+  playerRank?: HunterRank;
   sets: { weightKg: number; reps: number; exerciseName?: string; targetMuscle?: string }[];
   skippingCount?: number;
 }): {
-  totalCaloriesBurned: number;
-  mechanicalWorkKcal: number;
-  aerobicRestKcal: number;
+  totalCaloriesBurned: number; // Active calories (primary for dashboard & net burn per Rule 44)
+  activeCaloriesBurned: number;
+  grossCaloriesBurned: number;
   skippingKcal: number;
   tonnageMovedKg: number;
+  averageMet: number;
   exerciseBreakdown: {
     exerciseName: string;
     setsCount: number;
     tonnageKg: number;
-    caloriesBurned: number;
+    caloriesBurned: number; // Active calories
+    grossCaloriesBurned: number;
   }[];
+  disclaimer: string;
 } {
   const {
     durationSeconds,
-    heightCm = 175,
     weightKg = 70,
-    playerLevel = 1,
     sets = [],
     skippingCount = 0,
   } = params;
 
-  const heightM = heightCm / 100;
   let totalTonnageKg = 0;
-  let mechanicalWorkJoules = 0;
-  let legCompoundCount = 0;
+  // Group sets by exercise name to construct exercise blocks
+  const exerciseMap = new Map<string, { targetMuscle: string; setsCount: number; tonnageKg: number }>();
 
-  // Track per-exercise sub-aggregates
-  const exerciseMap = new Map<string, { setsCount: number; tonnageKg: number; workJoules: number }>();
-
-  // 1. Calculate Mechanical Work Per Rep based on anthropometric travel
   for (const s of sets) {
     const exName = s.exerciseName || "Exercise Movement";
     const multiplier = getExerciseDumbbellMultiplier(exName);
@@ -211,119 +213,76 @@ export function calculateAccurateWorkoutCalories(params: {
     const setTonnage = effectiveLoad * s.reps;
     totalTonnageKg += setTonnage;
 
-    const muscle = (s.targetMuscle || s.exerciseName || "").toLowerCase();
-    const isLegCompound =
-      muscle.includes("quad") ||
-      muscle.includes("leg") ||
-      muscle.includes("squat") ||
-      muscle.includes("glute") ||
-      muscle.includes("lunge");
-
-    if (isLegCompound) legCompoundCount += 1;
-
-    // Vertical displacement travel distance
-    // Squats: ~0.45 of height. Bench/Presses: ~0.35 of height
-    const displacement = isLegCompound ? heightM * 0.45 : heightM * 0.35;
-
-    // For leg movements, lifter also displaces ~65% of upper bodyweight against gravity
-    const bodyweightLoad = isLegCompound ? weightKg * 0.65 : 0;
-    const totalMassLifted = effectiveLoad + bodyweightLoad;
-
-    // Work = force * distance = (m * g) * d
-    // Concentric lift + controlled eccentric lowering adds 30% eccentric energy expenditure
-    const workPerRep = totalMassLifted * 9.81 * displacement * 1.30;
-    const setJoules = workPerRep * s.reps;
-    mechanicalWorkJoules += setJoules;
-
-    // Group by exercise
-    const existing = exerciseMap.get(exName) || { setsCount: 0, tonnageKg: 0, workJoules: 0 };
+    const existing = exerciseMap.get(exName) || {
+      targetMuscle: s.targetMuscle || "",
+      setsCount: 0,
+      tonnageKg: 0,
+    };
     exerciseMap.set(exName, {
+      targetMuscle: s.targetMuscle || existing.targetMuscle,
       setsCount: existing.setsCount + 1,
       tonnageKg: existing.tonnageKg + setTonnage,
-      workJoules: existing.workJoules + setJoules,
     });
   }
 
-  // 1. Muscular Mechanical Efficiency (η) scales with progression:
-  // Day 1 / Novice (η ≈ 0.19, more heat loss). Day 100+ / Spartan (η ≈ 0.23, peak biomechanical efficiency).
-  const mechanicalEfficiency = Math.min(0.23, 0.19 + (playerLevel - 1) * 0.001);
-  const mechanicalWorkKcal = mechanicalWorkJoules / (mechanicalEfficiency * 4184);
+  const totalDurationMinutes = Math.max(0.5, durationSeconds / 60);
+  const totalSetsCount = Math.max(1, sets.length);
 
-  // 2. Realistic Exercise Physiology Duration & MET Expenditure (Compendium / ACSM standard)
-  const physicalDurationMinutes = Math.max(
-    durationSeconds / 60,
-    sets.length > 0 ? sets.length * 2.3 : 15
-  );
-
-  // Vigorous resistance training MET: 7.0 baseline, scaling to 8.2 for heavy compound / high-volume splits
-  const baseMet = sets.length >= 20 ? 8.2 : legCompoundCount > 3 ? 7.8 : 7.0;
-
-  // Neuromuscular Adaptation & Conditioning Factor:
-  // Day 1 Novices experience antagonist co-contraction and cardiovascular inefficiency (+16% metabolic overhead per rep).
-  // By Day 15 (Level 5-10) it normalizes (+8%), and by Day 100 (Level 25+) motor efficiency is locked in (0% wasted overhead).
-  const neuromuscularOverhead = Math.max(0.0, 0.16 - (playerLevel - 1) * 0.006);
-  const metabolicConditioningFactor = 1.0 + neuromuscularOverhead;
-
-  // ACSM Caloric Burn Formula: kcal/min = (MET * 3.5 * weightKg) / 200
-  const metabolicKcalPerMinute = ((baseMet * 3.5 * weightKg) / 200) * metabolicConditioningFactor;
-  const aerobicResistanceKcal = physicalDurationMinutes * metabolicKcalPerMinute;
-
-  // 3. Skipping Rope Plyometrics (MET 11.5 ~0.22 kcal per skip scaled to user bodyweight)
-  const skippingKcal = (skippingCount / 100) * 22.0 * (weightKg / 70);
-
-  // 4. Excess Post-Exercise Oxygen Consumption (EPOC):
-  // Day 1 Recruit performs lighter training, mild afterburn (+6%).
-  // Day 100 Spartan moves heavy tonnage at high intensity, deep afterburn (+14%).
-  const epocFactor = Math.min(0.14, 0.06 + (playerLevel - 1) * 0.002);
-  const epocAfterburnKcal = (aerobicResistanceKcal + mechanicalWorkKcal * 0.75) * epocFactor;
-
-  // Combined physiological expenditure (full displacement work + elevated resistance metabolism + EPOC)
-  const totalCaloriesBurned = Math.round(
-    aerobicResistanceKcal + mechanicalWorkKcal * 0.75 + skippingKcal + epocAfterburnKcal
-  );
-
-  // Compute individual per-exercise calorie breakdown
-  const totalSets = Math.max(1, sets.length);
-  const exerciseBreakdown = Array.from(exerciseMap.entries()).map(([name, data]) => {
-    const fractionOfSets = data.setsCount / totalSets;
-    const aerobicPart = aerobicResistanceKcal * fractionOfSets;
-    const mechPart = (data.workJoules / (mechanicalEfficiency * 4184)) * 0.75;
-    const epocPart = epocAfterburnKcal * fractionOfSets;
-    const exerciseKcal = Math.round(aerobicPart + mechPart + epocPart);
+  // Divide session duration proportionately across exercises based on set volume
+  const exerciseBlocks = Array.from(exerciseMap.entries()).map(([name, data]) => {
+    const fractionOfSets = data.setsCount / totalSetsCount;
+    const blockMinutes = Math.max(0.2, Number((totalDurationMinutes * fractionOfSets).toFixed(2)));
+    const metCategory = resolveExerciseMetCategory(name, data.targetMuscle);
 
     return {
       exerciseName: name,
+      targetMuscle: data.targetMuscle,
+      metCategory,
+      durationMinutes: blockMinutes,
       setsCount: data.setsCount,
       tonnageKg: Math.round(data.tonnageKg),
-      caloriesBurned: Math.max(15, exerciseKcal),
     };
   });
 
+  const sessionResult = calculateWorkoutSessionCalories({
+    exerciseBlocks,
+    skippingCount,
+    totalSessionDurationMinutes: totalDurationMinutes,
+    bodyweightKg: weightKg,
+  });
+
   return {
-    totalCaloriesBurned: Math.max(30, totalCaloriesBurned),
-    mechanicalWorkKcal: Math.round(mechanicalWorkKcal),
-    aerobicRestKcal: Math.round(aerobicResistanceKcal),
-    skippingKcal: Math.round(skippingKcal),
+    totalCaloriesBurned: sessionResult.totalActiveCalories,
+    activeCaloriesBurned: sessionResult.totalActiveCalories,
+    grossCaloriesBurned: sessionResult.totalGrossCalories,
+    skippingKcal: sessionResult.skippingActiveCalories,
     tonnageMovedKg: Math.round(totalTonnageKg),
-    exerciseBreakdown,
+    averageMet: sessionResult.averageMet,
+    exerciseBreakdown: sessionResult.exerciseBreakdown.map((b) => ({
+      exerciseName: b.exerciseName,
+      setsCount: b.setsCount,
+      tonnageKg: b.tonnageKg,
+      caloriesBurned: b.activeCalories,
+      grossCaloriesBurned: b.grossCalories,
+    })),
+    disclaimer: sessionResult.disclaimer,
   };
 }
 
 /**
- * Calculates Caloric Expenditure from Daily Walking & Steps
+ * Calculates Caloric Expenditure from Daily Walking & Steps (2024 Compendium 3.5 MET)
  */
 export function calculateStepsCalories(
   steps: number,
   weightKg: number = 70,
   heightCm: number = 175
-): { distanceKm: number; caloriesBurned: number } {
-  // Stride length formula: height (cm) * 0.415
-  const strideMeters = (heightCm * 0.415) / 100;
-  const distanceKm = Number(((steps * strideMeters) / 1000).toFixed(2));
-  
-  // Standard human walking expenditure: ~0.73 kcal per kg per km
-  const caloriesBurned = Math.round(distanceKm * weightKg * 0.73);
-  return { distanceKm, caloriesBurned };
+): { distanceKm: number; caloriesBurned: number; grossCaloriesBurned: number } {
+  const result = calculateWalkingCalories({ steps, bodyweightKg: weightKg, heightCm });
+  return {
+    distanceKm: result.distanceKm,
+    caloriesBurned: result.activeCalories,
+    grossCaloriesBurned: result.grossCalories,
+  };
 }
 
 /**

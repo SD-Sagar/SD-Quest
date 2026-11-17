@@ -288,26 +288,29 @@ export function TodayDashboardView({
                   <WaterMeter logs={hydrationLogs} targetMl={hydrationTarget} dateStr={todayDateStr} />
                   <WalkingMeter activity={activity} dateStr={todayDateStr} />
 
-                  {/* Energy Telemetry Detailed Ledger */}
+                  {/* Energy Telemetry Detailed Ledger (2024 Adult Compendium Standard) */}
                   <div className="p-3.5 rounded-xl bg-[#070b14] border border-cyan-500/30 space-y-2 font-hud">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-white uppercase">Expenditure Breakdown</span>
-                      <span className="text-cyan-400 font-mono font-bold">{totalBurnedCalories} kcal burned</span>
+                      <span className="font-bold text-white uppercase">Daily Calorie Expenditure</span>
+                      <span className="text-cyan-400 font-mono font-bold">{activeCalories} active • {totalBurnedCalories} TDEE</span>
                     </div>
                     <div className="grid grid-cols-3 gap-1.5 text-[10px] font-mono text-center">
                       <div className="p-1.5 rounded bg-slate-900 border border-slate-800">
-                        <span className="text-slate-400 block">BMR</span>
+                        <span className="text-slate-400 block">BMR (REST)</span>
                         <span className="text-white font-bold">{bmrCalories} kcal</span>
                       </div>
                       <div className="p-1.5 rounded bg-slate-900 border border-slate-800">
-                        <span className="text-slate-400 block">GYM</span>
+                        <span className="text-slate-400 block">GYM (ACTIVE)</span>
                         <span className="text-cyan-400 font-bold">{workoutCalories} kcal</span>
                       </div>
                       <div className="p-1.5 rounded bg-slate-900 border border-slate-800">
-                        <span className="text-slate-400 block">STEPS</span>
+                        <span className="text-slate-400 block">STEPS (ACTIVE)</span>
                         <span className="text-white font-bold">{stepsCalories} kcal</span>
                       </div>
                     </div>
+                    <p className="text-[9px] text-slate-500 font-mono italic text-center pt-0.5">
+                      *Estimates based on 2024 Adult Compendium of Physical Activities MET classifications.
+                    </p>
                   </div>
                 </div>
               )}

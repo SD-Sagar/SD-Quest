@@ -81,6 +81,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
   const [showAbandonConfirmModal, setShowAbandonConfirmModal] = useState(false);
   const [completedDebriefData, setCompletedDebriefData] = useState<{
     caloriesBurned: number;
+    grossCalories?: number;
     tonnageKg: number;
     totalXp: number;
     breakdown?: {
@@ -88,6 +89,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
       setsCount: number;
       tonnageKg: number;
       caloriesBurned: number;
+      grossCaloriesBurned?: number;
     }[];
   } | null>(null);
 
@@ -223,7 +225,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
               </span>
             </div>
             <div className="text-[11px] font-mono text-slate-300 truncate">
-              {currentExercise?.definition.name || "Workout in progress"} • Set {session.currentSetIndex + 1}/{currentExercise?.sets.length || 0} • ~{accurateCal.totalCaloriesBurned} kcal
+              {currentExercise?.definition.name || "Workout in progress"} • Set {session.currentSetIndex + 1}/{currentExercise?.sets.length || 0} • ~{accurateCal.activeCaloriesBurned} kcal (Active)
             </div>
           </div>
         </div>
@@ -315,6 +317,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
     );
 
     startTransition(async () => {
+      const effectiveWeight = userProfile?.weight_kg || session.playerWeightKg || 70;
       const res = await finishWorkoutAction({
         splitDay: session.dayName as DayOfWeek,
         title: session.title,
@@ -325,11 +328,11 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
         skippingTarget: session.isSingleExercise ? 0 : session.skippingTarget,
         skippingCompleted: session.isSingleExercise ? 0 : finalSkips,
         skippedCount: session.skippedCount,
-        caloriesBurned: accurateCal.totalCaloriesBurned,
+        caloriesBurned: accurateCal.activeCaloriesBurned,
         isExtraWorkout: session.isExtraWorkout,
         extraWorkoutMultiplier: session.extraWorkoutMultiplier,
         isSingleExercise: session.isSingleExercise,
-        notes: `[DURATION:${elapsedSeconds}s]`,
+        notes: `[DURATION:${elapsedSeconds}s] [KCAL_ACTIVE:${accurateCal.activeCaloriesBurned}] [KCAL_GROSS:${accurateCal.grossCaloriesBurned}] [BW_USED:${effectiveWeight}] [AVG_MET:${accurateCal.averageMet}]`,
         sets: performedSets,
       });
 
@@ -340,7 +343,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
               session: res?.session,
               isSingleExercise: true,
               exerciseName: session.exercises[0]?.definition.name,
-              caloriesBurned: accurateCal.totalCaloriesBurned,
+              caloriesBurned: accurateCal.activeCaloriesBurned,
               tonnageKg: accurateCal.tonnageMovedKg,
               xp: res?.rpgRewards?.xpGained || 25,
             },
@@ -353,7 +356,8 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
       }
 
       setCompletedDebriefData({
-        caloriesBurned: accurateCal.totalCaloriesBurned,
+        caloriesBurned: accurateCal.activeCaloriesBurned,
+        grossCalories: accurateCal.grossCaloriesBurned,
         tonnageKg: accurateCal.tonnageMovedKg,
         totalXp: res?.rpgRewards?.xpGained || 85,
         breakdown: accurateCal.exerciseBreakdown,
@@ -399,11 +403,13 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
           {/* Telemetry Stats Grid */}
           <div className="grid grid-cols-3 gap-2 font-mono text-center">
             <div className="p-3 rounded-xl bg-[#070b14] border border-cyan-500/30 space-y-0.5">
-              <span className="text-[9px] text-slate-400 uppercase block font-hud">KCAL EXPELLED</span>
+              <span className="text-[9px] text-slate-400 uppercase block font-hud">ACTIVE KCAL</span>
               <span className="text-base font-black text-white">
                 {completedDebriefData.caloriesBurned}
               </span>
-              <span className="text-[9px] text-slate-400 block font-hud">kcal</span>
+              <span className="text-[9px] text-slate-400 block font-hud">
+                {completedDebriefData.grossCalories ? `${completedDebriefData.grossCalories} gross` : "kcal"}
+              </span>
             </div>
             <div className="p-3 rounded-xl bg-[#070b14] border border-cyan-500/30 space-y-0.5">
               <span className="text-[9px] text-slate-400 uppercase block font-hud">TONNAGE MOVED</span>
@@ -448,6 +454,10 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
               </div>
             </div>
           )}
+
+          <p className="text-[9px] text-slate-500 font-hud text-center italic">
+            *Calorie estimates calculated using 2024 Adult Compendium of Physical Activities MET classifications.
+          </p>
 
           <button
             type="button"
@@ -520,7 +530,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
               <span className="text-slate-300">SESSION TIME: <strong className="text-cyan-400">{elapsedDisplay}</strong></span>
             </div>
-            <span className="text-cyan-300 font-bold font-hud">~{accurateCal.totalCaloriesBurned} KCAL EXPELLED</span>
+            <span className="text-cyan-300 font-bold font-hud">~{accurateCal.activeCaloriesBurned} KCAL ACTIVE</span>
           </div>
 
           {/* Pre-Completed Movement Smart Banner (Solo Leveling System Style) */}
@@ -900,8 +910,8 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
           </div>
           <div className="flex items-center gap-2">
             <div className="text-right font-mono mr-1">
-              <span className="text-[9px] text-slate-400 block font-hud">TIME • KCAL</span>
-              <span className="text-xs font-bold text-cyan-400">{elapsedDisplay} • ~{accurateCal.totalCaloriesBurned}</span>
+              <span className="text-[9px] text-slate-400 block font-hud">TIME • ACTIVE KCAL</span>
+              <span className="text-xs font-bold text-cyan-400">{elapsedDisplay} • ~{accurateCal.activeCaloriesBurned}</span>
             </div>
             <button
               type="button"

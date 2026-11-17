@@ -113,6 +113,16 @@ export interface EquipmentInventory {
   updated_at: string;
 }
 
+export type MetCategory =
+  | "general_resistance"
+  | "squats_deadlifts"
+  | "vigorous_weightlifting"
+  | "resistance_circuit"
+  | "general_bodyweight"
+  | "high_intensity_bodyweight"
+  | "skipping_rope"
+  | "walking_moderate";
+
 export interface ExerciseDefinition {
   id: string;
   name: string;
@@ -120,6 +130,7 @@ export interface ExerciseDefinition {
   secondary_muscles: string[];
   bench_angle?: string | null;
   required_equipment: "dumbbells" | "bench_and_dumbbells" | "bodyweight" | "skipping_rope";
+  met_category?: MetCategory;
   instructions: string[];
   form_cues: string[];
   common_mistakes: string[];

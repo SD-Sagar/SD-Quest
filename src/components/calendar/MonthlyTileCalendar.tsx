@@ -276,7 +276,7 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
                       <div>
                         <span className="font-bold text-white block font-solo text-xs">{s.title}</span>
                         <span className="text-slate-400 text-[11px] mt-0.5 block font-hud">
-                          Duration: {getFormattedDuration(s)} • Skips: {s.skipping_completed} /{" "}
+                          Duration: {getFormattedDuration(s)} • ~{s.calories_burned || 0} kcal (Active) • Skips: {s.skipping_completed} /{" "}
                           {s.skipping_target}
                         </span>
                       </div>
@@ -286,6 +286,11 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
                     </div>
                   ))}
                 </div>
+              )}
+              {selectedSessions.length > 0 && (
+                <p className="text-[9px] text-slate-500 font-mono italic text-center pt-0.5">
+                  *Calorie telemetry calculated using 2024 Adult Compendium of Physical Activities MET classifications.
+                </p>
               )}
             </div>
 

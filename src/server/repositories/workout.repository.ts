@@ -161,13 +161,19 @@ export class WorkoutRepository {
       totalTonnageKg += s.weight_kg * s.reps * multiplier;
     }
 
-    const finalCaloriesBurned = params.caloriesBurned || Math.round(totalTonnageKg * 0.045 + params.durationMinutes * 5);
+    // Scientific Calorie Expenditure (2024 Adult Compendium of Physical Activities MET)
+    const defaultMet = 4.0;
+    const finalCaloriesBurned =
+      params.caloriesBurned ??
+      Math.round((((defaultMet - 1) * 3.5 * 70) / 200) * params.durationMinutes);
 
     let sessionNotes = params.notes || "";
     if (params.isSingleExercise && !sessionNotes.includes("[SOLO_TRIAL]")) {
       sessionNotes = `${sessionNotes} [SOLO_TRIAL]`.trim();
     }
-    sessionNotes = `${sessionNotes} [KCAL:${finalCaloriesBurned}]`.trim();
+    if (!sessionNotes.includes("[KCAL_ACTIVE:")) {
+      sessionNotes = `${sessionNotes} [KCAL_ACTIVE:${finalCaloriesBurned}]`.trim();
+    }
 
     // 2. Insert session record with resilient column fallback
     const insertPayload: any = {

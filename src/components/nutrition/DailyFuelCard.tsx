@@ -320,6 +320,10 @@ export function DailyFuelCard({
               </span>
             </div>
           )}
+
+          <p className="text-[9px] text-slate-500 font-mono italic text-center pt-0.5">
+            *Estimates based on 2024 Adult Compendium of Physical Activities MET classifications.
+          </p>
         </div>
       </div>
 

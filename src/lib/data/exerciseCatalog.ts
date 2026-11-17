@@ -1,4 +1,5 @@
-import { DayOfWeek, HunterRank, AttributeType } from "@/types";
+import { DayOfWeek, HunterRank, AttributeType, MetCategory } from "@/types";
+import { resolveExerciseMetCategory } from "@/lib/calculations/calorieEngine";
 
 export interface MasterExercise {
   id: string;
@@ -17,6 +18,7 @@ export interface MasterExercise {
   default_reps_min: number;
   default_reps_max: number;
   default_rest_seconds: number;
+  met_category?: MetCategory;
   attribute_yield?: Partial<Record<AttributeType, number>>;
   instructions: string[];
   form_cues: string[];
@@ -7797,4 +7799,9 @@ export function getRotatedSplitExercises(
       default_rest_seconds: restSec,
     };
   });
+}
+
+export function getExerciseMetCategory(exercise: MasterExercise): MetCategory {
+  if (exercise.met_category) return exercise.met_category;
+  return resolveExerciseMetCategory(exercise.name, exercise.target_muscle);
 }
