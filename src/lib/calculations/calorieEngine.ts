@@ -60,7 +60,9 @@ export function calculateActiveCalories(params: {
 export function resolveExerciseMetCategory(
   exerciseName: string = "",
   targetMuscle: string = "",
-  isCircuit: boolean = false
+  isCircuit: boolean = false,
+  workingWeightKg?: number,
+  bodyweightKg?: number
 ): MetCategory {
   if (isCircuit) return "resistance_circuit";
 
@@ -72,6 +74,13 @@ export function resolveExerciseMetCategory(
     return "skipping_rope";
   }
 
+  // Heavy Load Dynamic Intensity Check:
+  // If moving heavy load (>= 22.5kg per dumbbell or >= 30% of body mass),
+  // cardiovascular & motor unit recruitment shifts effort into vigorous weightlifting.
+  const isHeavyDumbbell =
+    (workingWeightKg && workingWeightKg >= 22.5) ||
+    (workingWeightKg && bodyweightKg && bodyweightKg > 0 && workingWeightKg / bodyweightKg >= 0.30);
+
   // Squats and Deadlifts (Lower body compound movements)
   if (
     name.includes("squat") ||
@@ -82,11 +91,12 @@ export function resolveExerciseMetCategory(
     muscle.includes("hamstring") ||
     muscle.includes("glute")
   ) {
-    return "squats_deadlifts";
+    return isHeavyDumbbell ? "vigorous_weightlifting" : "squats_deadlifts";
   }
 
   // Vigorous weightlifting (Heavy upper-body compound presses & rows)
   if (
+    isHeavyDumbbell ||
     name.includes("bench press") ||
     name.includes("incline press") ||
     name.includes("chest press") ||

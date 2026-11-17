@@ -269,6 +269,20 @@ export const workoutUiSlice = createSlice({
       }
     },
 
+    addSetToCurrentExercise: (state) => {
+      const exercise = state.exercises[state.currentExerciseIndex];
+      if (!exercise || exercise.sets.length >= 10) return;
+      const lastSet = exercise.sets[exercise.sets.length - 1];
+      const newSetNumber = exercise.sets.length + 1;
+      exercise.sets.push({
+        setNumber: newSetNumber,
+        weightKg: lastSet ? lastSet.weightKg : 10,
+        reps: lastSet ? lastSet.reps : 10,
+        rpe: 8,
+        completed: false,
+      });
+    },
+
     skipExerciseWithPenalty: (state) => {
       state.skippedCount += 1;
       const exercise = state.exercises[state.currentExerciseIndex];
@@ -364,6 +378,7 @@ export const {
   confirmStartExercise,
   tickSetupTimer,
   adjustSetupTimer,
+  addSetToCurrentExercise,
   completeActiveSet,
   skipExerciseWithPenalty,
   abandonSession,

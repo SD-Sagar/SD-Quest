@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAppDispatch } from "@/store";
 import { startWorkoutSession } from "@/store/slices/workoutUiSlice";
 import { triggerHaptic } from "@/lib/utils";
-import { calculateDumbbellPlates } from "@/lib/calculations/gym";
+import { calculateDumbbellPlates, getMaxSetsForRank, getRepCeilingForRankAndSets } from "@/lib/calculations/gym";
 import { MASTER_EXERCISE_CATALOG, MasterExercise } from "@/lib/data/exerciseCatalog";
 import { getCustomPlanAction, saveCustomPlanAction } from "@/server/actions/player.actions";
 import { getTodaysWorkoutsAction } from "@/server/actions/workout.actions";
@@ -14,6 +14,7 @@ import {
   CustomExerciseRoutine,
   ExerciseDefinition,
   AttributeType,
+  HunterRank,
 } from "@/types";
 import {
   Dumbbell,
@@ -35,6 +36,8 @@ import {
 
 interface CustomPlanManagerProps {
   equipment: EquipmentInventory | null;
+  playerRank?: HunterRank;
+  playerLevel?: number;
 }
 
 const DEFAULT_DAYS: DayOfWeek[] = [
@@ -56,7 +59,11 @@ const ATTRIBUTE_CHOICES: { key: AttributeType; label: string; color: string }[] 
   { key: "mentality", label: "Mentality (MEN)", color: "text-cyan-400 border-cyan-500/40 bg-cyan-950/40" },
 ];
 
-export function CustomPlanManager({ equipment }: CustomPlanManagerProps) {
+export function CustomPlanManager({
+  equipment,
+  playerRank = "Recruit",
+  playerLevel = 1,
+}: CustomPlanManagerProps) {
   const dispatch = useAppDispatch();
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>("Monday");
   const [dayRoutines, setDayRoutines] = useState<Record<DayOfWeek, CustomExerciseRoutine[]>>({
@@ -77,6 +84,7 @@ export function CustomPlanManager({ equipment }: CustomPlanManagerProps) {
   const [isCreatingNewModal, setIsCreatingNewModal] = useState(false);
   const [isTodayCustomCompleted, setIsTodayCustomCompleted] = useState(false);
   const [devUnlockOverride, setDevUnlockOverride] = useState(false);
+  const [volumeNotice, setVolumeNotice] = useState<string | null>(null);
 
   // New Exercise Form State
   const [newExName, setNewExName] = useState("");
@@ -243,6 +251,53 @@ export function CustomPlanManager({ equipment }: CustomPlanManagerProps) {
       ...prev,
       [selectedDay]: prev[selectedDay].filter((_, i) => i !== index),
     }));
+  };
+
+  const maxAllowedSets = getMaxSetsForRank(playerRank);
+
+  const handleUpdateRoutineSets = (index: number, delta: number) => {
+    triggerHaptic("light");
+    const updated = [...currentList];
+    const current = updated[index];
+    const newSets = Math.min(maxAllowedSets, Math.max(1, current.sets + delta));
+
+    // Intelligent Rep-Lock: check ceiling for new set count
+    const ceiling = getRepCeilingForRankAndSets(playerRank, newSets);
+    let newReps = current.reps_target;
+    if (newReps > ceiling.maxReps) {
+      newReps = ceiling.maxReps;
+      setVolumeNotice(`[SAFE VOLUME LOCK]: ${playerRank} rank capped at ${ceiling.maxReps} reps for ${newSets} sets.`);
+      setTimeout(() => setVolumeNotice(null), 3500);
+    }
+
+    updated[index] = { ...current, sets: newSets, reps_target: newReps };
+    setDayRoutines((prev) => ({ ...prev, [selectedDay]: updated }));
+  };
+
+  const handleUpdateRoutineReps = (index: number, delta: number) => {
+    triggerHaptic("light");
+    const updated = [...currentList];
+    const current = updated[index];
+    const ceiling = getRepCeilingForRankAndSets(playerRank, current.sets);
+    const newReps = Math.min(ceiling.maxReps, Math.max(1, current.reps_target + delta));
+
+    if (current.reps_target + delta > ceiling.maxReps) {
+      setVolumeNotice(`[REP CEILING]: ${playerRank} limit is ${ceiling.maxReps} reps at ${current.sets} sets to prevent tendonitis.`);
+      setTimeout(() => setVolumeNotice(null), 3500);
+    }
+
+    updated[index] = { ...current, reps_target: newReps };
+    setDayRoutines((prev) => ({ ...prev, [selectedDay]: updated }));
+  };
+
+  const handleUpdateRoutineWeight = (index: number, delta: number) => {
+    triggerHaptic("light");
+    const updated = [...currentList];
+    const current = updated[index];
+    const newWeight = Math.min(60, Math.max(0, Number((current.target_weight_kg + delta).toFixed(1))));
+
+    updated[index] = { ...current, target_weight_kg: newWeight };
+    setDayRoutines((prev) => ({ ...prev, [selectedDay]: updated }));
   };
 
   const handleLaunchCustomSession = () => {
@@ -530,6 +585,13 @@ export function CustomPlanManager({ equipment }: CustomPlanManagerProps) {
 
       {/* Routine Exercise Cards */}
       <div className="space-y-2.5">
+        {volumeNotice && (
+          <div className="p-2.5 rounded-xl bg-cyan-950/90 border border-cyan-400 text-cyan-300 text-xs font-mono font-bold animate-in fade-in duration-200 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            <span>{volumeNotice}</span>
+          </div>
+        )}
+
         {currentList.length === 0 ? (
           <div className="p-8 rounded-2xl border border-dashed border-slate-800 text-center space-y-2 font-hud">
             <Dumbbell className="w-8 h-8 text-slate-600 mx-auto" />
@@ -600,21 +662,90 @@ export function CustomPlanManager({ equipment }: CustomPlanManagerProps) {
                   )}
                 </div>
 
-                {/* In-Line Tweaks */}
-                <div className="grid grid-cols-3 gap-2 pt-1 border-t border-cyan-500/20 text-[11px] font-mono">
-                  <div className="p-2 rounded-lg bg-[#070b14] border border-cyan-500/20 text-center">
-                    <span className="text-slate-400 block text-[9px] uppercase font-hud">Sets</span>
-                    <span className="text-white font-bold">{routine.sets} Sets</span>
-                  </div>
-                  <div className="p-2 rounded-lg bg-[#070b14] border border-cyan-500/20 text-center">
-                    <span className="text-slate-400 block text-[9px] uppercase font-hud">Reps</span>
-                    <span className="text-white font-bold">{routine.reps_target} Reps</span>
-                  </div>
-                  <div className="p-2 rounded-lg bg-[#070b14] border border-cyan-500/20 text-center">
-                    <span className="text-slate-400 block text-[9px] uppercase font-hud">Weight</span>
-                    <span className="text-cyan-300 font-bold">{routine.target_weight_kg} kg</span>
-                  </div>
-                </div>
+                {/* In-Line Tri-Stepper Controls */}
+                {(() => {
+                  const ceiling = getRepCeilingForRankAndSets(playerRank, routine.sets);
+                  return (
+                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2 pt-1 border-t border-cyan-500/20 text-[11px] font-mono">
+                      {/* Sets Stepper */}
+                      <div className="p-1.5 sm:p-2 rounded-lg bg-[#070b14] border border-cyan-500/20 text-center">
+                        <span className="text-slate-400 block text-[9px] uppercase font-hud">Sets (Max {maxAllowedSets})</span>
+                        <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateRoutineSets(idx, -1)}
+                            disabled={routine.sets <= 1}
+                            className="w-5 h-5 rounded bg-slate-800 hover:bg-cyan-950 text-cyan-300 font-bold flex items-center justify-center text-xs disabled:opacity-30 transition"
+                          >
+                            -
+                          </button>
+                          <span className="text-white font-bold min-w-5">{routine.sets}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateRoutineSets(idx, +1)}
+                            disabled={routine.sets >= maxAllowedSets}
+                            className="w-5 h-5 rounded bg-slate-800 hover:bg-cyan-950 text-cyan-300 font-bold flex items-center justify-center text-xs disabled:opacity-30 transition"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Reps Stepper with Rank Ceilings */}
+                      <div className="p-1.5 sm:p-2 rounded-lg bg-[#070b14] border border-cyan-500/20 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <span className="text-slate-400 block text-[9px] uppercase font-hud">Reps</span>
+                          {ceiling.isRestricted && (
+                            <span className="text-[8px] text-cyan-400 font-bold">CAP:{ceiling.maxReps}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateRoutineReps(idx, -1)}
+                            disabled={routine.reps_target <= 1}
+                            className="w-5 h-5 rounded bg-slate-800 hover:bg-cyan-950 text-cyan-300 font-bold flex items-center justify-center text-xs disabled:opacity-30 transition"
+                          >
+                            -
+                          </button>
+                          <span className="text-white font-bold min-w-5">{routine.reps_target}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateRoutineReps(idx, +1)}
+                            disabled={routine.reps_target >= ceiling.maxReps}
+                            className="w-5 h-5 rounded bg-slate-800 hover:bg-cyan-950 text-cyan-300 font-bold flex items-center justify-center text-xs disabled:opacity-30 transition"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Weight Stepper */}
+                      <div className="p-1.5 sm:p-2 rounded-lg bg-[#070b14] border border-cyan-500/20 text-center">
+                        <span className="text-slate-400 block text-[9px] uppercase font-hud">Weight</span>
+                        <div className="flex items-center justify-center gap-1 mt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateRoutineWeight(idx, -0.5)}
+                            disabled={routine.target_weight_kg <= 0}
+                            className="w-5 h-5 rounded bg-slate-800 hover:bg-cyan-950 text-cyan-300 font-bold flex items-center justify-center text-xs disabled:opacity-30 transition"
+                          >
+                            -
+                          </button>
+                          <span className="text-cyan-300 font-bold text-[10px] min-w-7 truncate">{routine.target_weight_kg}k</span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateRoutineWeight(idx, +0.5)}
+                            disabled={routine.target_weight_kg >= 60}
+                            className="w-5 h-5 rounded bg-slate-800 hover:bg-cyan-950 text-cyan-300 font-bold flex items-center justify-center text-xs disabled:opacity-30 transition"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="text-[10px] font-mono text-slate-400 bg-[#070b14] px-2.5 py-1 rounded-lg border border-cyan-500/20">
                   <span className="text-slate-500 font-hud">Plate Solver: </span>
@@ -701,43 +832,67 @@ export function CustomPlanManager({ equipment }: CustomPlanManagerProps) {
                 </div>
               </div>
 
-              {/* Sets, Reps, Weight */}
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-[10px] text-slate-400 uppercase">Sets</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={newExSets}
-                    onChange={(e) => setNewExSets(Number(e.target.value))}
-                    className="w-full rounded-xl bg-[#070b14] border border-cyan-500/30 px-3 py-1.5 text-white text-xs font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-slate-400 uppercase">Reps</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="50"
-                    value={newExReps}
-                    onChange={(e) => setNewExReps(Number(e.target.value))}
-                    className="w-full rounded-xl bg-[#070b14] border border-cyan-500/30 px-3 py-1.5 text-white text-xs font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-slate-400 uppercase">Weight (kg)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    step="0.5"
-                    value={newExWeight}
-                    onChange={(e) => setNewExWeight(Number(e.target.value))}
-                    className="w-full rounded-xl bg-[#070b14] border border-cyan-500/30 px-3 py-1.5 text-white text-xs font-mono"
-                  />
-                </div>
-              </div>
+              {/* Sets, Reps, Weight with Intelligent Rank Ceilings */}
+              {(() => {
+                const modalCeiling = getRepCeilingForRankAndSets(playerRank, newExSets);
+                return (
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 uppercase">Sets (Max {maxAllowedSets})</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max={maxAllowedSets}
+                          value={newExSets}
+                          onChange={(e) => {
+                            const val = Math.min(maxAllowedSets, Math.max(1, Number(e.target.value) || 1));
+                            setNewExSets(val);
+                            const ceil = getRepCeilingForRankAndSets(playerRank, val);
+                            if (newExReps > ceil.maxReps) {
+                              setNewExReps(ceil.maxReps);
+                            }
+                          }}
+                          className="w-full rounded-xl bg-[#070b14] border border-cyan-500/30 px-3 py-1.5 text-white text-xs font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 uppercase">
+                          Reps {modalCeiling.isRestricted && <span className="text-cyan-400 font-bold">(Max {modalCeiling.maxReps})</span>}
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max={modalCeiling.maxReps}
+                          value={newExReps}
+                          onChange={(e) => {
+                            const val = Math.min(modalCeiling.maxReps, Math.max(1, Number(e.target.value) || 1));
+                            setNewExReps(val);
+                          }}
+                          className="w-full rounded-xl bg-[#070b14] border border-cyan-500/30 px-3 py-1.5 text-white text-xs font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 uppercase">Weight (kg)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="60"
+                          step="0.5"
+                          value={newExWeight}
+                          onChange={(e) => setNewExWeight(Math.min(60, Math.max(0, Number(e.target.value) || 0)))}
+                          className="w-full rounded-xl bg-[#070b14] border border-cyan-500/30 px-3 py-1.5 text-white text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+                    {modalCeiling.isRestricted && (
+                      <p className="text-[10px] font-mono text-cyan-400 italic">
+                        * {modalCeiling.reason}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* RPG Yield Selection */}
               <div>

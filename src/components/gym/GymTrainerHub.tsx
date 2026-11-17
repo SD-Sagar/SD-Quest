@@ -113,6 +113,8 @@ export function GymTrainerHub({
     tonnageKg: number;
     xp: number;
   } | null>(null);
+  const [isMobileCompactView, setIsMobileCompactView] = useState(false);
+  const [isPlateCalcExpanded, setIsPlateCalcExpanded] = useState(false);
   const [warningModalData, setWarningModalData] = useState<{
     title: string;
     message: string;
@@ -478,7 +480,11 @@ export function GymTrainerHub({
 
       {/* Render CUSTOM PLAN environment if active */}
       {workoutMode === "custom" ? (
-        <CustomPlanManager equipment={equipment} />
+        <CustomPlanManager
+          equipment={equipment}
+          playerRank={playerRank}
+          playerLevel={playerLevel}
+        />
       ) : (
         /* SYSTEM PLAN ENVIRONMENT */
         <>
@@ -695,17 +701,32 @@ export function GymTrainerHub({
 
               {/* Curated Today's Session Pathway */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
                     <Layers className="w-4 h-4 text-cyan-400" />
-                    TODAY'S PRESCRIBED WORKOUT ({curatedSessionList.length} MOVEMENTS)
-                  </h3>
-                  <span className="text-[11px] text-slate-500 font-mono">
-                    Tap any movement for step-by-step form guide
-                  </span>
+                    <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
+                      TODAY'S PRESCRIBED WORKOUT ({curatedSessionList.length} MOVEMENTS)
+                    </h3>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setIsMobileCompactView(!isMobileCompactView);
+                      }}
+                      className="px-2 py-0.5 rounded-lg bg-cyan-950/60 border border-cyan-500/30 text-[10px] font-mono text-cyan-300 hover:text-white transition flex items-center gap-1"
+                    >
+                      {isMobileCompactView ? "⊞ DETAILED VIEW" : "≡ COMPACT VIEW"}
+                    </button>
+                    <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">
+                      Tap movement for guide
+                    </span>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
                   {curatedSessionList.map((ex, i) => (
                     <div
                       key={ex.id}
@@ -713,14 +734,16 @@ export function GymTrainerHub({
                         triggerHaptic("light");
                         setSelectedExerciseForModal(ex);
                       }}
-                      className="p-3.5 sm:p-4 rounded-2xl bg-[#090d18] border border-cyan-500/20 hover:border-cyan-400/60 hover:bg-[#0c1222] transition-all cursor-pointer flex items-center justify-between gap-2.5 group"
+                      className={`${
+                        isMobileCompactView ? "p-2.5 sm:p-3" : "p-3.5 sm:p-4"
+                      } rounded-2xl bg-[#090d18] border border-cyan-500/20 hover:border-cyan-400/60 hover:bg-[#0c1222] transition-all cursor-pointer flex items-center justify-between gap-2.5 group`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 group-hover:border-cyan-400 group-hover:bg-cyan-500/20 flex items-center justify-center font-mono font-black text-xs shrink-0 transition">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 group-hover:border-cyan-400 group-hover:bg-cyan-500/20 flex items-center justify-center font-mono font-black text-xs shrink-0 transition">
                           #{i + 1}
                         </div>
 
-                        <div className="min-w-0 space-y-1">
+                        <div className="min-w-0 space-y-0.5 sm:space-y-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-xs sm:text-sm font-bold text-white truncate max-w-[150px] sm:max-w-none">{ex.name}</span>
                             <span className="text-[9px] sm:text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-cyan-950/60 text-cyan-300 border border-cyan-500/30 shrink-0">
@@ -736,8 +759,8 @@ export function GymTrainerHub({
                             </span>
                           </div>
 
-                          {/* RPG Attribute Yield Badges */}
-                          {(() => {
+                          {/* RPG Attribute Yield Badges - Shown in detailed view or desktop */}
+                          {!isMobileCompactView && (() => {
                             const yields = getExerciseAttributeYield(ex);
                             return (
                               <div className="flex items-center gap-1 flex-wrap pt-0.5">
@@ -882,47 +905,66 @@ export function GymTrainerHub({
             </>
           )}
 
-          {/* 60KG Home Dumbbell Plate Calculator Quick Widget */}
-          <div className="hunter-panel rounded-3xl border border-slate-800 p-5 space-y-4">
-            <div className="flex items-center justify-between">
+          {/* 60KG Home Dumbbell Plate Calculator Quick Widget (Collapsible Anti-Scroll) */}
+          <div className="solo-frame rounded-2xl p-4 sm:p-5 space-y-3 font-hud">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic("light");
+                setIsPlateCalcExpanded(!isPlateCalcExpanded);
+              }}
+              className="w-full flex items-center justify-between text-xs font-mono font-bold uppercase tracking-wider text-slate-300 group"
+            >
               <div className="flex items-center gap-2">
                 <Dumbbell className="w-4 h-4 text-cyan-400" />
-                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-white">
+                <span className="text-white group-hover:text-cyan-300 transition">
                   60KG ARSENAL DUMBBELL PLATE CALCULATOR
-                </h3>
+                </span>
               </div>
-              <span className="text-xs font-mono text-cyan-400 font-bold">
-                {plateSolver.achievableWeightKg.toFixed(2)} kg / dumbbell
-              </span>
-            </div>
+              <div className="flex items-center gap-2 text-cyan-400">
+                <span className="text-xs font-mono font-bold">
+                  {plateSolver.achievableWeightKg.toFixed(1)}kg / DB
+                </span>
+                {isPlateCalcExpanded ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </div>
+            </button>
 
-            <p className="text-xs text-slate-400">
-              Select target dumbbell weight to instantly view exact symmetric plate loading for your 20-in-1 bench setup ($8\times 5$kg, $4\times 2.5$kg, $4\times 2$kg, $8\times 1.25$kg, $4\times 1$kg):
-            </p>
+            {isPlateCalcExpanded && (
+              <div className="pt-2 border-t border-cyan-500/20 space-y-3 animate-in fade-in duration-150">
+                <p className="text-xs text-slate-400 font-mono">
+                  Select target dumbbell weight to instantly view exact symmetric plate loading for your 20-in-1 bench setup (8×5kg, 4×2.5kg, 4×2kg, 8×1.25kg, 4×1kg):
+                </p>
 
-            <div className="flex flex-wrap gap-2">
-              {[6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 26.0].map((w) => (
-                <button
-                  key={w}
-                  onClick={() => {
-                    triggerHaptic("light");
-                    setTargetWeightCalc(w);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition ${
-                    Math.abs(targetWeightCalc - w) < 0.1
-                      ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 shadow-sm"
-                      : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white"
-                  }`}
-                >
-                  {w}kg
-                </button>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                  {[6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 26.0, 28.0, 30.0].map((w) => (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setTargetWeightCalc(w);
+                      }}
+                      className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-xs font-mono font-bold transition ${
+                        Math.abs(targetWeightCalc - w) < 0.1
+                          ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 shadow-sm"
+                          : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white"
+                      }`}
+                    >
+                      {w}kg
+                    </button>
+                  ))}
+                </div>
 
-            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 font-mono text-xs flex items-center justify-between">
-              <span className="text-slate-400">Dumbbell Breakdown:</span>
-              <span className="text-cyan-400 font-bold">{plateSolver.summaryString}</span>
-            </div>
+                <div className="p-3 rounded-xl bg-[#070b14] border border-cyan-500/25 font-mono text-xs flex items-center justify-between">
+                  <span className="text-slate-400">Dumbbell Breakdown:</span>
+                  <span className="text-cyan-400 font-bold">{plateSolver.summaryString}</span>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

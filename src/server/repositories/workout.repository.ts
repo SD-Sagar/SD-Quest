@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { EquipmentInventory, WorkoutSession, WorkoutSetLog, ExerciseDefinition, TrainingSplitDay } from "@/types";
-import { getExerciseDumbbellMultiplier } from "@/lib/calculations/gym";
+import { getExerciseDumbbellMultiplier, calculateIntelligentWorkoutRewards } from "@/lib/calculations/gym";
 import { PlayerRepository } from "./player.repository";
 
 export class WorkoutRepository {
@@ -244,37 +244,24 @@ export class WorkoutRepository {
       }
     }
 
-    // 4. Calculate calibrated real-life RPG rewards with extra work multiplier support
-    let xpBase = params.isSingleExercise ? 25 : 85;
-    const tonnageBonusXp = Math.min(25, Math.floor(totalTonnageKg / 300));
-    const skipBonusXp = params.skippingCompleted >= params.skippingTarget ? 15 : 0;
-    const speedBonusXp = params.completedEarly ? 15 : 0;
-    const skipPenaltyXp = (params.skippedCount || 0) * 15;
-    
-    let totalXp = Math.max(15, xpBase + tonnageBonusXp + skipBonusXp + speedBonusXp - skipPenaltyXp);
+    // 4. Calculate calibrated real-life RPG rewards with extra work multiplier and heavy load support
+    const maxWorkingWeightKg = params.sets.length > 0 ? Math.max(0, ...params.sets.map((s) => s.weight_kg || 0)) : 10;
+    const totalRepsCount = params.sets.reduce((sum, s) => sum + (s.reps || 0), 0);
+    const totalSetsCount = params.sets.length;
 
-    // Apply Extra Workout Multiplier if beyond daily quota
-    if (params.extraWorkoutMultiplier) {
-      totalXp = Math.max(10, Math.round(totalXp * params.extraWorkoutMultiplier));
-    }
-
-    const disPenalty = (params.skippedCount || 0) * 0.10;
-    const attrMultiplier = params.extraWorkoutMultiplier || 1.0;
-
-    const attrDeltas: Record<string, number> = {
-      strength: Number((0.35 * attrMultiplier).toFixed(2)),
-      discipline: Number((Math.max(0.05, 0.20 - disPenalty) * attrMultiplier).toFixed(2)),
-      vitality: Number((0.15 * attrMultiplier).toFixed(2)),
-    };
-
-    if (params.skippingCompleted >= params.skippingTarget) {
-      attrDeltas.agility = (attrDeltas.agility || 0) + Number((0.20 * attrMultiplier).toFixed(2));
-    }
-
-    if (params.completedEarly) {
-      attrDeltas.agility = (attrDeltas.agility || 0) + 0.10;
-      attrDeltas.discipline = (attrDeltas.discipline || 0) + 0.10;
-    }
+    const { totalXp, attrDeltas } = calculateIntelligentWorkoutRewards({
+      isSingleExercise: params.isSingleExercise,
+      totalTonnageKg,
+      maxWorkingWeightKg,
+      totalSetsCount,
+      totalRepsCount,
+      skippedCount: params.skippedCount,
+      skippingCompleted: params.skippingCompleted,
+      skippingTarget: params.skippingTarget,
+      completedEarly: params.completedEarly,
+      extraWorkoutMultiplier: params.extraWorkoutMultiplier,
+      targetMusclesTrained: params.targetMuscles || "",
+    });
 
     // 5. Grant rewards securely via server transaction
     const rpgRewards = await PlayerRepository.grantXpAndAttributes({

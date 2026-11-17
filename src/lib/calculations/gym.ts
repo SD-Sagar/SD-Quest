@@ -204,7 +204,7 @@ export function calculateAccurateWorkoutCalories(params: {
 
   let totalTonnageKg = 0;
   // Group sets by exercise name to construct exercise blocks
-  const exerciseMap = new Map<string, { targetMuscle: string; setsCount: number; tonnageKg: number }>();
+  const exerciseMap = new Map<string, { targetMuscle: string; setsCount: number; tonnageKg: number; maxWeightKg: number }>();
 
   for (const s of sets) {
     const exName = s.exerciseName || "Exercise Movement";
@@ -217,11 +217,13 @@ export function calculateAccurateWorkoutCalories(params: {
       targetMuscle: s.targetMuscle || "",
       setsCount: 0,
       tonnageKg: 0,
+      maxWeightKg: 0,
     };
     exerciseMap.set(exName, {
       targetMuscle: s.targetMuscle || existing.targetMuscle,
       setsCount: existing.setsCount + 1,
       tonnageKg: existing.tonnageKg + setTonnage,
+      maxWeightKg: Math.max(existing.maxWeightKg, s.weightKg),
     });
   }
 
@@ -232,7 +234,7 @@ export function calculateAccurateWorkoutCalories(params: {
   const exerciseBlocks = Array.from(exerciseMap.entries()).map(([name, data]) => {
     const fractionOfSets = data.setsCount / totalSetsCount;
     const blockMinutes = Math.max(0.2, Number((totalDurationMinutes * fractionOfSets).toFixed(2)));
-    const metCategory = resolveExerciseMetCategory(name, data.targetMuscle);
+    const metCategory = resolveExerciseMetCategory(name, data.targetMuscle, false, data.maxWeightKg, weightKg);
 
     return {
       exerciseName: name,
@@ -362,6 +364,225 @@ export function calculateExtraWorkoutXpMultiplier(extraWorkoutNumber: number): n
   if (extraWorkoutNumber === 1) return 0.25;
   if (extraWorkoutNumber === 2) return 0.50;
   return 0.25;
+}
+
+/**
+ * Maximum sets allowed per exercise based on Hunter Rank.
+ * Absolute ceiling across the entire system is 10 sets.
+ */
+export function getMaxSetsForRank(rank: HunterRank = "Recruit"): number {
+  switch (rank) {
+    case "Spartan":
+    case "Elite":
+    case "Vanguard":
+    case "Warrior":
+      return 10;
+    case "Initiate":
+      return 8;
+    case "Recruit":
+    default:
+      return 6;
+  }
+}
+
+/**
+ * Intelligent Rep-Lock Ceiling based on Hunter Rank and current Set count.
+ * Prevents central nervous system exhaustion and tendon breakdown for lower-level hunters.
+ */
+export function getRepCeilingForRankAndSets(
+  rank: HunterRank = "Recruit",
+  setsCount: number = 3
+): {
+  maxReps: number;
+  isRestricted: boolean;
+  reason?: string;
+} {
+  const safeSets = Math.min(10, Math.max(1, setsCount));
+
+  if (rank === "Spartan" || rank === "Elite") {
+    return {
+      maxReps: 40,
+      isRestricted: false,
+    };
+  }
+
+  if (rank === "Warrior" || rank === "Vanguard") {
+    if (safeSets >= 6) {
+      return {
+        maxReps: 12,
+        isRestricted: true,
+        reason: "Warrior Protocol: High set volume (6+ sets) capped at 12 reps to prioritize hypertrophy mechanics.",
+      };
+    }
+    return {
+      maxReps: 20,
+      isRestricted: false,
+    };
+  }
+
+  if (rank === "Initiate") {
+    if (safeSets >= 5) {
+      return {
+        maxReps: 10,
+        isRestricted: true,
+        reason: "Initiate Protocol: Sets 5-8 capped at 10 reps to protect tendon remodeling.",
+      };
+    }
+    return {
+      maxReps: 15,
+      isRestricted: false,
+    };
+  }
+
+  // Recruit (Rank 1)
+  if (safeSets >= 4) {
+    return {
+      maxReps: 8,
+      isRestricted: true,
+      reason: "Recruit Limit: Awakening conditioning limits sets 4-6 to 8 reps to prevent tendonitis.",
+    };
+  }
+  return {
+    maxReps: 12,
+    isRestricted: false,
+  };
+}
+
+/**
+ * Calculates Calibrated RPG Rewards (XP and Attributes) for Workout Completion:
+ * - Tonnage & Weight-Scaled Strength (STR)
+ * - Volume-Scaled Endurance (END)
+ * - Discipline (DIS) with volume completion bonus and skip penalties
+ * - Rank & Level-Calibrated Diminishing Returns for sets 5+
+ */
+export function calculateIntelligentWorkoutRewards(params: {
+  isSingleExercise?: boolean;
+  totalTonnageKg: number;
+  maxWorkingWeightKg: number;
+  totalSetsCount: number;
+  totalRepsCount: number;
+  skippedCount?: number;
+  skippingCompleted?: number;
+  skippingTarget?: number;
+  completedEarly?: boolean;
+  extraWorkoutMultiplier?: number;
+  targetMusclesTrained?: string | string[];
+  playerRank?: HunterRank;
+  playerLevel?: number;
+}): {
+  totalXp: number;
+  attrDeltas: Record<string, number>;
+} {
+  const {
+    isSingleExercise = false,
+    totalTonnageKg = 0,
+    maxWorkingWeightKg = 10,
+    totalSetsCount = 3,
+    totalRepsCount = 30,
+    skippedCount = 0,
+    skippingCompleted = 0,
+    skippingTarget = 0,
+    completedEarly = false,
+    extraWorkoutMultiplier = 1.0,
+    targetMusclesTrained = "",
+    playerRank = "Recruit",
+    playerLevel = 1,
+  } = params;
+
+  // 1. XP Base
+  let xpBase = isSingleExercise ? 25 : 85;
+
+  // Tonnage XP: 1 XP per 300kg tonnage (capped at 30)
+  const tonnageBonusXp = Math.min(30, Math.floor(totalTonnageKg / 300));
+
+  // Set Volume Diminishing Returns:
+  // Sets 1-4 = full credit, sets 5-7 = 75%, sets 8-10 = 50%
+  let setBonusXp = 0;
+  if (totalSetsCount > 3) {
+    const extraSets = totalSetsCount - 3;
+    if (extraSets <= 3) {
+      setBonusXp = extraSets * 4; // up to 12 XP
+    } else {
+      setBonusXp = 3 * 4 + (extraSets - 3) * 2; // up to 20 XP
+    }
+  }
+
+  const skipBonusXp = skippingTarget > 0 && skippingCompleted >= skippingTarget ? 15 : 0;
+  const speedBonusXp = completedEarly ? 15 : 0;
+  const skipPenaltyXp = (skippedCount || 0) * 15;
+
+  let totalXp = Math.max(15, xpBase + tonnageBonusXp + setBonusXp + skipBonusXp + speedBonusXp - skipPenaltyXp);
+
+  // Apply Extra Workout Multiplier if beyond daily quota
+  if (extraWorkoutMultiplier && extraWorkoutMultiplier !== 1.0) {
+    totalXp = Math.max(10, Math.round(totalXp * extraWorkoutMultiplier));
+  }
+
+  // 2. Intelligent Attribute Deltas
+  const disPenalty = (skippedCount || 0) * 0.10;
+  const attrMult = extraWorkoutMultiplier || 1.0;
+
+  // Heavy Dumbbell Strength Scaling:
+  // Baseline: +0.35. If max weight >= 15kg -> +0.40; >= 22.5kg -> +0.48; >= 30kg -> +0.55
+  let strBase = 0.35;
+  if (maxWorkingWeightKg >= 30) {
+    strBase = 0.55;
+  } else if (maxWorkingWeightKg >= 22.5) {
+    strBase = 0.48;
+  } else if (maxWorkingWeightKg >= 15) {
+    strBase = 0.40;
+  }
+
+  // Volume-Scaled Endurance (END):
+  // If moving high volume (>= 5 sets or >= 50 total reps), grant END reward
+  let endYield = 0;
+  if (totalSetsCount >= 6 || totalRepsCount >= 60) {
+    endYield = 0.30;
+  } else if (totalSetsCount >= 4 || totalRepsCount >= 40) {
+    endYield = 0.15;
+  }
+
+  // High Volume Discipline bonus (pushing through 6+ sets)
+  let disBase = 0.20;
+  if (totalSetsCount >= 6) {
+    disBase += 0.08;
+  }
+
+  const attrDeltas: Record<string, number> = {
+    strength: Number((strBase * attrMult).toFixed(2)),
+    discipline: Number((Math.max(0.05, disBase - disPenalty) * attrMult).toFixed(2)),
+    vitality: Number((0.15 * attrMult).toFixed(2)),
+  };
+
+  if (endYield > 0) {
+    attrDeltas.endurance = Number((endYield * attrMult).toFixed(2));
+  }
+
+  // Check target muscles trained to grant specific RPG yields
+  const muscleString = Array.isArray(targetMusclesTrained)
+    ? targetMusclesTrained.join(" ").toLowerCase()
+    : (targetMusclesTrained || "").toLowerCase();
+  if (muscleString.includes("quad") || muscleString.includes("leg") || muscleString.includes("hamstring")) {
+    attrDeltas.vitality = (attrDeltas.vitality || 0) + 0.10;
+    attrDeltas.endurance = (attrDeltas.endurance || 0) + 0.10;
+  }
+  if (muscleString.includes("shoulder") || muscleString.includes("delt")) {
+    attrDeltas.agility = (attrDeltas.agility || 0) + 0.10;
+  }
+  if (muscleString.includes("core") || muscleString.includes("ab") || muscleString.includes("belly")) {
+    attrDeltas.endurance = (attrDeltas.endurance || 0) + 0.15;
+  }
+
+  if (skippingTarget > 0 && skippingCompleted >= skippingTarget) {
+    attrDeltas.agility = (attrDeltas.agility || 0) + Number((0.20 * attrMult).toFixed(2));
+  }
+
+  if (completedEarly) {
+    attrDeltas.agility = (attrDeltas.agility || 0) + 0.10;
+    attrDeltas.discipline = (attrDeltas.discipline || 0) + 0.10;
+  }
+
+  return { totalXp, attrDeltas };
 }
 
 // Backward compatibility export

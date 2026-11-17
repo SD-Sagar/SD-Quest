@@ -68,9 +68,8 @@ export function CharacterHUD({
         <div className="relative shrink-0">
           {/* Authentic Solo Leveling Avatar Frame with Cyan Contour Glow */}
           <div
-            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-b from-[#0b1220] to-[#05070d] p-1 flex items-center justify-center border-2 border-cyan-400 shadow-[0_0_15px_rgba(0,229,255,0.4)] ${
-              poisonInfo.isPoisoned ? "border-cyan-300 ring-2 ring-cyan-500/50" : ""
-            }`}
+            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-b from-[#0b1220] to-[#05070d] p-1 flex items-center justify-center border-2 border-cyan-400 shadow-[0_0_15px_rgba(0,229,255,0.4)] ${poisonInfo.isPoisoned ? "border-cyan-300 ring-2 ring-cyan-500/50" : ""
+              }`}
           >
             <div className="w-full h-full rounded-lg bg-[#070b14] flex items-center justify-center font-black text-2xl font-solo text-cyan-400 mana-text-glow">
               {(profile.name || "H").charAt(0).toUpperCase()}

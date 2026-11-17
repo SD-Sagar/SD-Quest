@@ -21,6 +21,7 @@ import {
   minimizeSession,
   maximizeSession,
   endSession,
+  addSetToCurrentExercise,
 } from "@/store/slices/workoutUiSlice";
 import { finishWorkoutAction } from "@/server/actions/workout.actions";
 import { saveActiveSessionAction, clearActiveSessionAction } from "@/server/actions/player.actions";
@@ -33,6 +34,8 @@ import {
 import {
   calculateDumbbellPlates,
   calculateAccurateWorkoutCalories,
+  getMaxSetsForRank,
+  getRepCeilingForRankAndSets,
 } from "@/lib/calculations/gym";
 import confetti from "canvas-confetti";
 import {
@@ -95,9 +98,14 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
 
   const [skipsCountInput, setSkipsCountInput] = useState(100);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [volumeCapNotice, setVolumeCapNotice] = useState<string | null>(null);
 
   const currentExercise = session.exercises[session.currentExerciseIndex];
   const currentSet = currentExercise?.sets[session.currentSetIndex];
+
+  const hunterRank = (userProfile?.rank || session.playerRank || "Recruit") as HunterRank;
+  const maxAllowedSets = getMaxSetsForRank(hunterRank);
+  const repCeiling = getRepCeilingForRankAndSets(hunterRank, currentExercise?.sets.length || 3);
 
   // Default inventory for plate solver
   const defaultInv: EquipmentInventory = {
@@ -939,15 +947,31 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
         <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
           <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
             <span>SET PROGRESSION</span>
-            <span className="text-cyan-400 font-bold">
-              SET {session.currentSetIndex + 1} OF {currentExercise?.sets.length}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-cyan-400 font-bold">
+                SET {session.currentSetIndex + 1} OF {currentExercise?.sets.length}
+              </span>
+              {currentExercise && currentExercise.sets.length < maxAllowedSets && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("medium");
+                    dispatch(addSetToCurrentExercise());
+                  }}
+                  className="px-2 py-0.5 rounded-md bg-cyan-950 border border-cyan-400 text-cyan-300 text-[10px] font-mono font-bold hover:bg-cyan-500 hover:text-black transition flex items-center gap-1 shadow-sm shadow-cyan-950"
+                  title={`Add extra set (Max ${maxAllowedSets} for ${hunterRank})`}
+                >
+                  <Plus className="w-2.5 h-2.5" />
+                  <span>ADD SET</span>
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 flex-wrap">
             {currentExercise?.sets.map((s, idx) => (
               <div
                 key={idx}
-                className={`flex-1 py-1.5 rounded-lg text-center font-mono text-[10px] font-bold border transition ${
+                className={`flex-1 min-w-[28px] py-1.5 rounded-lg text-center font-mono text-[10px] font-bold border transition ${
                   s.completed
                     ? "bg-cyan-950/80 border-cyan-500 text-cyan-300"
                     : idx === session.currentSetIndex
@@ -960,6 +984,13 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
             ))}
           </div>
         </div>
+
+        {volumeCapNotice && (
+          <div className="p-2.5 rounded-xl bg-cyan-950/90 border border-cyan-400 text-cyan-300 text-xs font-mono font-bold animate-in fade-in flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            <span>{volumeCapNotice}</span>
+          </div>
+        )}
 
         {/* Set Controls (Weight & Reps Steppers) */}
         <div className="grid grid-cols-2 gap-3">
@@ -989,11 +1020,18 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
             </div>
           </div>
 
-          {/* Reps Stepper */}
+          {/* Reps Stepper with Rank Ceilings */}
           <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-2">
-            <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
-              Reps Count
-            </span>
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                Reps Count
+              </span>
+              {repCeiling.isRestricted && (
+                <span className="text-[9px] font-mono font-bold text-cyan-400">
+                  (Cap: {repCeiling.maxReps})
+                </span>
+              )}
+            </div>
             <div className="flex items-center justify-center gap-2">
               <button
                 type="button"
@@ -1007,8 +1045,17 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
               </span>
               <button
                 type="button"
-                onClick={() => setInputReps(inputReps + 1)}
-                className="w-8 h-8 rounded-xl bg-slate-800 text-white font-bold flex items-center justify-center hover:bg-slate-700"
+                onClick={() => {
+                  if (inputReps < repCeiling.maxReps) {
+                    setInputReps(inputReps + 1);
+                  } else {
+                    triggerHaptic("heavy");
+                    setVolumeCapNotice(`[SAFE REP CAP]: ${repCeiling.maxReps} reps max for ${hunterRank} at ${currentExercise?.sets.length || 3} sets.`);
+                    setTimeout(() => setVolumeCapNotice(null), 3500);
+                  }
+                }}
+                disabled={inputReps >= repCeiling.maxReps}
+                className="w-8 h-8 rounded-xl bg-slate-800 text-white font-bold flex items-center justify-center hover:bg-slate-700 disabled:opacity-30"
               >
                 +
               </button>
