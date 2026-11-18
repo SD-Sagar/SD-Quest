@@ -6,6 +6,7 @@ import { Profile, PlayerAttributes, AttributeType } from "@/types";
 import { calculateAge, triggerHaptic } from "@/lib/utils";
 import { getRemainingPoisonTime } from "@/lib/calculations/nutrition";
 import { StatAllocationModal } from "./StatAllocationModal";
+import { getFatigueStatus } from "@/lib/calculations/fatigue";
 import {
   Zap,
   Shield,
@@ -14,6 +15,8 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
+  Brain,
+  Flame,
 } from "lucide-react";
 
 interface CharacterHUDProps {
@@ -47,6 +50,17 @@ export function CharacterHUD({
     100,
     Math.round((profile.current_xp / (profile.xp_to_next_level || 500)) * 100)
   );
+
+  const mentalFatigue = Math.min(100, Math.max(0, Number(profile.mental_fatigue) || 0));
+  const physicalFatigue = Math.min(100, Math.max(0, Number(profile.physical_fatigue) || 0));
+  const fatigueStatus = getFatigueStatus(mentalFatigue, physicalFatigue);
+
+  const getRingColor = (pct: number) => {
+    if (pct >= 90) return "stroke-red-500 text-red-400";
+    if (pct >= 70) return "stroke-orange-500 text-orange-400";
+    if (pct >= 40) return "stroke-amber-400 text-amber-300";
+    return "stroke-cyan-400 text-cyan-300";
+  };
 
   const attributeKeys: AttributeType[] = [
     "strength",
@@ -186,6 +200,120 @@ export function CharacterHUD({
         </div>
       </div>
 
+      {/* 2.5 DUAL BIOLOGICAL FATIGUE TELEMETRY (Mental & Physical Mini Rings) */}
+      <div className="relative z-10 p-3 rounded-2xl bg-[#070b14]/90 border border-slate-800 space-y-2 font-hud">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            BIOLOGICAL FATIGUE TELEMETRY
+          </span>
+          <span
+            className={`text-[9.5px] font-mono font-bold px-2 py-0.5 rounded border ${
+              fatigueStatus.tier === "overload"
+                ? "bg-red-950/80 text-red-300 border-red-500/60 animate-pulse"
+                : fatigueStatus.tier === "heavy"
+                ? "bg-orange-950/70 text-orange-300 border-orange-500/50"
+                : fatigueStatus.tier === "strained"
+                ? "bg-amber-950/60 text-amber-300 border-amber-500/40"
+                : "bg-cyan-950/60 text-cyan-300 border-cyan-500/30"
+            }`}
+          >
+            {fatigueStatus.statusLabel}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          {/* Mental Fatigue Mini Ring */}
+          <div className="p-2 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center gap-2.5">
+            <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
+              <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="15"
+                  className="stroke-slate-800"
+                  strokeWidth="3"
+                  fill="none"
+                />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="15"
+                  className={`${getRingColor(mentalFatigue)} transition-all duration-500`}
+                  strokeWidth="3"
+                  strokeDasharray="94.2"
+                  strokeDashoffset={94.2 - (94.2 * mentalFatigue) / 100}
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </svg>
+              <Brain className="w-3.5 h-3.5 text-cyan-400 absolute" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block truncate">
+                MENTAL
+              </span>
+              <span className="text-xs font-mono font-black text-white">
+                {mentalFatigue.toFixed(0)}%
+              </span>
+            </div>
+          </div>
+
+          {/* Physical Fatigue Mini Ring */}
+          <div className="p-2 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center gap-2.5">
+            <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
+              <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="15"
+                  className="stroke-slate-800"
+                  strokeWidth="3"
+                  fill="none"
+                />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="15"
+                  className={`${getRingColor(physicalFatigue)} transition-all duration-500`}
+                  strokeWidth="3"
+                  strokeDasharray="94.2"
+                  strokeDashoffset={94.2 - (94.2 * physicalFatigue) / 100}
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </svg>
+              <Flame className="w-3.5 h-3.5 text-amber-400 absolute" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block truncate">
+                PHYSICAL
+              </span>
+              <span className="text-xs font-mono font-black text-white">
+                {physicalFatigue.toFixed(0)}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Dynamic Telemetry Status / Debuff Note */}
+        <p className="text-[10px] font-mono text-slate-400 border-t border-slate-800/60 pt-1.5">
+          {fatigueStatus.isOverload ? (
+            <span className="text-red-400 font-bold animate-pulse">
+              ⚠ VITALITY LEAK ACTIVE: -0.02 XP/min drain. Rest or drink refreshment.
+            </span>
+          ) : fatigueStatus.tier !== "optimal" ? (
+            <span className="text-amber-300">
+              Debuff Active: {Math.round(fatigueStatus.xpMultiplier * 100)}% XP gain speed. Leisure or soft drinks clear strain.
+            </span>
+          ) : (
+            <span className="text-cyan-400/80">
+              Optimal conditioning. Full 100% XP &amp; attribute growth active.
+            </span>
+          )}
+        </p>
+      </div>
+
       {/* 3. AUTHENTIC [ PERSONAL STATUS ] STATS SCREEN (Expandable / Collapsible) */}
       <div className="relative z-10 pt-1 space-y-2.5 font-hud">
         <button
@@ -217,7 +345,7 @@ export function CharacterHUD({
         {isAttributesExpanded && (
           <div className="grid grid-cols-2 gap-2 font-hud animate-in fade-in slide-in-from-top-1 duration-150">
             {attributeKeys.map((attrKey) => {
-              const score = Number(attributes[attrKey]) || 10.0;
+              const score = Number(attributes[attrKey]) || 1.0;
               const meta = ATTRIBUTE_LABELS[attrKey];
 
               return (

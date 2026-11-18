@@ -27,6 +27,14 @@ export async function logMealAction(item: {
   if (!user) throw new Error("Unauthorized");
 
   const log = await NutritionRepository.addLog(user.id, item);
+
+  // If item is a refreshing drink or beverage, trigger fatigue recovery
+  const nameLower = item.food_name.toLowerCase();
+  const isDrink = /drink|cold\s*drink|soft\s*drink|soda|coke|pepsi|juice|tea|coffee|shake|beverage|water/.test(nameLower);
+  if (isDrink) {
+    await PlayerRepository.relieveFatigue(user.id, { mental: 12.0, physical: 6.0 });
+  }
+
   revalidatePath("/");
   revalidatePath("/diet");
   return log;
@@ -68,6 +76,13 @@ export async function logPresetMealAction(item: {
     const profile = await PlayerRepository.getProfile(user.id);
     const durationHours = calculatePoisonDurationHours(profile?.current_level || 1);
     await PlayerRepository.applyPoisonDebuff(user.id, durationHours);
+  } else {
+    // If refreshing non-alcoholic beverage, relieve fatigue
+    const nameLower = item.food_name.toLowerCase();
+    const isDrink = /drink|cold\s*drink|soft\s*drink|soda|coke|pepsi|juice|tea|coffee|shake|beverage|water/.test(nameLower);
+    if (isDrink) {
+      await PlayerRepository.relieveFatigue(user.id, { mental: 12.0, physical: 6.0 });
+    }
   }
 
   revalidatePath("/");

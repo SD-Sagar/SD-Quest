@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/store";
 import { triggerHaptic, calculateAge } from "@/lib/utils";
@@ -27,12 +28,14 @@ import {
   DayOfWeek,
 } from "@/types";
 import { DailySystemQuestCard } from "@/components/dashboard/DailySystemQuestCard";
+import { getEffectiveStreakInfo } from "@/lib/calculations/streak";
 import {
   Droplets,
   Footprints,
   Zap,
   ChevronDown,
   ChevronUp,
+  Settings,
 } from "lucide-react";
 
 interface TodayDashboardViewProps {
@@ -175,6 +178,7 @@ export function TodayDashboardView({
 
   const hydrationTarget = 3000;
   const stepsTarget = 6000;
+  const streakInfo = getEffectiveStreakInfo(profile, todayDateStr);
 
   return (
     <div className="min-h-screen bg-[#05070c] text-slate-100 selection:bg-cyan-500 selection:text-black">
@@ -189,11 +193,27 @@ export function TodayDashboardView({
         {/* Mobile Header Banner */}
         <div className="md:hidden flex items-center justify-between pb-3 border-b border-cyan-950/40 mb-3">
           <BrandLogo variant="horizontal" size="sm" />
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-950/50 border border-cyan-500/30">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-[10px] font-mono text-cyan-300 font-bold uppercase font-hud">
-              {profile.rank} ◆ LVL {profile.current_level}
-            </span>
+          <div className="flex items-center gap-1.5">
+            {streakInfo.effectiveStreak > 0 && (
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-400/40 text-[10px] font-mono text-cyan-300 font-bold font-hud">
+                <Zap className="w-3 h-3 text-cyan-400 fill-cyan-400" />
+                <span>{streakInfo.effectiveStreak}D</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-950/50 border border-cyan-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              <span className="text-[10px] font-mono text-cyan-300 font-bold uppercase font-hud">
+                {profile.rank} ◆ LVL {profile.current_level}
+              </span>
+            </div>
+            <Link
+              href="/settings"
+              onClick={() => triggerHaptic("light")}
+              className="p-1.5 rounded-xl border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-cyan-400 hover:border-cyan-500/50 transition flex items-center justify-center shadow-sm"
+              title="Hunter System Settings"
+            >
+              <Settings className="w-4 h-4" />
+            </Link>
           </div>
         </div>
 
@@ -285,7 +305,12 @@ export function TodayDashboardView({
               {showDetailedTelemetry && (
                 <div className="space-y-4 pt-3 border-t border-cyan-500/20 animate-in fade-in duration-200">
                   <WaterMeter logs={hydrationLogs} targetMl={hydrationTarget} dateStr={todayDateStr} />
-                  <WalkingMeter activity={activity} dateStr={todayDateStr} />
+                  <WalkingMeter
+                    activity={activity}
+                    dateStr={todayDateStr}
+                    userWeightKg={profile.weight_kg}
+                    userHeightCm={profile.height_cm}
+                  />
 
                   {/* Energy Telemetry Detailed Ledger (2024 Adult Compendium Standard) */}
                   <div className="p-3.5 rounded-xl bg-[#070b14] border border-cyan-500/30 space-y-2 font-hud">
@@ -328,7 +353,11 @@ export function TodayDashboardView({
               targetSteps={stepsTarget}
               completedQuestsCount={quests.filter((q) => q.status === "completed").length}
               totalQuestsCount={quests.length}
-              streakDays={3}
+              streakDays={streakInfo.effectiveStreak}
+              streakStatus={streakInfo.status}
+              streakMultiplier={streakInfo.multiplierLabel}
+              streakTier={streakInfo.tier}
+              streakMessage={streakInfo.statusMessage}
               initialCrateClaimed={profile.last_mystery_box_claimed_date === todayDateStr}
             />
 

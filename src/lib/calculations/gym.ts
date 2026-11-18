@@ -288,6 +288,15 @@ export function calculateStepsCalories(
 }
 
 /**
+ * Calculates XP required to advance from level L to L+1
+ * Exact quadratic progression: XP(L) = 500 + 25 * (L^2 - 1)
+ */
+export function getXpRequiredForLevel(level: number): number {
+  const safeL = Math.max(1, Math.floor(level));
+  return 500 + 25 * (safeL * safeL - 1);
+}
+
+/**
  * Generates Rank-Differentiated Over-Training & Volume Warnings
  */
 export function getRankVolumeWarning(params: {
@@ -304,16 +313,16 @@ export function getRankVolumeWarning(params: {
 } {
   const { playerRank, playerLevel, totalSetsToday, isExtraWorkout } = params;
 
-  if (playerRank === "Spartan" || playerLevel >= 40) {
+  if (playerRank === "Spartan" || playerLevel >= 100) {
     return {
       severity: "spartan_pass",
       title: "SPARTAN RESILIENCE // THRESHOLD EXPANDED",
-      message: "The System acknowledges elite Spartan conditioning. Work capacity limiters deactivated. Caloric burn multiplier engaged.",
+      message: "The System acknowledges peak Spartan conditioning. Work capacity limiters deactivated. Caloric burn multiplier engaged.",
       allowProceed: true,
     };
   }
 
-  if (playerRank === "Recruit" || playerLevel <= 4) {
+  if (playerRank === "Recruit" || playerLevel <= 9) {
     if (isExtraWorkout || totalSetsToday >= 15) {
       return {
         severity: "hazard",
@@ -324,22 +333,22 @@ export function getRankVolumeWarning(params: {
     }
   }
 
-  if (playerRank === "Initiate" || (playerLevel >= 5 && playerLevel <= 9)) {
+  if (playerRank === "Initiate" || (playerLevel >= 10 && playerLevel <= 19)) {
     if (totalSetsToday >= 20 || isExtraWorkout) {
       return {
         severity: "caution",
         title: "SYSTEM ADVISORY: VOLUME EXCEEDS INITIATE STANDARD",
-        message: "You have completed your daily prescribed quota. Extra volume yields diminishing XP returns (0.25x). Ensure strict hydration and recovery.",
+        message: "You have completed your daily prescribed quota. Extra volume yields diminishing returns. Ensure strict hydration and recovery.",
         allowProceed: true,
       };
     }
   }
 
-  if (playerRank === "Warrior" || playerRank === "Vanguard") {
+  if (playerRank === "Warrior" || playerRank === "Vanguard" || playerRank === "Knight") {
     if (totalSetsToday >= 28) {
       return {
         severity: "caution",
-        title: "WARRIOR ENDURANCE // HIGH VOLUME ACTIVE",
+        title: `${playerRank.toUpperCase()} ENDURANCE // HIGH VOLUME ACTIVE`,
         message: "Muscular fatigue accumulating. Extra volume authorized with calibrated diminishing returns.",
         allowProceed: true,
       };
@@ -373,15 +382,24 @@ export function calculateExtraWorkoutXpMultiplier(extraWorkoutNumber: number): n
 export function getMaxSetsForRank(rank: HunterRank = "Recruit"): number {
   switch (rank) {
     case "Spartan":
+    case "Ascendant":
+    case "Sovereign":
+    case "Juggernaut":
     case "Elite":
-    case "Vanguard":
-    case "Warrior":
       return 10;
-    case "Initiate":
+    case "Warlord":
+    case "Gladiator":
+      return 9;
+    case "Knight":
+    case "Vanguard":
       return 8;
+    case "Warrior":
+      return 7;
+    case "Initiate":
+      return 6;
     case "Recruit":
     default:
-      return 6;
+      return 5;
   }
 }
 
@@ -399,25 +417,99 @@ export function getRepCeilingForRankAndSets(
 } {
   const safeSets = Math.min(10, Math.max(1, setsCount));
 
-  if (rank === "Spartan" || rank === "Elite") {
+  if (rank === "Spartan") {
     return {
-      maxReps: 40,
+      maxReps: 50,
       isRestricted: false,
     };
   }
 
-  if (rank === "Warrior" || rank === "Vanguard") {
+  if (rank === "Ascendant") {
+    if (safeSets >= 9) {
+      return {
+        maxReps: 30,
+        isRestricted: true,
+        reason: "Ascendant Directive: Sets 9-10 capped at 30 reps to manage peak myofibrillar stress.",
+      };
+    }
+    return { maxReps: 40, isRestricted: false };
+  }
+
+  if (rank === "Sovereign") {
+    if (safeSets >= 8) {
+      return {
+        maxReps: 25,
+        isRestricted: true,
+        reason: "Sovereign Directive: Sets 8-10 capped at 25 reps for optimal metabolic recovery.",
+      };
+    }
+    return { maxReps: 35, isRestricted: false };
+  }
+
+  if (rank === "Juggernaut") {
+    if (safeSets >= 8) {
+      return {
+        maxReps: 22,
+        isRestricted: true,
+        reason: "Juggernaut Protocol: Sets 8-10 capped at 22 reps to preserve joint capsule integrity.",
+      };
+    }
+    return { maxReps: 30, isRestricted: false };
+  }
+
+  if (rank === "Warlord") {
+    if (safeSets >= 7) {
+      return {
+        maxReps: 20,
+        isRestricted: true,
+        reason: "Warlord Protocol: Sets 7-9 capped at 20 reps for high-density fatigue management.",
+      };
+    }
+    return { maxReps: 28, isRestricted: false };
+  }
+
+  if (rank === "Gladiator") {
+    if (safeSets >= 7) {
+      return {
+        maxReps: 18,
+        isRestricted: true,
+        reason: "Gladiator Protocol: Sets 7-9 capped at 18 reps to sustain mechanical tension.",
+      };
+    }
+    return { maxReps: 25, isRestricted: false };
+  }
+
+  if (rank === "Knight") {
     if (safeSets >= 6) {
+      return {
+        maxReps: 16,
+        isRestricted: true,
+        reason: "Knight Protocol: Sets 6-8 capped at 16 reps to reinforce tendon remodeling.",
+      };
+    }
+    return { maxReps: 22, isRestricted: false };
+  }
+
+  if (rank === "Vanguard") {
+    if (safeSets >= 6) {
+      return {
+        maxReps: 14,
+        isRestricted: true,
+        reason: "Vanguard Protocol: Sets 6-8 capped at 14 reps to stabilize core and rotator cuff.",
+      };
+    }
+    return { maxReps: 20, isRestricted: false };
+  }
+
+  if (rank === "Warrior") {
+    if (safeSets >= 5) {
       return {
         maxReps: 12,
         isRestricted: true,
-        reason: "Warrior Protocol: High set volume (6+ sets) capped at 12 reps to prioritize hypertrophy mechanics.",
+        reason: "Warrior Protocol: Sets 5-7 capped at 12 reps to prioritize hypertrophy mechanics.",
       };
     }
-    return {
-      maxReps: 20,
-      isRestricted: false,
-    };
+    return { maxReps: 18, isRestricted: false };
   }
 
   if (rank === "Initiate") {
@@ -425,21 +517,18 @@ export function getRepCeilingForRankAndSets(
       return {
         maxReps: 10,
         isRestricted: true,
-        reason: "Initiate Protocol: Sets 5-8 capped at 10 reps to protect tendon remodeling.",
+        reason: "Initiate Protocol: Sets 5-6 capped at 10 reps to protect developing connective tissue.",
       };
     }
-    return {
-      maxReps: 15,
-      isRestricted: false,
-    };
+    return { maxReps: 15, isRestricted: false };
   }
 
-  // Recruit (Rank 1)
+  // Recruit (Rank 1, Level 1-9)
   if (safeSets >= 4) {
     return {
       maxReps: 8,
       isRestricted: true,
-      reason: "Recruit Limit: Awakening conditioning limits sets 4-6 to 8 reps to prevent tendonitis.",
+      reason: "Recruit Limit: Awakening conditioning limits Sets 4-5 to 8 reps to prevent tendonitis.",
     };
   }
   return {
@@ -533,13 +622,32 @@ export function calculateIntelligentWorkoutRewards(params: {
     strBase = 0.40;
   }
 
+  // Class mastery efficiency (+0.02 STR per class tier above Recruit, +0.20 at Spartan)
+  const rankTierMap: Record<string, number> = {
+    Recruit: 0,
+    Initiate: 1,
+    Warrior: 2,
+    Vanguard: 3,
+    Knight: 4,
+    Gladiator: 5,
+    Warlord: 6,
+    Juggernaut: 7,
+    Sovereign: 8,
+    Ascendant: 9,
+    Spartan: 10,
+    Elite: 10,
+  };
+  const rankTier = rankTierMap[playerRank] || 0;
+  const masteryBonus = rankTier * 0.02;
+  strBase += masteryBonus;
+
   // Volume-Scaled Endurance (END):
   // If moving high volume (>= 5 sets or >= 50 total reps), grant END reward
   let endYield = 0;
   if (totalSetsCount >= 6 || totalRepsCount >= 60) {
-    endYield = 0.30;
+    endYield = 0.30 + (masteryBonus * 0.5);
   } else if (totalSetsCount >= 4 || totalRepsCount >= 40) {
-    endYield = 0.15;
+    endYield = 0.15 + (masteryBonus * 0.25);
   }
 
   // High Volume Discipline bonus (pushing through 6+ sets)

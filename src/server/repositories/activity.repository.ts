@@ -30,10 +30,34 @@ export class ActivityRepository {
   }): Promise<ActivityLog> {
     const supabase = await createClient();
 
-    // Standard estimates if not provided
-    const duration = activity.walking_duration_minutes ?? Math.round((activity.steps / 100) * 1.0); // ~100 steps/min
-    const distance = activity.distance_km ?? Number(((activity.steps * 0.762) / 1000).toFixed(2)); // ~0.762m avg stride
-    const calories = activity.estimated_calories_burned ?? Math.round(activity.steps * 0.04); // ~0.04 kcal/step
+    // Biomechanical & Compendium MET calculations if not explicitly provided
+    let duration = activity.walking_duration_minutes;
+    let distance = activity.distance_km;
+    let calories = activity.estimated_calories_burned;
+
+    if (duration === undefined || distance === undefined || calories === undefined) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("weight_kg, height_cm")
+        .eq("id", userId)
+        .single();
+
+      const weight = profile?.weight_kg || 70;
+      const height = profile?.height_cm || 175;
+      const strideM = (height * 0.414) / 100;
+
+      if (duration === undefined) {
+        duration = Math.round(activity.steps / 100); // ~100 steps/min cadence
+      }
+      if (distance === undefined) {
+        distance = Number(((activity.steps * strideM) / 1000).toFixed(2));
+      }
+      if (calories === undefined) {
+        // 2024 Compendium of Physical Activities: Walking ~4 km/h on firm surface (MET 3.5)
+        // kcal = MET * weight_kg * (duration_min / 60)
+        calories = Math.round(3.5 * weight * (duration / 60));
+      }
+    }
 
     const { data, error } = await supabase
       .from("activity_logs")

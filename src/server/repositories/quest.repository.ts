@@ -1,6 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { Quest } from "@/types";
+import { Quest, AttributeType } from "@/types";
 import { PlayerRepository } from "./player.repository";
+import {
+  calculatePassiveFatigueDecay,
+  calculateSessionFatigueDelta,
+  getFatigueStatus,
+} from "@/lib/calculations/fatigue";
 
 export class QuestRepository {
   static async getQuests(userId: string): Promise<Quest[]> {
@@ -41,6 +46,7 @@ export class QuestRepository {
         penalty_config: quest.penalty_config || {},
         status: "pending",
         is_manual: quest.is_manual ?? true,
+        is_fun: quest.is_fun ?? false,
       })
       .select()
       .single();
@@ -71,13 +77,46 @@ export class QuestRepository {
       throw new Error("Quest has already been completed");
     }
 
-    // 2. Mark quest as completed
+    const duration = actualDurationMinutes || quest.estimated_duration_minutes;
+
+    // 2. Fetch current profile for fatigue telemetry & passive decay
+    const profile = await PlayerRepository.getProfile(userId);
+    const decay = calculatePassiveFatigueDecay(
+      profile?.last_fatigue_update_at,
+      profile?.mental_fatigue,
+      profile?.physical_fatigue
+    );
+
+    // 3. Compute fatigue delta & overtime surge
+    const fatigueDelta = calculateSessionFatigueDelta({
+      durationMinutes: duration,
+      targetMinutes: quest.estimated_duration_minutes,
+      isFun: quest.is_fun || false,
+      linkedAttributes: Object.keys(quest.attribute_rewards || {}) as AttributeType[],
+      category: quest.category,
+      currentMentalFatigue: decay.newMentalFatigue,
+      currentPhysicalFatigue: decay.newPhysicalFatigue,
+    });
+
+    const newMental = Math.min(100, Math.max(0, Number((decay.newMentalFatigue + fatigueDelta.mentalDelta).toFixed(2))));
+    const newPhysical = Math.min(100, Math.max(0, Number((decay.newPhysicalFatigue + fatigueDelta.physicalDelta).toFixed(2))));
+
+    // 4. Calculate fatigue debuff & scaled rewards
+    const fatigueStatus = getFatigueStatus(decay.newMentalFatigue, decay.newPhysicalFatigue);
+    const scaledXp = Math.max(1, Math.round(quest.xp_reward * fatigueStatus.xpMultiplier - fatigueDelta.drainPenaltyXp));
+
+    const scaledAttributes: Record<string, number> = {};
+    for (const [attr, val] of Object.entries(quest.attribute_rewards || {})) {
+      scaledAttributes[attr] = Number(((val as number) * fatigueDelta.overtimeSurgeMultiplier).toFixed(3));
+    }
+
+    // 5. Update quest status
     const { data: updatedQuest, error: updateError } = await supabase
       .from("quests")
       .update({
         status: "completed",
         completed_at: new Date().toISOString(),
-        actual_duration_minutes: actualDurationMinutes || quest.estimated_duration_minutes,
+        actual_duration_minutes: duration,
       })
       .eq("id", questId)
       .select()
@@ -87,14 +126,26 @@ export class QuestRepository {
       throw new Error(`Failed to update quest status: ${updateError.message}`);
     }
 
-    // 3. Atomically execute server-side XP & attribute rewards
+    // 6. Update player fatigue levels & clear session if active
+    await supabase
+      .from("profiles")
+      .update({
+        mental_fatigue: newMental,
+        physical_fatigue: newPhysical,
+        last_fatigue_update_at: new Date().toISOString(),
+        active_session_state: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+
+    // 7. Atomically execute server-side XP & attribute rewards
     const rpgRewards = await PlayerRepository.grantXpAndAttributes({
       userId,
-      xpDelta: quest.xp_reward,
-      attrDeltas: quest.attribute_rewards || {},
+      xpDelta: scaledXp,
+      attrDeltas: scaledAttributes,
       sourceType: "quest_completion",
       sourceId: questId,
-      notes: `Completed quest: ${quest.title}`,
+      notes: `Completed quest: ${quest.title}. ${fatigueDelta.summaryMessage} (Fatigue: MNT ${newMental}% • PHY ${newPhysical}%)`,
     });
 
     return { quest: updatedQuest as Quest, rpgRewards };

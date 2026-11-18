@@ -1,29 +1,40 @@
 import { AttributeType, HunterRank, QuestCategory } from "@/types";
 
 /**
- * Calculates XP required for next level using exponential calibrated RPG growth curve:
+ * Calculates XP required for next level using quadratic calibrated RPG growth curve:
  * Base: Level 1 requires 500 XP.
- * xp(L) = floor(500 * L ^ 1.45)
+ * XP(L) = 500 + 25 * (L^2 - 1)
  */
 export function calculateXpForNextLevel(level: number): number {
-  return Math.floor(500 * Math.pow(Math.max(1, level), 1.45));
+  const l = Math.max(1, level);
+  return Math.max(500, 500 + 25 * (l * l - 1));
 }
 
 /**
- * Derives hunter rank based on player level (per gym.txt):
- * - Level 1 to 4: Recruit
- * - Level 5 to 9: Initiate
- * - Level 10 to 19: Warrior
- * - Level 20 to 29: Vanguard
- * - Level 30 to 39: Elite
- * - Level 40+: Spartan
+ * Derives hunter rank based on player level (10-Tier Solo Leveling hierarchy):
+ * - Level 1 to 9: Recruit
+ * - Level 10 to 19: Initiate
+ * - Level 20 to 29: Warrior
+ * - Level 30 to 39: Vanguard
+ * - Level 40 to 49: Knight
+ * - Level 50 to 59: Gladiator
+ * - Level 60 to 69: Warlord
+ * - Level 70 to 79: Juggernaut
+ * - Level 80 to 89: Sovereign
+ * - Level 90 to 99: Ascendant
+ * - Level 100+: Spartan
  */
 export function getRankForLevel(level: number): HunterRank {
-  if (level >= 40) return "Spartan";
-  if (level >= 30) return "Elite";
-  if (level >= 20) return "Vanguard";
-  if (level >= 10) return "Warrior";
-  if (level >= 5) return "Initiate";
+  if (level >= 100) return "Spartan";
+  if (level >= 90) return "Ascendant";
+  if (level >= 80) return "Sovereign";
+  if (level >= 70) return "Juggernaut";
+  if (level >= 60) return "Warlord";
+  if (level >= 50) return "Gladiator";
+  if (level >= 40) return "Knight";
+  if (level >= 30) return "Vanguard";
+  if (level >= 20) return "Warrior";
+  if (level >= 10) return "Initiate";
   return "Recruit";
 }
 
@@ -44,9 +55,15 @@ export function calculateFairStatYield(
     Recruit: 1.0,
     Initiate: 1.15,
     Warrior: 1.25,
-    Vanguard: 1.5,
-    Elite: 1.65,
-    Spartan: 1.8,
+    Vanguard: 1.4,
+    Knight: 1.5,
+    Gladiator: 1.6,
+    Warlord: 1.7,
+    Juggernaut: 1.8,
+    Sovereign: 1.9,
+    Ascendant: 2.0,
+    Spartan: 2.2,
+    Elite: 2.2,
   };
 
   const multiplier = rankMultipliers[difficulty] || 1.0;
@@ -79,9 +96,15 @@ export function calculateFairQuestXp(
     Recruit: 1.0,
     Initiate: 1.15,
     Warrior: 1.25,
-    Vanguard: 1.5,
-    Elite: 1.65,
-    Spartan: 1.8,
+    Vanguard: 1.4,
+    Knight: 1.5,
+    Gladiator: 1.6,
+    Warlord: 1.7,
+    Juggernaut: 1.8,
+    Sovereign: 1.9,
+    Ascendant: 2.0,
+    Spartan: 2.2,
+    Elite: 2.2,
   };
 
   const priorityBonus: Record<string, number> = {

@@ -2,7 +2,33 @@
 // SD-QUEST: MASTER DOMAIN TYPES
 // =============================================================================
 
-export type HunterRank = "Recruit" | "Initiate" | "Warrior" | "Vanguard" | "Elite" | "Spartan";
+export type HunterRank =
+  | "Recruit"
+  | "Initiate"
+  | "Warrior"
+  | "Vanguard"
+  | "Knight"
+  | "Gladiator"
+  | "Warlord"
+  | "Juggernaut"
+  | "Sovereign"
+  | "Ascendant"
+  | "Spartan"
+  | "Elite"; // legacy alias
+
+export function getRankForLevel(level: number): HunterRank {
+  if (level >= 100) return "Spartan";
+  if (level >= 90) return "Ascendant";
+  if (level >= 80) return "Sovereign";
+  if (level >= 70) return "Juggernaut";
+  if (level >= 60) return "Warlord";
+  if (level >= 50) return "Gladiator";
+  if (level >= 40) return "Knight";
+  if (level >= 30) return "Vanguard";
+  if (level >= 20) return "Warrior";
+  if (level >= 10) return "Initiate";
+  return "Recruit";
+}
 export type QuestClassification = "permanent" | "temporary" | "scheduled";
 export type QuestCategory = "career" | "fitness" | "routine" | "education" | "household" | "social" | "personal";
 export type QuestStatus = "pending" | "in_progress" | "completed" | "failed" | "excused";
@@ -34,6 +60,12 @@ export interface Profile {
   xp_to_next_level: number;
   unallocated_stat_points?: number;
   last_mystery_box_claimed_date?: string | null;
+  current_streak?: number;
+  longest_streak?: number;
+  last_streak_date?: string | null;
+  mental_fatigue?: number;
+  physical_fatigue?: number;
+  last_fatigue_update_at?: string;
   active_session_state?: any | null;
   poison_expires_at?: string | null;
   lifetime_highest_level: number;
@@ -238,10 +270,25 @@ export interface Quest {
   };
   status: QuestStatus;
   is_manual: boolean;
+  is_fun?: boolean;
   started_at?: string | null;
   completed_at?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface UniversalSessionState {
+  session_id: string;
+  type: "quest" | "gym" | "timer";
+  title: string;
+  started_at: string;
+  target_minutes: number;
+  is_fun?: boolean;
+  linked_attributes?: AttributeType[];
+  category?: QuestCategory;
+  domain?: "mental" | "physical" | "hybrid";
+  intensity?: "light" | "moderate" | "rigorous";
+  notes?: string;
 }
 
 export interface BodyMeasurement {

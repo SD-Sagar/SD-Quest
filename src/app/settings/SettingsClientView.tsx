@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateHunterSettingsAction } from "@/server/actions/auth.actions";
+import { updateHunterSettingsAction, logoutAction } from "@/server/actions/auth.actions";
 import { triggerHaptic } from "@/lib/utils";
 import { Profile, EquipmentInventory, DailyNutritionTargets } from "@/types";
 import {
@@ -14,6 +14,7 @@ import {
   DollarSign,
   Save,
   Layers,
+  LogOut,
 } from "lucide-react";
 
 interface SettingsClientViewProps {
@@ -85,7 +86,8 @@ export function SettingsClientView({
   };
 
   return (
-    <form onSubmit={handleSave} className="space-y-6">
+    <div className="space-y-6">
+      <form onSubmit={handleSave} className="space-y-6">
       {successMsg && (
         <div className="p-3.5 rounded-2xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2 font-mono">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -294,6 +296,38 @@ export function SettingsClientView({
         <span>{isPending ? "ENCRYPTING CHANGES..." : "SAVE HUNTER CONFIGURATION"}</span>
       </button>
     </form>
-  );
+
+    {/* System Access & Session Management (Unified Logout for PC & Mobile) */}
+    <div className="hunter-panel rounded-3xl border border-red-950/60 bg-[#090b12] p-5 sm:p-6 space-y-4">
+      <div>
+        <span className="text-[10px] font-mono font-bold tracking-widest text-slate-500 uppercase block">
+          SYSTEM ACCESS // SESSION CONTROL
+        </span>
+        <h3 className="text-sm font-bold text-slate-200 mt-0.5">
+          Hunter Session &amp; Authentication
+        </h3>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Signed in as <span className="text-cyan-400 font-mono font-bold">{profile.name}</span> ({profile.rank} • LVL {profile.current_level})
+        </p>
+      </div>
+
+      <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between gap-3">
+        <span className="text-xs text-slate-400 font-mono">
+          Terminate session on this device
+        </span>
+        <form action={logoutAction}>
+          <button
+            type="submit"
+            onClick={() => triggerHaptic("heavy")}
+            className="px-4 py-2 rounded-xl border border-red-500/40 bg-red-950/40 hover:bg-red-900/60 hover:border-red-400 text-red-300 font-mono text-xs font-bold transition flex items-center gap-2 shadow-sm"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>TERMINATE SESSION</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+);
 }
 

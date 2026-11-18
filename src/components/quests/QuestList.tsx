@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { completeQuestAction, deleteQuestAction, createQuestAction } from "@/server/actions/quest.actions";
 import { getTodaysWorkoutsAction } from "@/server/actions/workout.actions";
+import { getActiveSessionAction } from "@/server/actions/player.actions";
 import { triggerHaptic } from "@/lib/utils";
 import { playQuestCompleteSound } from "@/lib/audio/soundEffects";
 import confetti from "canvas-confetti";
@@ -62,9 +63,16 @@ export function QuestList({
   const [viewMode, setViewMode] = useState<ViewMode>("today");
   const [categoryFilter, setCategoryFilter] = useState<QuestCategory | "all">("all");
   const [activeTimedQuest, setActiveTimedQuest] = useState<Quest | null>(null);
+  const [activeSession, setActiveSession] = useState<any | null>(null);
   const [isPending, startTransition] = useTransition();
   const [completedWorkouts, setCompletedWorkouts] = useState<any[]>([]);
   const [isSeeding, setIsSeeding] = useState(false);
+
+  useEffect(() => {
+    getActiveSessionAction()
+      .then((res) => setActiveSession(res))
+      .catch(() => {});
+  }, [activeTimedQuest]);
 
   useEffect(() => {
     getTodaysWorkoutsAction()
@@ -251,6 +259,58 @@ export function QuestList({
 
   return (
     <div className="space-y-4">
+      {/* Universal Active Session Telemetry Banner (survives app close / phone lock) */}
+      {activeSession && (
+        <div className="p-3.5 rounded-2xl bg-cyan-950/70 border border-cyan-400/60 shadow-[0_0_15px_rgba(0,229,255,0.25)] flex items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping shrink-0" />
+            <div className="truncate">
+              <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest block font-solo">
+                ACTIVE DIRECTIVE IN PROGRESS (OFFLINE TRACKED)
+              </span>
+              <span className="text-xs font-bold text-white truncate block">
+                {activeSession.title}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              triggerHaptic("heavy");
+              const found = quests.find((q) => q.id === activeSession.session_id);
+              if (found) {
+                setActiveTimedQuest(found);
+              } else {
+                setActiveTimedQuest({
+                  id: activeSession.session_id,
+                  user_id: "",
+                  title: activeSession.title,
+                  classification: "scheduled",
+                  category: activeSession.category || "career",
+                  start_date: todayStr,
+                  recurrence: "none",
+                  recurrence_days: [],
+                  estimated_duration_minutes: activeSession.target_minutes || 60,
+                  priority: "medium",
+                  difficulty: "Recruit",
+                  attribute_rewards: {},
+                  xp_reward: 50,
+                  penalty_config: {},
+                  status: "in_progress",
+                  is_manual: true,
+                  is_fun: activeSession.is_fun || false,
+                  started_at: activeSession.started_at,
+                  created_at: activeSession.started_at,
+                  updated_at: activeSession.started_at,
+                });
+              }
+            }}
+            className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-mono font-black uppercase tracking-wider shrink-0 shadow transition flex items-center gap-1.5"
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>RESUME TIMER</span>
+          </button>
+        </div>
+      )}
       {/* Dual Creation Buttons (Only in Quest Forge page; Dashboard has clean navigation) */}
       {!hideCreationButtons ? (
         <div className="flex items-center gap-2">
@@ -729,6 +789,12 @@ export function QuestList({
                       <span className="text-[10px] text-slate-500 uppercase font-mono">
                         {quest.recurrence === "none" ? "one-off" : quest.recurrence}
                       </span>
+
+                      {quest.is_fun && (
+                        <span className="text-[9.5px] font-mono font-bold text-purple-300 bg-purple-950/70 border border-purple-500/40 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          🎮 FUN
+                        </span>
+                      )}
                     </div>
 
                     <h4

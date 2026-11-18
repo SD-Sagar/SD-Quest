@@ -2,18 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { logoutAction } from "@/server/actions/auth.actions";
 import { triggerHaptic } from "@/lib/utils";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import {
-  Sparkles,
   LayoutDashboard,
   CheckSquare,
   Dumbbell,
   Activity,
   Utensils,
   CalendarDays,
-  LogOut,
   HeartPulse,
   Settings,
 } from "lucide-react";
@@ -67,9 +64,9 @@ export function DesktopNavbar({ onOpenSanctuary }: DesktopNavbarProps) {
           })}
         </nav>
 
-        {/* Right Actions: Medical Sanctuary & Logout */}
-        <div className="flex items-center gap-2">
-          {onOpenSanctuary && (
+        {/* Right Actions: Medical Sanctuary */}
+        {onOpenSanctuary && (
+          <div className="flex items-center gap-2">
             <button
               onClick={() => {
                 triggerHaptic("medium");
@@ -80,18 +77,8 @@ export function DesktopNavbar({ onOpenSanctuary }: DesktopNavbarProps) {
             >
               <HeartPulse className="w-4 h-4" />
             </button>
-          )}
-
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="p-2 rounded-xl border border-slate-800 bg-slate-900/80 hover:border-red-500/50 hover:text-red-400 text-slate-400 transition"
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </form>
-        </div>
+          </div>
+        )}
       </div>
     </header>
   );

@@ -19,11 +19,11 @@ export function BrandLogo({
 }: BrandLogoProps) {
   // Balanced emblem dimensions and font typography scaling
   const emblemSizes = {
-    xs: { dim: 28, text: "text-xs", sub: "text-[7.5px]", gap: "gap-1.5" },
-    sm: { dim: 38, text: "text-sm", sub: "text-[8.5px]", gap: "gap-2" },
-    md: { dim: 46, text: "text-base sm:text-lg", sub: "text-[9px]", gap: "gap-2.5" },
-    lg: { dim: 72, text: "text-2xl sm:text-3xl", sub: "text-[11px]", gap: "gap-3" },
-    xl: { dim: 96, text: "text-3xl sm:text-4xl", sub: "text-xs", gap: "gap-4" },
+    xs: { dim: 32, text: "text-xs", sub: "text-[7.5px]", gap: "gap-1.5" },
+    sm: { dim: 44, text: "text-sm sm:text-base", sub: "text-[8.5px]", gap: "gap-2.5" },
+    md: { dim: 52, text: "text-base sm:text-lg", sub: "text-[9.5px]", gap: "gap-3" },
+    lg: { dim: 82, text: "text-2xl sm:text-3xl", sub: "text-[11px]", gap: "gap-3.5" },
+    xl: { dim: 110, text: "text-3xl sm:text-4xl", sub: "text-xs", gap: "gap-4" },
   };
 
   const currentSize = emblemSizes[size] || emblemSizes.md;
@@ -37,7 +37,7 @@ export function BrandLogo({
           width={currentSize.dim}
           height={currentSize.dim}
           priority={priority}
-          className="object-contain drop-shadow-[0_0_12px_rgba(0,229,255,0.45)] hover:drop-shadow-[0_0_18px_rgba(168,85,247,0.65)] transition-all duration-300"
+          className="object-contain drop-shadow-[0_0_14px_rgba(0,229,255,0.5)] hover:drop-shadow-[0_0_20px_rgba(168,85,247,0.7)] transition-all duration-300"
         />
       </div>
     );
@@ -55,17 +55,17 @@ export function BrandLogo({
             width={fullDim}
             height={fullDim}
             priority={priority}
-            className="object-contain drop-shadow-[0_0_24px_rgba(0,229,255,0.55)] group-hover:drop-shadow-[0_0_34px_rgba(192,132,252,0.8)] transition-all duration-300"
+            className="object-contain drop-shadow-[0_0_26px_rgba(0,229,255,0.6)] group-hover:drop-shadow-[0_0_36px_rgba(192,132,252,0.85)] transition-all duration-300"
           />
         </div>
         <div className="flex flex-col items-center">
-          <h1 className={`font-mono font-black tracking-tight ${currentSize.text} uppercase text-white mana-text-glow leading-tight`}>
+          <h1 className={`font-solo font-black tracking-wider ${currentSize.text} uppercase text-white leading-tight drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]`}>
             <span className="text-cyan-400">SD-</span>QUEST
           </h1>
           {showSubtitle && (
             <div className="flex items-center gap-1.5 mt-1">
               <span className="w-3.5 h-[1px] bg-cyan-500/60" />
-              <span className={`font-mono font-bold tracking-[0.22em] text-cyan-400/90 uppercase ${currentSize.sub}`}>
+              <span className={`font-hud font-bold tracking-[0.25em] text-cyan-400 uppercase ${currentSize.sub}`}>
                 REAL-LIFE RPG SYSTEM
               </span>
               <span className="w-3.5 h-[1px] bg-purple-500/60" />
@@ -86,19 +86,19 @@ export function BrandLogo({
           width={currentSize.dim}
           height={currentSize.dim}
           priority={priority}
-          className="object-contain drop-shadow-[0_0_12px_rgba(0,229,255,0.45)] group-hover:drop-shadow-[0_0_18px_rgba(192,132,252,0.65)] group-hover:scale-105 transition-all duration-300"
+          className="object-contain drop-shadow-[0_0_14px_rgba(0,229,255,0.5)] group-hover:drop-shadow-[0_0_20px_rgba(192,132,252,0.7)] group-hover:scale-105 transition-all duration-300"
         />
       </div>
       <div className="flex flex-col justify-center leading-tight">
         <div className="flex items-center">
-          <span className={`font-mono font-black tracking-tight ${currentSize.text} uppercase text-white mana-text-glow`}>
+          <span className={`font-solo font-black tracking-wider ${currentSize.text} uppercase text-white leading-tight drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]`}>
             <span className="text-cyan-400">SD-</span>QUEST
           </span>
         </div>
         {showSubtitle && (
           <div className="flex items-center gap-1 mt-0.5">
             <span className="w-2 h-[1px] bg-cyan-500/60" />
-            <span className={`font-mono font-bold tracking-[0.22em] text-cyan-400/85 uppercase ${currentSize.sub}`}>
+            <span className={`font-hud font-bold tracking-[0.25em] text-cyan-400/90 uppercase ${currentSize.sub}`}>
               REAL-LIFE RPG SYSTEM
             </span>
             <span className="w-2 h-[1px] bg-purple-500/60" />

@@ -55,6 +55,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
     "discipline",
     "intelligence",
   ]);
+  const [isFun, setIsFun] = useState(false);
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
@@ -134,6 +135,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
         attribute_rewards: calculatedRewards,
         xp_reward: calculatedXp,
         is_manual: true,
+        is_fun: isFun,
       });
 
       onClose();
@@ -421,6 +423,39 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                   +{attr}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Fun & Recreational Protocol Toggle */}
+          <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-base shrink-0">🎮</span>
+                <div>
+                  <span className="text-xs font-bold text-white uppercase tracking-wider block font-mono">
+                    INCLUDE FUN / RECREATIONAL PROTOCOL
+                  </span>
+                  <span className="text-[10.5px] text-slate-400 block font-hud">
+                    {isFun
+                      ? "Recreational task: Fatigue is nearly null; accumulates 70% slower for linked stats."
+                      : "Standard task: Normal fatigue accumulation based on exertion."}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic("light");
+                  setIsFun(!isFun);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition shrink-0 ${
+                  isFun
+                    ? "bg-purple-500/25 text-purple-300 border border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.4)]"
+                    : "bg-slate-950 text-slate-400 border border-slate-700 hover:text-white"
+                }`}
+              >
+                <span>{isFun ? "FUN ENABLED" : "STANDARD"}</span>
+              </button>
             </div>
           </div>
 

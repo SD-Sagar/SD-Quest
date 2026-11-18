@@ -7678,8 +7678,14 @@ export function isExerciseUnlocked(
     Initiate: 2,
     Warrior: 3,
     Vanguard: 4,
-    Elite: 5,
-    Spartan: 6,
+    Knight: 5,
+    Gladiator: 6,
+    Warlord: 7,
+    Juggernaut: 8,
+    Sovereign: 9,
+    Ascendant: 10,
+    Spartan: 11,
+    Elite: 11,
   };
 
   const currentTierScore = rankTiers[playerRank] || 1;
