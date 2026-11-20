@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { EquipmentInventory, WorkoutSession, WorkoutSetLog, ExerciseDefinition, TrainingSplitDay } from "@/types";
 import { getExerciseDumbbellMultiplier, calculateIntelligentWorkoutRewards } from "@/lib/calculations/gym";
+import { calculateSessionFatigueDelta, calculatePassiveFatigueDecay } from "@/lib/calculations/fatigue";
 import { PlayerRepository } from "./player.repository";
 
 export class WorkoutRepository {
@@ -151,6 +152,8 @@ export class WorkoutRepository {
     isSingleExercise?: boolean;
     notes?: string;
     sets: Omit<WorkoutSetLog, "id" | "session_id" | "user_id" | "created_at">[];
+    finalPhysicalFatigue?: number;
+    finalMentalFatigue?: number;
   }): Promise<{ session: WorkoutSession; rpgRewards: any; caloriesBurned: number }> {
     const supabase = await createClient();
 
@@ -272,6 +275,68 @@ export class WorkoutRepository {
       sourceId: session.id,
       notes: `Cleared workout: ${params.title} (${Math.round(totalTonnageKg)}kg • ${finalCaloriesBurned} kcal${params.extraWorkoutMultiplier ? ` • Extra Multiplier: ${params.extraWorkoutMultiplier}x` : ""})`,
     });
+
+    // 5.5 Update Biological Fatigue Telemetry
+    try {
+      let newMental = 0;
+      let newPhysical = 0;
+
+      if (params.finalPhysicalFatigue !== undefined) {
+        newPhysical = Math.min(100, Math.max(0, Number(params.finalPhysicalFatigue.toFixed(2))));
+        newMental = Math.min(100, Math.max(0, Number((params.finalMentalFatigue ?? 0).toFixed(2))));
+      } else {
+        const profile = await PlayerRepository.getProfile(params.userId);
+        const attrs = await PlayerRepository.getAttributes(params.userId);
+        const decay = calculatePassiveFatigueDecay(
+          profile?.last_fatigue_update_at,
+          profile?.mental_fatigue,
+          profile?.physical_fatigue,
+          undefined,
+          {
+            hunterLevel: profile?.current_level,
+            rank: profile?.rank,
+            vitality: attrs?.vitality,
+            endurance: attrs?.endurance,
+            mentality: attrs?.mentality,
+            discipline: attrs?.discipline,
+            lastHydrationSurgeAt: profile?.last_hydration_surge_at,
+          }
+        );
+
+        const fatigueDelta = calculateSessionFatigueDelta({
+          durationMinutes: params.durationMinutes,
+          targetMinutes: params.durationMinutes,
+          isFun: false,
+          linkedAttributes: ["strength", "endurance", "vitality", "agility"],
+          category: "fitness",
+          currentMentalFatigue: decay.newMentalFatigue,
+          currentPhysicalFatigue: decay.newPhysicalFatigue,
+          intensityMultiplier: (params.extraWorkoutMultiplier && params.extraWorkoutMultiplier < 1.0 ? 1.5 : 1.0),
+          hunterLevel: profile?.current_level,
+          endurance: attrs?.endurance,
+          vitality: attrs?.vitality,
+          discipline: attrs?.discipline,
+          mentality: attrs?.mentality,
+          actualTonnageKg: totalTonnageKg,
+          plannedTonnageKg: totalTonnageKg,
+        });
+
+        newMental = Math.min(100, Math.max(0, Number((decay.newMentalFatigue + fatigueDelta.mentalDelta).toFixed(2))));
+        newPhysical = Math.min(100, Math.max(0, Number((decay.newPhysicalFatigue + fatigueDelta.physicalDelta).toFixed(2))));
+      }
+
+      await supabase
+        .from("profiles")
+        .update({
+          mental_fatigue: newMental,
+          physical_fatigue: newPhysical,
+          last_fatigue_update_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", params.userId);
+    } catch (fatigueErr) {
+      console.warn("Biological fatigue telemetry update non-fatal error:", fatigueErr);
+    }
 
     // 6. Clear cross-device active session in Supabase
     await PlayerRepository.clearActiveSession(params.userId);

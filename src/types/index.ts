@@ -30,7 +30,7 @@ export function getRankForLevel(level: number): HunterRank {
   return "Recruit";
 }
 export type QuestClassification = "permanent" | "temporary" | "scheduled";
-export type QuestCategory = "career" | "fitness" | "routine" | "education" | "household" | "social" | "personal";
+export type QuestCategory = "career" | "fitness" | "routine" | "education" | "household" | "social" | "personal" | "sleep";
 export type QuestStatus = "pending" | "in_progress" | "completed" | "failed" | "excused";
 export type ConditionStatus = "normal" | "fatigued" | "chicken" | "medical_sanctuary";
 export type DayOfWeek = "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
@@ -68,6 +68,11 @@ export interface Profile {
   last_fatigue_update_at?: string;
   active_session_state?: any | null;
   poison_expires_at?: string | null;
+  exp_booster_multiplier?: number;
+  exp_booster_expires_at?: string | null;
+  last_sleep_completed_at?: string | null;
+  sleep_deprived_expires_at?: string | null;
+  last_hydration_surge_at?: string | null;
   lifetime_highest_level: number;
   lifetime_total_xp: number;
   rank: HunterRank;

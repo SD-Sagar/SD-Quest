@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Profile, PlayerAttributes, AttributeTransaction, XpTransaction, HunterRank } from "@/types";
 import { calculateDailyCrateHarvest } from "@/lib/calculations/streak";
+import { calculatePassiveFatigueDecay, getFatigueStatus, calculateSleepProtocolRecovery, SleepProtocolResult } from "@/lib/calculations/fatigue";
 
 export class PlayerRepository {
   static async getProfile(userId: string): Promise<Profile | null> {
@@ -16,7 +17,50 @@ export class PlayerRepository {
       throw new Error(`Failed to fetch profile: ${error.message}`);
     }
 
-    return data as Profile;
+    const profile = data as Profile;
+
+    // Resilient fallback for poison debuff expiry from active_session_state if dedicated column is not yet migrated
+    if (!profile.poison_expires_at && (profile.active_session_state as any)?.poison_expires_at) {
+      profile.poison_expires_at = (profile.active_session_state as any).poison_expires_at;
+    }
+
+    // Continuous Passive Fatigue Decay:
+    // When hunter opens or refreshes app after resting / sleeping, naturally decay fatigue
+    if (profile.last_fatigue_update_at && (profile.mental_fatigue || profile.physical_fatigue)) {
+      const decay = calculatePassiveFatigueDecay(
+        profile.last_fatigue_update_at,
+        profile.mental_fatigue,
+        profile.physical_fatigue,
+        undefined,
+        {
+          hunterLevel: profile.current_level,
+          rank: profile.rank,
+          lastHydrationSurgeAt: profile.last_hydration_surge_at,
+        }
+      );
+
+      if (
+        decay.newMentalFatigue !== profile.mental_fatigue ||
+        decay.newPhysicalFatigue !== profile.physical_fatigue
+      ) {
+        profile.mental_fatigue = decay.newMentalFatigue;
+        profile.physical_fatigue = decay.newPhysicalFatigue;
+        profile.last_fatigue_update_at = new Date().toISOString();
+
+        // Non-blocking sync to database
+        supabase
+          .from("profiles")
+          .update({
+            mental_fatigue: decay.newMentalFatigue,
+            physical_fatigue: decay.newPhysicalFatigue,
+            last_fatigue_update_at: profile.last_fatigue_update_at,
+          })
+          .eq("id", userId)
+          .then();
+      }
+    }
+
+    return profile;
   }
 
   static async createProfile(profileData: Partial<Profile> & { id: string; name: string; dob: string }): Promise<Profile> {
@@ -111,37 +155,48 @@ export class PlayerRepository {
     return data as PlayerAttributes;
   }
 
-  static async applyPoisonDebuff(userId: string, durationHours: number): Promise<Profile | null> {
+  static async setPoisonDebuffExpiry(userId: string, expiresAt: string | null): Promise<Profile | null> {
     const supabase = await createClient();
-    const expiresAt = new Date(Date.now() + durationHours * 3600 * 1000).toISOString();
-    const { data, error } = await supabase
+
+    // 1. Persist to active_session_state (guaranteed JSONB column in database)
+    const { data: current } = await supabase
       .from("profiles")
-      .update({ poison_expires_at: expiresAt })
+      .select("active_session_state")
       .eq("id", userId)
-      .select()
       .single();
 
-    if (error) {
-      console.error("Failed to apply poison debuff:", error);
-      return null;
+    const currentState = ((current?.active_session_state as any) || {});
+    if (expiresAt) {
+      currentState.poison_expires_at = expiresAt;
+    } else {
+      delete currentState.poison_expires_at;
     }
-    return data as Profile;
+
+    await supabase
+      .from("profiles")
+      .update({ active_session_state: Object.keys(currentState).length ? currentState : null })
+      .eq("id", userId);
+
+    // 2. Also attempt updating dedicated column if available
+    try {
+      await supabase
+        .from("profiles")
+        .update({ poison_expires_at: expiresAt })
+        .eq("id", userId);
+    } catch {
+      // Column may not yet exist if SQL migration hasn't been executed
+    }
+
+    return this.getProfile(userId);
+  }
+
+  static async applyPoisonDebuff(userId: string, durationHours: number): Promise<Profile | null> {
+    const expiresAt = new Date(Date.now() + durationHours * 3600 * 1000).toISOString();
+    return this.setPoisonDebuffExpiry(userId, expiresAt);
   }
 
   static async clearPoisonDebuff(userId: string): Promise<Profile | null> {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({ poison_expires_at: null })
-      .eq("id", userId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Failed to clear poison debuff:", error);
-      return null;
-    }
-    return data as Profile;
+    return this.setPoisonDebuffExpiry(userId, null);
   }
 
   static async grantXpAndAttributes(params: {
@@ -157,18 +212,50 @@ export class PlayerRepository {
     let finalXpDelta = params.xpDelta;
     let finalNotes = params.notes || "";
 
-    // Check if hunter is currently under Poison Debuff (-35% XP Reducer)
+    // Check hunter status modifiers: Fatigue, 2X EXP Booster, Sleep Deprivation, Poison
     const { data: profile } = await supabase
       .from("profiles")
-      .select("poison_expires_at")
+      .select("poison_expires_at, mental_fatigue, physical_fatigue, exp_booster_multiplier, exp_booster_expires_at, sleep_deprived_expires_at")
       .eq("id", params.userId)
       .single();
 
-    if (profile?.poison_expires_at && new Date(profile.poison_expires_at).getTime() > Date.now()) {
-      finalXpDelta = Math.max(1, Math.round(params.xpDelta * 0.65));
+    // 1. NEURAL LOCKOUT: If Mental Fatigue >= 85%, XP gain is 0% (Brain Fog blocks learning)
+    if (profile && Number(profile.mental_fatigue || 0) >= 85) {
+      finalXpDelta = 0;
       finalNotes = finalNotes
-        ? `${finalNotes} [POISON DEBUFF ACTIVE: -35% XP]`
-        : "[POISON DEBUFF ACTIVE: -35% XP]";
+        ? `${finalNotes} [BRAIN FOG LOCKOUT: 0% XP ACTIVE (Mental Fatigue >= 85%)]`
+        : "[BRAIN FOG LOCKOUT: 0% XP ACTIVE (Mental Fatigue >= 85%)]";
+    } else {
+      // 2. CHECK 2X EXP BOOSTER (Active from 8.0-8.5h optimal sleep)
+      if (
+        profile?.exp_booster_expires_at &&
+        new Date(profile.exp_booster_expires_at).getTime() > Date.now()
+      ) {
+        const boosterMultiplier = Number(profile.exp_booster_multiplier) || 2.0;
+        finalXpDelta = Math.round(finalXpDelta * boosterMultiplier);
+        finalNotes = finalNotes
+          ? `${finalNotes} [⚡ 2X EXP BOOSTER ACTIVE (${boosterMultiplier}x)]`
+          : `[⚡ 2X EXP BOOSTER ACTIVE (${boosterMultiplier}x)]`;
+      }
+
+      // 3. CHECK SLEEP DEPRIVATION DEBUFF (< 4h sleep penalty: 0.7x XP speed)
+      if (
+        profile?.sleep_deprived_expires_at &&
+        new Date(profile.sleep_deprived_expires_at).getTime() > Date.now()
+      ) {
+        finalXpDelta = Math.max(1, Math.round(finalXpDelta * 0.70));
+        finalNotes = finalNotes
+          ? `${finalNotes} [⚠️ SLEEP DEPRIVED: 0.7x EXP SPEED]`
+          : "[⚠️ SLEEP DEPRIVED: 0.7x EXP SPEED]";
+      }
+
+      // 4. CHECK POISON DEBUFF
+      if (profile?.poison_expires_at && new Date(profile.poison_expires_at).getTime() > Date.now()) {
+        finalXpDelta = Math.max(1, Math.round(finalXpDelta * 0.65));
+        finalNotes = finalNotes
+          ? `${finalNotes} [POISON DEBUFF ACTIVE: -35% XP]`
+          : "[POISON DEBUFF ACTIVE: -35% XP]";
+      }
     }
 
     const { data, error } = await supabase.rpc("grant_xp_and_attributes", {
@@ -507,6 +594,11 @@ export class PlayerRepository {
       .eq("id", userId);
   }
 
+  static async getActiveSession(userId: string): Promise<any | null> {
+    const profile = await this.getProfile(userId);
+    return profile?.active_session_state || null;
+  }
+
   static async clearActiveSession(userId: string): Promise<void> {
     const supabase = await createClient();
     await supabase
@@ -543,6 +635,71 @@ export class PlayerRepository {
       .eq("id", userId);
 
     return { mental: newMental, physical: newPhysical };
+  }
+
+  static async completeSleepSession(userId: string, minutesSlept: number): Promise<SleepProtocolResult> {
+    const supabase = await createClient();
+    const result = calculateSleepProtocolRecovery(minutesSlept);
+    const profile = await this.getProfile(userId);
+
+    const currentMental = Number(profile?.mental_fatigue) || 0;
+    const currentPhysical = Number(profile?.physical_fatigue) || 0;
+
+    const newMental = Math.max(0, Number((currentMental + result.mentalDelta).toFixed(2)));
+    const newPhysical = Math.max(0, Number((currentPhysical + result.physicalDelta).toFixed(2)));
+
+    const now = new Date();
+    const updatePayload: Record<string, any> = {
+      mental_fatigue: newMental,
+      physical_fatigue: newPhysical,
+      last_fatigue_update_at: now.toISOString(),
+      last_sleep_completed_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    };
+
+    if (result.isOptimal) {
+      updatePayload.exp_booster_multiplier = 2.0;
+      updatePayload.exp_booster_expires_at = new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString();
+    }
+
+    await supabase.from("profiles").update(updatePayload).eq("id", userId);
+
+    if (result.mentalityGain > 0) {
+      await this.grantXpAndAttributes({
+        userId,
+        xpDelta: result.isOptimal ? 150 : 50,
+        attrDeltas: { mentality: result.mentalityGain },
+        sourceType: "sleep_protocol",
+        notes: result.summaryMessage,
+      });
+    }
+
+    return result;
+  }
+
+  static async applySleepDeprivationPenalty(userId: string, minutesSlept: number): Promise<SleepProtocolResult> {
+    const supabase = await createClient();
+    const result = calculateSleepProtocolRecovery(minutesSlept);
+    const now = new Date();
+
+    const updatePayload: Record<string, any> = {
+      sleep_deprived_expires_at: new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString(),
+      last_sleep_completed_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    };
+
+    await supabase.from("profiles").update(updatePayload).eq("id", userId);
+
+    // Apply -100 XP / Mana penalty
+    await this.grantXpAndAttributes({
+      userId,
+      xpDelta: -100,
+      attrDeltas: {},
+      sourceType: "sleep_deprivation_penalty",
+      notes: result.summaryMessage,
+    });
+
+    return result;
   }
 
   static async saveCustomPlan(userId: string, dayRoutines: any): Promise<void> {

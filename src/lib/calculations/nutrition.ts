@@ -371,15 +371,50 @@ export const BEVERAGE_TOXIN_FOODS: PresetFoodItem[] = [
 ];
 
 /**
- * Calculates the exact duration (in hours) of the Poison Debuff based on player level.
- * Level 1 Recruit = 24.0 hours baseline.
- * Level 50+ Spartan = 5.0 hours minimum.
- * Formula: Duration = max(5, 24 - (L - 1) * (19 / 49))
+ * Calculates incremental intoxication and poison duration for 1 drink based on
+ * Hunter Level and Vitality (Detoxification Passive).
+ * - Level 1 Recruit (10 VIT): 1 peg adds ~2.5 hours.
+ * - Level 25 Warrior (25 VIT): 1 peg adds ~1.2 hours.
+ * - Level 50+ Spartan (50 VIT): 1 peg adds ~40 minutes.
+ * Consecutive drinks stack up to a maximum cap of 24 hours.
  */
-export function calculatePoisonDurationHours(playerLevel: number): number {
+export function calculateDrinkPoisonHours(
+  playerLevel = 1,
+  vitality = 10,
+  currentExpiresAt?: string | null
+): {
+  newExpiresAt: string;
+  hoursAdded: number;
+  totalHoursRemaining: number;
+} {
   const lvl = Math.max(1, playerLevel);
-  const hours = 24.0 - (lvl - 1) * (19.0 / 49.0);
-  return Number(Math.max(5.0, hours).toFixed(1));
+  const vit = Math.max(1, vitality);
+
+  const detoxFactor = Math.max(0.8, 1.0 + (vit - 10) * 0.04 + (lvl - 1) * 0.025);
+  const hoursPerDrink = 2.5 / detoxFactor;
+
+  const now = Date.now();
+  let baseTimestamp = now;
+
+  if (currentExpiresAt) {
+    const currentExpiry = new Date(currentExpiresAt).getTime();
+    if (currentExpiry > now) {
+      baseTimestamp = currentExpiry; // Stacks onto remaining time!
+    }
+  }
+
+  const newExpiryTime = Math.min(now + 24 * 3600 * 1000, baseTimestamp + hoursPerDrink * 3600 * 1000);
+  const totalHoursRemaining = Number(((newExpiryTime - now) / 3600000).toFixed(1));
+
+  return {
+    newExpiresAt: new Date(newExpiryTime).toISOString(),
+    hoursAdded: Number(hoursPerDrink.toFixed(2)),
+    totalHoursRemaining,
+  };
+}
+
+export function calculatePoisonDurationHours(playerLevel: number): number {
+  return calculateDrinkPoisonHours(playerLevel, 10).hoursAdded;
 }
 
 /**
@@ -391,32 +426,99 @@ export function isPoisonActive(poisonExpiresAt: string | null | undefined): bool
 }
 
 /**
- * Calculates remaining hours and minutes for an active Poison Debuff.
+ * Calculates remaining time, intoxication tier, XP debuff penalty,
+ * and smooth red border opacity for active Poison / Alcohol intoxication.
  */
 export function getRemainingPoisonTime(poisonExpiresAt: string | null | undefined): {
   isPoisoned: boolean;
   hoursRemaining: number;
   minutesRemaining: number;
+  secondsRemaining: number;
   formattedString: string;
+  intoxicationLevel: number; // 0 to 1
+  intoxicationTier: "mild" | "moderate" | "heavy";
+  xpPenaltyPct: number;
+  borderRgba: string;
+  boxShadowGlow: string;
 } {
   if (!poisonExpiresAt) {
-    return { isPoisoned: false, hoursRemaining: 0, minutesRemaining: 0, formattedString: "" };
+    return {
+      isPoisoned: false,
+      hoursRemaining: 0,
+      minutesRemaining: 0,
+      secondsRemaining: 0,
+      formattedString: "",
+      intoxicationLevel: 0,
+      intoxicationTier: "mild",
+      xpPenaltyPct: 0,
+      borderRgba: "rgba(0, 229, 255, 0.4)",
+      boxShadowGlow: "0 0 15px rgba(0, 229, 255, 0.4)",
+    };
   }
 
   const diffMs = new Date(poisonExpiresAt).getTime() - Date.now();
   if (diffMs <= 0) {
-    return { isPoisoned: false, hoursRemaining: 0, minutesRemaining: 0, formattedString: "" };
+    return {
+      isPoisoned: false,
+      hoursRemaining: 0,
+      minutesRemaining: 0,
+      secondsRemaining: 0,
+      formattedString: "",
+      intoxicationLevel: 0,
+      intoxicationTier: "mild",
+      xpPenaltyPct: 0,
+      borderRgba: "rgba(0, 229, 255, 0.4)",
+      boxShadowGlow: "0 0 15px rgba(0, 229, 255, 0.4)",
+    };
   }
 
-  const totalMinutes = Math.floor(diffMs / 60000);
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const totalMinutes = Math.floor(totalSeconds / 60);
   const hoursRemaining = Math.floor(totalMinutes / 60);
   const minutesRemaining = totalMinutes % 60;
+  const secondsRemaining = totalSeconds % 60;
+
+  // Intoxication level 0 to 1 based on remaining hours (8+ hours = 100% full red)
+  const remainingHoursFloat = diffMs / (1000 * 3600);
+  const intoxicationLevel = Math.min(1.0, Math.max(0.15, remainingHoursFloat / 8.0));
+
+  let intoxicationTier: "mild" | "moderate" | "heavy" = "mild";
+  let xpPenaltyPct = 10;
+
+  if (remainingHoursFloat >= 6.0) {
+    intoxicationTier = "heavy";
+    xpPenaltyPct = 35;
+  } else if (remainingHoursFloat >= 2.5) {
+    intoxicationTier = "moderate";
+    xpPenaltyPct = 20;
+  } else {
+    intoxicationTier = "mild";
+    xpPenaltyPct = 10;
+  }
+
+  // Smooth red fade: blend red into cyan based on intoxication
+  // At 0.0 intoxication -> Pure Cyan rgb(0, 229, 255)
+  // At 1.0 intoxication -> Pure Red rgb(239, 68, 68)
+  const r = Math.round(0 + 239 * intoxicationLevel);
+  const g = Math.round(229 - (229 - 68) * intoxicationLevel);
+  const b = Math.round(255 - (255 - 68) * intoxicationLevel);
+  const borderRgba = `rgba(${r}, ${g}, ${b}, ${Number((0.4 + 0.5 * intoxicationLevel).toFixed(2))})`;
+  const boxShadowGlow = `0 0 ${Math.round(8 + intoxicationLevel * 14)}px rgba(${r}, ${g}, ${b}, ${Number((0.3 + 0.5 * intoxicationLevel).toFixed(2))})`;
 
   return {
     isPoisoned: true,
     hoursRemaining,
     minutesRemaining,
-    formattedString: `${hoursRemaining}h ${minutesRemaining}m`,
+    secondsRemaining,
+    formattedString:
+      hoursRemaining > 0
+        ? `${hoursRemaining}h ${minutesRemaining}m`
+        : `${minutesRemaining}m ${secondsRemaining}s`,
+    intoxicationLevel,
+    intoxicationTier,
+    xpPenaltyPct,
+    borderRgba,
+    boxShadowGlow,
   };
 }
 

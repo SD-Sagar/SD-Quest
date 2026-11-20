@@ -81,10 +81,21 @@ export class QuestRepository {
 
     // 2. Fetch current profile for fatigue telemetry & passive decay
     const profile = await PlayerRepository.getProfile(userId);
+    const attrs = await PlayerRepository.getAttributes(userId);
     const decay = calculatePassiveFatigueDecay(
       profile?.last_fatigue_update_at,
       profile?.mental_fatigue,
-      profile?.physical_fatigue
+      profile?.physical_fatigue,
+      undefined,
+      {
+        hunterLevel: profile?.current_level,
+        rank: profile?.rank,
+        vitality: attrs?.vitality,
+        endurance: attrs?.endurance,
+        mentality: attrs?.mentality,
+        discipline: attrs?.discipline,
+        lastHydrationSurgeAt: profile?.last_hydration_surge_at,
+      }
     );
 
     // 3. Compute fatigue delta & overtime surge
@@ -96,14 +107,23 @@ export class QuestRepository {
       category: quest.category,
       currentMentalFatigue: decay.newMentalFatigue,
       currentPhysicalFatigue: decay.newPhysicalFatigue,
+      hunterLevel: profile?.current_level,
+      endurance: attrs?.endurance,
+      vitality: attrs?.vitality,
+      discipline: attrs?.discipline,
+      mentality: attrs?.mentality,
+      priority: quest.priority,
+      difficulty: quest.difficulty,
     });
 
     const newMental = Math.min(100, Math.max(0, Number((decay.newMentalFatigue + fatigueDelta.mentalDelta).toFixed(2))));
     const newPhysical = Math.min(100, Math.max(0, Number((decay.newPhysicalFatigue + fatigueDelta.physicalDelta).toFixed(2))));
 
-    // 4. Calculate fatigue debuff & scaled rewards
+    // 4. Calculate fatigue debuff & scaled rewards (Neural Lockout = 0% XP if Mental >= 85%)
     const fatigueStatus = getFatigueStatus(decay.newMentalFatigue, decay.newPhysicalFatigue);
-    const scaledXp = Math.max(1, Math.round(quest.xp_reward * fatigueStatus.xpMultiplier - fatigueDelta.drainPenaltyXp));
+    const scaledXp = fatigueStatus.isNeuralLockout
+      ? 0
+      : Math.max(0, Math.round(quest.xp_reward * fatigueStatus.xpMultiplier - fatigueDelta.drainPenaltyXp));
 
     const scaledAttributes: Record<string, number> = {};
     for (const [attr, val] of Object.entries(quest.attribute_rewards || {})) {

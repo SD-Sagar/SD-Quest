@@ -51,6 +51,7 @@ import {
   ChevronDown,
   ChevronUp,
   AlertTriangle,
+  X,
 } from "lucide-react";
 
 const SPLIT_SCHEDULE: { day: DayOfWeek; title: string; subtitle: string; isRest: boolean }[] = [
@@ -115,6 +116,7 @@ export function GymTrainerHub({
   } | null>(null);
   const [isMobileCompactView, setIsMobileCompactView] = useState(false);
   const [isPlateCalcExpanded, setIsPlateCalcExpanded] = useState(false);
+  const [isProtocolIntelOpen, setIsProtocolIntelOpen] = useState(false);
   const [warningModalData, setWarningModalData] = useState<{
     title: string;
     message: string;
@@ -276,6 +278,8 @@ export function GymTrainerHub({
         playerHeightCm: profile?.height_cm || 175,
         playerLevel: profile?.current_level || 1,
         playerRank: profile?.rank || "Recruit",
+        initialPhysicalFatigue: profile?.physical_fatigue || 0,
+        initialMentalFatigue: profile?.mental_fatigue || 0,
         exercises: sessionExercises,
       })
     );
@@ -317,6 +321,8 @@ export function GymTrainerHub({
         playerHeightCm: profile?.height_cm || 175,
         playerLevel: profile?.current_level || 1,
         playerRank: profile?.rank || "Recruit",
+        initialPhysicalFatigue: profile?.physical_fatigue || 0,
+        initialMentalFatigue: profile?.mental_fatigue || 0,
         exercises: [
           {
             definition: def,
@@ -486,6 +492,8 @@ export function GymTrainerHub({
           equipment={equipment}
           playerRank={playerRank}
           playerLevel={playerLevel}
+          initialPhysicalFatigue={profile?.physical_fatigue || 0}
+          initialMentalFatigue={profile?.mental_fatigue || 0}
         />
       ) : (
         /* SYSTEM PLAN ENVIRONMENT */
@@ -608,58 +616,168 @@ export function GymTrainerHub({
                     <p className="text-xs text-slate-400 font-medium">{currentSplit.subtitle}</p>
                   </div>
 
-                  {/* Target Time & Speed Bonus Badge */}
-                  <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-800 p-3 rounded-2xl shrink-0">
-                    <Clock className="w-5 h-5 text-cyan-400 shrink-0" />
-                    <div>
-                      <span className="text-[10px] font-mono text-slate-500 uppercase block tracking-wider">
-                        TARGET DURATION
-                      </span>
-                      <span className="text-sm font-mono font-black text-white">
-                        {totalTargetMinutes} Minutes
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Daily Belly Protocol Indicator */}
-                <div className="p-3.5 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <Flame className="w-4 h-4 text-orange-400 shrink-0" />
-                    <div>
-                      <span className="text-xs font-bold text-white block">
-                        DAILY BELLY PROTOCOL:{" "}
-                        <span className="text-cyan-400">
-                          {selectedDay === "Monday" || selectedDay === "Wednesday" || selectedDay === "Friday"
-                            ? "DAY A // UPPER BELLY"
-                            : "DAY B // LOWER BELLY"}
+                  {/* Target Time & Speed Bonus Badge & Mobile Info Icon */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-800 p-3 rounded-2xl shrink-0">
+                      <Clock className="w-5 h-5 text-cyan-400 shrink-0" />
+                      <div>
+                        <span className="text-[10px] font-mono text-slate-500 uppercase block tracking-wider">
+                          TARGET DURATION
                         </span>
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        Appended to session: {bellyExercises.map((b) => b.name).join(", ")}
-                      </span>
+                        <span className="text-sm font-mono font-black text-white">
+                          {totalTargetMinutes} Minutes
+                        </span>
+                      </div>
                     </div>
+
+                    {/* Mobile Protocol Intel Info Button (Pulsing [ ⓘ ]) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setIsProtocolIntelOpen(true);
+                      }}
+                      className="md:hidden w-11 h-11 rounded-2xl bg-cyan-950/80 hover:bg-cyan-900/90 border border-cyan-400/80 text-cyan-300 flex items-center justify-center animate-pulse shadow-[0_0_12px_rgba(0,229,255,0.4)] shrink-0 transition"
+                      title="View Daily Belly Protocol & Swift Hunter Bonus"
+                      aria-label="View Protocol Intel"
+                    >
+                      <Info className="w-5 h-5 text-cyan-300" />
+                    </button>
                   </div>
-                  <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-900/60 px-2.5 py-1 rounded-xl shrink-0">
-                    INCLUDED
-                  </span>
                 </div>
 
-                {/* Speed / Intensity Bonus Banner */}
-                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-cyan-950/50 via-slate-900 to-purple-950/40 border border-cyan-500/30 flex items-start gap-3">
-                  <Zap className="w-4 h-4 text-amber-400 shrink-0 mt-0.5 animate-bounce" />
-                  <div className="text-xs space-y-0.5">
-                    <span className="font-bold text-amber-300 uppercase tracking-wider block">
-                      SWIFT HUNTER INTENSITY BONUS
+                {/* Desktop 2-in-1 Compact Modifiers Grid (Half Size, Side-by-Side in Single Line) */}
+                <div className="hidden md:grid md:grid-cols-2 gap-2.5">
+                  {/* Daily Belly Protocol Indicator */}
+                  <div className="p-2.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Flame className="w-4 h-4 text-cyan-400 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-white block truncate">
+                          DAILY BELLY:{" "}
+                          <span className="text-cyan-400">
+                            {selectedDay === "Monday" || selectedDay === "Wednesday" || selectedDay === "Friday"
+                              ? "DAY A // UPPER"
+                              : "DAY B // LOWER"}
+                          </span>
+                        </span>
+                        <span className="text-[10.5px] text-slate-400 block truncate">
+                          {bellyExercises.map((b) => b.name).join(", ")}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[9.5px] font-mono font-bold text-cyan-300 bg-cyan-900/60 px-2 py-0.5 rounded-lg shrink-0 border border-cyan-500/30">
+                      INCLUDED
                     </span>
-                    <p className="text-slate-300 leading-relaxed text-[11px]">
-                      Complete all sets and click <strong>"Complete Workout"</strong> before{" "}
-                      <strong>{totalTargetMinutes} minutes</strong> to claim early finish bonuses (
-                      <span className="text-cyan-400 font-bold">+35 Extra XP</span> &amp;{" "}
-                      <span className="text-purple-400 font-bold">+0.20 Agility</span>).
-                    </p>
+                  </div>
+
+                  {/* Swift Hunter Intensity Bonus */}
+                  <div className="p-2.5 rounded-xl bg-gradient-to-r from-cyan-950/50 via-slate-900 to-cyan-950/40 border border-cyan-500/30 flex items-center gap-2.5 min-w-0">
+                    <Zap className="w-4 h-4 text-cyan-400 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-white uppercase tracking-wider block truncate">
+                        SWIFT HUNTER INTENSITY BONUS
+                      </span>
+                      <p className="text-slate-300 text-[10.5px] truncate">
+                        Complete before <strong className="text-white">{totalTargetMinutes}m</strong> for{" "}
+                        <span className="text-cyan-400 font-bold">+35 Extra XP</span> &amp;{" "}
+                        <span className="text-white font-bold">+0.20 AGI</span>.
+                      </p>
+                    </div>
                   </div>
                 </div>
+
+                {/* Mobile Protocol Intel Modal (Triggered by pulsing [ ⓘ ] button) */}
+                {isProtocolIntelOpen && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="relative w-full max-w-md bg-[#090d18] border border-cyan-500/50 rounded-2xl p-5 shadow-[0_0_30px_rgba(0,229,255,0.25)] space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-lg bg-cyan-950 border border-cyan-500/40 text-cyan-400">
+                            <Info className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-white font-hud tracking-wide">
+                              PROTOCOL INTEL &amp; MODIFIERS
+                            </h3>
+                            <span className="text-[10px] font-mono text-cyan-400">
+                              {currentSplit.title}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setIsProtocolIntelOpen(false);
+                          }}
+                          className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                          aria-label="Close"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        {/* Daily Belly Protocol */}
+                        <div className="p-3.5 rounded-xl bg-cyan-950/50 border border-cyan-500/40 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Flame className="w-4 h-4 text-cyan-400" />
+                              <span className="text-xs font-bold text-white">
+                                DAILY BELLY PROTOCOL
+                              </span>
+                            </div>
+                            <span className="text-[9.5px] font-mono font-bold text-cyan-300 bg-cyan-900/60 px-2 py-0.5 rounded border border-cyan-500/40">
+                              INCLUDED
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-cyan-300 font-mono font-bold">
+                            {selectedDay === "Monday" || selectedDay === "Wednesday" || selectedDay === "Friday"
+                              ? "DAY A // UPPER BELLY FOCUS"
+                              : "DAY B // LOWER BELLY FOCUS"}
+                          </div>
+                          <p className="text-[11px] text-slate-300 leading-relaxed">
+                            Appended to session: {bellyExercises.map((b) => b.name).join(", ")}
+                          </p>
+                        </div>
+
+                        {/* Swift Hunter Intensity Bonus */}
+                        <div className="p-3.5 rounded-xl bg-slate-900/90 border border-cyan-500/40 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-cyan-400" />
+                            <span className="text-xs font-bold text-white uppercase tracking-wider">
+                              SWIFT HUNTER INTENSITY BONUS
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-300 leading-relaxed">
+                            Complete all sets and click <strong>"Complete Workout"</strong> before{" "}
+                            <strong className="text-cyan-400">{totalTargetMinutes} minutes</strong> to claim early finish bonuses:
+                          </p>
+                          <div className="flex items-center gap-2 pt-1 font-mono text-[10.5px]">
+                            <span className="px-2 py-1 rounded bg-cyan-950 border border-cyan-400 text-cyan-300 font-bold">
+                              +35 Extra XP
+                            </span>
+                            <span className="px-2 py-1 rounded bg-slate-950 border border-cyan-500/40 text-white font-bold">
+                              +0.20 Agility
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic("light");
+                          setIsProtocolIntelOpen(false);
+                        }}
+                        className="w-full py-2.5 rounded-xl bg-cyan-950 hover:bg-cyan-900 border border-cyan-400/60 text-white font-bold text-xs uppercase tracking-wider transition shadow-[0_0_10px_rgba(0,229,255,0.2)]"
+                      >
+                        Close Intel
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Start Workout Button or Locked + Dev Override */}
                 {selectedDay !== todayName ? (

@@ -38,6 +38,8 @@ interface CustomPlanManagerProps {
   equipment: EquipmentInventory | null;
   playerRank?: HunterRank;
   playerLevel?: number;
+  initialPhysicalFatigue?: number;
+  initialMentalFatigue?: number;
 }
 
 const DEFAULT_DAYS: DayOfWeek[] = [
@@ -63,6 +65,8 @@ export function CustomPlanManager({
   equipment,
   playerRank = "Recruit",
   playerLevel = 1,
+  initialPhysicalFatigue = 0,
+  initialMentalFatigue = 0,
 }: CustomPlanManagerProps) {
   const dispatch = useAppDispatch();
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>("Monday");
@@ -346,6 +350,8 @@ export function CustomPlanManager({
         exercises: sessionExercises,
         skippingTarget: 100,
         isSingleExercise: false,
+        initialPhysicalFatigue,
+        initialMentalFatigue,
       })
     );
   };
@@ -392,6 +398,8 @@ export function CustomPlanManager({
         ],
         skippingTarget: 0,
         isSingleExercise: true,
+        initialPhysicalFatigue,
+        initialMentalFatigue,
       })
     );
   };

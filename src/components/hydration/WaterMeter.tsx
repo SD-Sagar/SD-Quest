@@ -67,6 +67,26 @@ export function WaterMeter({ logs, targetMl = 3000, dateStr }: WaterMeterProps) 
     triggerHaptic("medium");
     const nextTotal = currentMl + 300;
     setOptimisticMl(nextTotal); // Instant UI feedback!
+
+    // 5-Minute Cellular Hydration Surge Logic:
+    // 1 tap of water increases physical recovery rate by +0.10%/min and mental by +0.05%/min for 5 minutes.
+    // During those 5 minutes, additional sips do not stack or affect fatigue.
+    if (typeof window !== "undefined") {
+      const storedLastSurge = localStorage.getItem("sd_last_hydration_surge_at");
+      const lastSurgeTime = storedLastSurge ? new Date(storedLastSurge).getTime() : 0;
+      const now = Date.now();
+
+      if (now - lastSurgeTime >= 5 * 60 * 1000) {
+        const surgeIso = new Date(now).toISOString();
+        localStorage.setItem("sd_last_hydration_surge_at", surgeIso);
+        window.dispatchEvent(
+          new CustomEvent("hydrationSurgeTriggered", {
+            detail: { timestamp: surgeIso },
+          })
+        );
+      }
+    }
+
     window.dispatchEvent(
       new CustomEvent("hydrationUpdated", {
         detail: { date: effectiveDateStr, amount: 300, newTotal: nextTotal },

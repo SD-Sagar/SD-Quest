@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Profile, PlayerAttributes, AttributeType } from "@/types";
 import { calculateAge, triggerHaptic } from "@/lib/utils";
 import { getRemainingPoisonTime } from "@/lib/calculations/nutrition";
 import { StatAllocationModal } from "./StatAllocationModal";
 import { getFatigueStatus } from "@/lib/calculations/fatigue";
+import { useLiveFatigue } from "@/lib/hooks/useLiveFatigue";
+import { useAppSelector } from "@/store";
 import {
   Zap,
   Shield,
@@ -17,6 +19,7 @@ import {
   ChevronUp,
   Brain,
   Flame,
+  Droplets,
 } from "lucide-react";
 
 interface CharacterHUDProps {
@@ -51,9 +54,54 @@ export function CharacterHUD({
     Math.round((profile.current_xp / (profile.xp_to_next_level || 500)) * 100)
   );
 
-  const mentalFatigue = Math.min(100, Math.max(0, Number(profile.mental_fatigue) || 0));
-  const physicalFatigue = Math.min(100, Math.max(0, Number(profile.physical_fatigue) || 0));
-  const fatigueStatus = getFatigueStatus(mentalFatigue, physicalFatigue);
+  const activeWorkout = useAppSelector((state) => state.workoutUi);
+  const isWorkoutActive = activeWorkout.isActive && activeWorkout.status !== "completed";
+
+  const recoveryStats = useMemo(
+    () => ({
+      hunterLevel: profile.current_level,
+      rank: profile.rank,
+      vitality: attributes?.vitality,
+      endurance: attributes?.endurance,
+      mentality: attributes?.mentality,
+      discipline: attributes?.discipline,
+      lastHydrationSurgeAt: profile.last_hydration_surge_at || null,
+    }),
+    [profile, attributes]
+  );
+
+  const live = useLiveFatigue(
+    profile.mental_fatigue,
+    profile.physical_fatigue,
+    profile.last_fatigue_update_at,
+    recoveryStats
+  );
+
+  // If a workout session is active (even minimized), Dashboard displays live session fatigue!
+  const mentalFatigue = isWorkoutActive
+    ? activeWorkout.currentMentalFatigue
+    : live.mentalFatigue;
+  const physicalFatigue = isWorkoutActive
+    ? activeWorkout.currentPhysicalFatigue
+    : live.physicalFatigue;
+  const displayMental = isWorkoutActive
+    ? `${activeWorkout.currentMentalFatigue.toFixed(1)}%`
+    : live.displayMental;
+  const displayPhysical = isWorkoutActive
+    ? `${activeWorkout.currentPhysicalFatigue.toFixed(1)}%`
+    : live.displayPhysical;
+  const fatigueStatus = isWorkoutActive
+    ? getFatigueStatus(activeWorkout.currentMentalFatigue, activeWorkout.currentPhysicalFatigue)
+    : live.fatigueStatus;
+
+  const isExpBoosterActive = Boolean(
+    profile.exp_booster_expires_at &&
+      new Date(profile.exp_booster_expires_at).getTime() > Date.now()
+  );
+  const isSleepDeprived = Boolean(
+    profile.sleep_deprived_expires_at &&
+      new Date(profile.sleep_deprived_expires_at).getTime() > Date.now()
+  );
 
   const getRingColor = (pct: number) => {
     if (pct >= 90) return "stroke-red-500 text-red-400";
@@ -72,6 +120,133 @@ export function CharacterHUD({
     "discipline",
   ];
 
+  // Construct Unified Active Status Effects (Debuffs = RED, Buffs/Boosts = BLUE/WHITE)
+  const activeEffects = useMemo(() => {
+    const list: {
+      id: string;
+      type: "buff" | "debuff";
+      title: string;
+      description: string;
+      badge?: string;
+      timer?: string;
+      icon: React.ReactNode;
+      href?: string;
+      onClick?: () => void;
+    }[] = [];
+
+    // 1. Alcohol Poison / Intoxication Debuff (RED)
+    if (poisonInfo.isPoisoned) {
+      list.push({
+        id: "poison",
+        type: "debuff",
+        title: `POISON // INTOXICATION (${poisonInfo.intoxicationTier.toUpperCase()})`,
+        description: `-${poisonInfo.xpPenaltyPct}% XP speed • Liver clearance in progress`,
+        badge: `-${poisonInfo.xpPenaltyPct}% XP`,
+        timer: poisonInfo.formattedString,
+        icon: <Skull className="w-3.5 h-3.5 text-red-400 shrink-0" />,
+        href: "/diet",
+      });
+    }
+
+    // 2. Biological Fatigue Strain Debuff (RED)
+    if (fatigueStatus.tier !== "optimal") {
+      const isLockout = fatigueStatus.isNeuralLockout;
+      list.push({
+        id: "fatigue-strain",
+        type: "debuff",
+        title: isLockout ? "BRAIN FOG NEURAL LOCKOUT" : `BIOLOGICAL STRAIN // ${fatigueStatus.statusLabel.toUpperCase()}`,
+        description: isLockout
+          ? "Mental strain ≥ 85% • Zero XP earned until rested"
+          : fatigueStatus.isOverload
+          ? `Vitality leak (-${fatigueStatus.drainRatePer30s}%/30s) • Limiter-break threshold`
+          : `Physical ${displayPhysical} | Mental ${displayMental} • Clear with rest / soft drinks`,
+        badge: isLockout ? "0% XP" : `-${Math.round((1 - fatigueStatus.xpMultiplier) * 100)}% XP`,
+        icon: <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />,
+      });
+    }
+
+    // 3. Sleep Deprived Debuff (RED)
+    if (isSleepDeprived) {
+      list.push({
+        id: "sleep-deprived",
+        type: "debuff",
+        title: "SLEEP DEPRIVED // REST DEFICIT",
+        description: "Rest protocol under 4 hours • Impaired cognitive recovery",
+        badge: "-30% SPEED",
+        icon: <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />,
+      });
+    }
+
+    // 4. Chicken Status Debuff (RED)
+    if (profile.condition === "chicken") {
+      list.push({
+        id: "chicken-condition",
+        type: "debuff",
+        title: "CHICKEN STATUS // PENALTY ACTIVE",
+        description: "Discipline failure protocol applied",
+        badge: "DEBUFF",
+        icon: <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />,
+        onClick: onOpenSanctuaryModal,
+      });
+    }
+
+    // 5. Circadian Stasis 2X EXP Booster (BLUE/WHITE BUFF)
+    if (isExpBoosterActive) {
+      list.push({
+        id: "circadian-booster",
+        type: "buff",
+        title: "CIRCADIAN STASIS // 2X EXP BOOSTER",
+        description: "Optimal circadian sleep synchronization bonus",
+        badge: "2.0X EXP",
+        icon: <Zap className="w-3.5 h-3.5 text-cyan-300 fill-cyan-400 shrink-0" />,
+      });
+    }
+
+    // 6. Cellular Hydration Surge (BLUE/WHITE BUFF)
+    if (live.isHydrationSurgeActive && !isWorkoutActive) {
+      const mins = Math.floor(live.hydrationRemainingSeconds / 60);
+      const secs = String(live.hydrationRemainingSeconds % 60).padStart(2, "0");
+      list.push({
+        id: "hydration-surge",
+        type: "buff",
+        title: "CELLULAR HYDRATION SURGE",
+        description: "+0.10%/m PHY • +0.05%/m MEN accelerated fatigue decay",
+        badge: "SURGE",
+        timer: `${mins}:${secs}`,
+        icon: <Droplets className="w-3.5 h-3.5 text-cyan-300 animate-pulse shrink-0" />,
+      });
+    }
+
+    // 7. Medical Sanctuary (BLUE/WHITE BUFF)
+    if (profile.condition === "medical_sanctuary") {
+      list.push({
+        id: "medical-sanctuary",
+        type: "buff",
+        title: "HONORABLE MEDICAL SANCTUARY",
+        description: "Streaks and historical progress protected",
+        badge: "PROTECTED",
+        icon: <Shield className="w-3.5 h-3.5 text-cyan-300 shrink-0" />,
+        onClick: onOpenSanctuaryModal,
+      });
+    }
+
+    return list;
+  }, [
+    poisonInfo,
+    fatigueStatus,
+    displayPhysical,
+    displayMental,
+    isSleepDeprived,
+    profile.condition,
+    isExpBoosterActive,
+    live.isHydrationSurgeActive,
+    live.hydrationRemainingSeconds,
+    isWorkoutActive,
+    onOpenSanctuaryModal,
+  ]);
+
+  const hasDebuff = activeEffects.some((e) => e.type === "debuff");
+
   return (
     <div className="solo-frame rounded-2xl p-4 sm:p-5 relative overflow-hidden space-y-4">
       {/* Top Ambient Mana Aura */}
@@ -80,25 +255,22 @@ export function CharacterHUD({
       {/* 1. HUNTER HEADER & SILHOUETTE AVATAR */}
       <div className="flex items-center gap-4 relative z-10">
         <div className="relative shrink-0">
-          {/* Authentic Solo Leveling Avatar Frame with Cyan Contour Glow */}
+          {/* Authentic Solo Leveling Avatar Frame with Dynamic Red/Cyan Contour Glow */}
           <div
-            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-b from-[#0b1220] to-[#05070d] p-1 flex items-center justify-center border-2 border-cyan-400 shadow-[0_0_15px_rgba(0,229,255,0.4)] ${poisonInfo.isPoisoned ? "border-cyan-300 ring-2 ring-cyan-500/50" : ""
-              }`}
+            style={{
+              borderColor: poisonInfo.isPoisoned ? poisonInfo.borderRgba : undefined,
+              boxShadow: poisonInfo.isPoisoned ? poisonInfo.boxShadowGlow : undefined,
+            }}
+            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-b from-[#0b1220] to-[#05070d] p-1 flex items-center justify-center border-2 transition-all duration-700 ${
+              poisonInfo.isPoisoned && poisonInfo.intoxicationLevel > 0.4
+                ? "animate-pulse"
+                : "border-cyan-400 shadow-[0_0_15px_rgba(0,229,255,0.4)]"
+            }`}
           >
             <div className="w-full h-full rounded-lg bg-[#070b14] flex items-center justify-center font-black text-2xl font-solo text-cyan-400 mana-text-glow">
               {(profile.name || "H").charAt(0).toUpperCase()}
             </div>
           </div>
-
-          {/* Poison Alert Icon */}
-          {poisonInfo.isPoisoned && (
-            <div
-              className="absolute -top-1.5 -right-1.5 bg-[#090d18] text-cyan-300 p-1 rounded-full border border-cyan-400 shadow-[0_0_10px_#00e5ff] animate-pulse"
-              title="Poison in system active"
-            >
-              <Skull className="w-3.5 h-3.5 text-cyan-300" />
-            </div>
-          )}
 
           {/* Rank Badge */}
           <div className="absolute -bottom-2 -right-1 bg-cyan-950 text-cyan-300 text-[10px] font-black px-2 py-0.5 rounded border border-cyan-400 shadow font-solo uppercase">
@@ -150,37 +322,6 @@ export function CharacterHUD({
               {profile.title}
             </span>
           </div>
-
-          {/* Poison debuff banner */}
-          {poisonInfo.isPoisoned && (
-            <Link
-              href="/diet"
-              className="mt-2 flex items-center gap-1.5 text-xs text-cyan-300 bg-cyan-950/80 hover:bg-cyan-900/90 border border-cyan-400/60 px-2.5 py-1 rounded shadow transition font-hud"
-            >
-              <Skull className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
-              <span>STATUS DEBUFF // POISON ({poisonInfo.formattedString} left • -35% XP)</span>
-            </Link>
-          )}
-
-          {profile.condition === "chicken" && (
-            <button
-              onClick={onOpenSanctuaryModal}
-              className="mt-2 flex items-center gap-1.5 text-xs text-slate-200 bg-cyan-950/50 border border-cyan-500/40 px-2.5 py-1 rounded hover:bg-cyan-900/50 transition text-left font-hud"
-            >
-              <AlertTriangle className="w-3.5 h-3.5 text-cyan-400" />
-              <span>CHICKEN STATUS (Debuff Active)</span>
-            </button>
-          )}
-
-          {profile.condition === "medical_sanctuary" && (
-            <button
-              onClick={onOpenSanctuaryModal}
-              className="mt-2 flex items-center gap-1.5 text-xs text-cyan-300 bg-cyan-950/60 border border-cyan-500/50 px-2.5 py-1 rounded hover:bg-cyan-900/60 transition text-left font-hud"
-            >
-              <Shield className="w-3.5 h-3.5 text-cyan-400" />
-              <span>HONORABLE SANCTUARY (Streaks Protected)</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -200,21 +341,125 @@ export function CharacterHUD({
         </div>
       </div>
 
+      {/* 2.2 UNIFIED ACTIVE STATUS EFFECTS BAR (Live Responsive Matrix - RED Debuffs & BLUE/WHITE Boosts) */}
+      {activeEffects.length > 0 && (
+        <div className="relative z-10 space-y-1.5">
+          <div className="flex items-center justify-between text-[10px] font-mono font-bold tracking-wider text-slate-400 px-0.5">
+            <span className="flex items-center gap-1.5 uppercase">
+              <span className={`w-1.5 h-1.5 rounded-full ${hasDebuff ? "bg-red-500" : "bg-cyan-400"} animate-pulse`} />
+              ACTIVE STATUS TELEMETRY ({activeEffects.length})
+            </span>
+            <span className="text-[9px] text-slate-500 uppercase">
+              {hasDebuff ? "ADVERSE DEBUFFS PRESENT" : "BENEFICIAL ENHANCEMENTS"}
+            </span>
+          </div>
+
+          <div
+            className={`grid gap-2 ${
+              activeEffects.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"
+            }`}
+          >
+            {activeEffects.map((effect) => {
+              const isDebuff = effect.type === "debuff";
+              const cardContent = (
+                <div
+                  className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 transition-all duration-300 ${
+                    isDebuff
+                      ? "bg-red-950/70 border-red-500/60 text-red-200 shadow-[0_0_12px_rgba(239,68,68,0.25)] hover:bg-red-900/60"
+                      : "bg-cyan-950/70 border-cyan-400/60 text-cyan-200 shadow-[0_0_12px_rgba(0,229,255,0.25)] hover:bg-cyan-900/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className={`p-1.5 rounded-lg shrink-0 ${
+                        isDebuff ? "bg-red-900/60 text-red-400" : "bg-cyan-900/60 text-cyan-300"
+                      }`}
+                    >
+                      {effect.icon}
+                    </div>
+                    <div className="min-w-0">
+                      <span
+                        className={`text-[11px] font-bold block truncate font-hud tracking-wide ${
+                          isDebuff ? "text-red-200" : "text-white"
+                        }`}
+                      >
+                        {effect.title}
+                      </span>
+                      <span
+                        className={`text-[10px] font-mono block truncate ${
+                          isDebuff ? "text-red-300/90" : "text-cyan-300/90"
+                        }`}
+                      >
+                        {effect.description}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end shrink-0 gap-1 font-mono">
+                    {effect.badge && (
+                      <span
+                        className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded border uppercase ${
+                          isDebuff
+                            ? "bg-red-900/90 text-white border-red-500/70 shadow-[0_0_6px_rgba(239,68,68,0.4)]"
+                            : "bg-cyan-900/90 text-white border-cyan-400/70 shadow-[0_0_6px_rgba(0,229,255,0.4)]"
+                        }`}
+                      >
+                        {effect.badge}
+                      </span>
+                    )}
+                    {effect.timer && (
+                      <span
+                        className={`text-[9px] px-1 py-0.2 rounded border ${
+                          isDebuff
+                            ? "bg-red-950/90 text-red-200 border-red-500/50"
+                            : "bg-cyan-950/90 text-cyan-200 border-cyan-500/50"
+                        }`}
+                      >
+                        {effect.timer}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+
+              if (effect.href) {
+                return (
+                  <Link key={effect.id} href={effect.href} className="block group">
+                    {cardContent}
+                  </Link>
+                );
+              }
+
+              if (effect.onClick) {
+                return (
+                  <button
+                    key={effect.id}
+                    type="button"
+                    onClick={effect.onClick}
+                    className="text-left w-full block group"
+                  >
+                    {cardContent}
+                  </button>
+                );
+              }
+
+              return <div key={effect.id}>{cardContent}</div>;
+            })}
+          </div>
+        </div>
+      )}
+
       {/* 2.5 DUAL BIOLOGICAL FATIGUE TELEMETRY (Mental & Physical Mini Rings) */}
       <div className="relative z-10 p-3 rounded-2xl bg-[#070b14]/90 border border-slate-800 space-y-2 font-hud">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-1.5">
           <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            BIOLOGICAL FATIGUE TELEMETRY
+            <span className={`w-1.5 h-1.5 rounded-full ${isWorkoutActive ? "bg-amber-400" : "bg-cyan-400"} animate-pulse`} />
+            {isWorkoutActive ? "LIVE SESSION TELEMETRY" : "BIOLOGICAL FATIGUE TELEMETRY"}
           </span>
           <span
             className={`text-[9.5px] font-mono font-bold px-2 py-0.5 rounded border ${
-              fatigueStatus.tier === "overload"
+              fatigueStatus.tier !== "optimal"
                 ? "bg-red-950/80 text-red-300 border-red-500/60 animate-pulse"
-                : fatigueStatus.tier === "heavy"
-                ? "bg-orange-950/70 text-orange-300 border-orange-500/50"
-                : fatigueStatus.tier === "strained"
-                ? "bg-amber-950/60 text-amber-300 border-amber-500/40"
                 : "bg-cyan-950/60 text-cyan-300 border-cyan-500/30"
             }`}
           >
@@ -254,7 +499,7 @@ export function CharacterHUD({
                 MENTAL
               </span>
               <span className="text-xs font-mono font-black text-white">
-                {mentalFatigue.toFixed(0)}%
+                {displayMental}
               </span>
             </div>
           </div>
@@ -290,7 +535,7 @@ export function CharacterHUD({
                 PHYSICAL
               </span>
               <span className="text-xs font-mono font-black text-white">
-                {physicalFatigue.toFixed(0)}%
+                {displayPhysical}
               </span>
             </div>
           </div>
@@ -298,12 +543,16 @@ export function CharacterHUD({
 
         {/* Dynamic Telemetry Status / Debuff Note */}
         <p className="text-[10px] font-mono text-slate-400 border-t border-slate-800/60 pt-1.5">
-          {fatigueStatus.isOverload ? (
+          {fatigueStatus.isNeuralLockout ? (
             <span className="text-red-400 font-bold animate-pulse">
-              ⚠ VITALITY LEAK ACTIVE: -0.02 XP/min drain. Rest or drink refreshment.
+              ⚠ BRAIN FOG LOCKOUT (0% XP ACTIVE): Mental fatigue &ge; 85%! Zero XP can be earned from any task until mental strain drops below 85%. Rest, fun activity, or cold drinks required.
+            </span>
+          ) : fatigueStatus.isOverload ? (
+            <span className="text-red-400 font-bold animate-pulse">
+              ⚠ VITALITY LEAK ACTIVE: -{fatigueStatus.drainRatePer30s}%/30s drain. Limiter-Break Surge active ({fatigueStatus.limiterBreakMultiplier}x attribute growth). Rest or consume refreshment!
             </span>
           ) : fatigueStatus.tier !== "optimal" ? (
-            <span className="text-amber-300">
+            <span className="text-red-400 font-bold">
               Debuff Active: {Math.round(fatigueStatus.xpMultiplier * 100)}% XP gain speed. Leisure or soft drinks clear strain.
             </span>
           ) : (

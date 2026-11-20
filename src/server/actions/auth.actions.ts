@@ -112,6 +112,34 @@ export async function signupAction(formData: FormData): Promise<AuthActionResult
 
 export async function logoutAction() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    try {
+      const active = await PlayerRepository.getActiveSession(user.id);
+      if (active && (active.category === "sleep" || active.type === "sleep")) {
+        const startedAt = active.started_at ? new Date(active.started_at).getTime() : 0;
+        const elapsedSecs = startedAt > 0 ? (Date.now() - startedAt) / 1000 : 0;
+        if (elapsedSecs < 60) {
+          // Mistake start (< 1 minute): cleanly clear session without penalty
+          await PlayerRepository.clearActiveSession(user.id);
+        } else if (elapsedSecs < 4 * 60 * 60) {
+          // Logged out before 4 hours: apply penalty and lock main sleep for 12 hours
+          await PlayerRepository.applySleepDeprivationPenalty(user.id, Math.floor(elapsedSecs / 60));
+          await PlayerRepository.clearActiveSession(user.id);
+        } else {
+          // Logged out after >= 4 hours (e.g. 8h or 9h): complete sleep session and lock main sleep for 12 hours
+          await PlayerRepository.completeSleepSession(user.id, Math.floor(elapsedSecs / 60));
+          await PlayerRepository.clearActiveSession(user.id);
+        }
+      }
+    } catch (err) {
+      console.error("Error handling active sleep session during logout:", err);
+    }
+  }
+
   await supabase.auth.signOut();
   redirect("/login");
 }

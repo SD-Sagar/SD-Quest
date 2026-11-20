@@ -196,7 +196,14 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
               </label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value as QuestCategory)}
+                onChange={(e) => {
+                  const val = e.target.value as QuestCategory;
+                  setCategory(val);
+                  if (val === "sleep") {
+                    setSelectedAttributes(["mentality"]);
+                    setDurationMinutes(480);
+                  }
+                }}
                 className="w-full rounded-2xl bg-slate-900 border border-slate-700 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 capitalize"
               >
                 <option value="career">Career / Work</option>
@@ -206,6 +213,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                 <option value="household">Household</option>
                 <option value="personal">Personal Life</option>
                 <option value="social">Social Activity</option>
+                <option value="sleep">🌙 Sleep / Stasis (Routine)</option>
               </select>
             </div>
 
@@ -408,22 +416,29 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
             <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
               Target Attributes Yielded
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {ALL_ATTRIBUTES.map((attr) => (
-                <button
-                  type="button"
-                  key={attr}
-                  onClick={() => toggleAttribute(attr)}
-                  className={`px-2.5 py-1 rounded-xl text-xs font-mono capitalize transition ${
-                    selectedAttributes.includes(attr)
-                      ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
-                      : "bg-slate-900 text-slate-500 border border-slate-800"
-                  }`}
-                >
-                  +{attr}
-                </button>
-              ))}
-            </div>
+            {category === "sleep" ? (
+              <div className="p-2.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-xs font-mono text-cyan-300 flex items-center gap-2">
+                <span>🌙</span>
+                <span>Circadian Protocol: Strictly locked to <strong>+mentality</strong> only. No other attributes can be assigned.</span>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {ALL_ATTRIBUTES.map((attr) => (
+                  <button
+                    type="button"
+                    key={attr}
+                    onClick={() => toggleAttribute(attr)}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-mono capitalize transition ${
+                      selectedAttributes.includes(attr)
+                        ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
+                        : "bg-slate-900 text-slate-500 border border-slate-800"
+                    }`}
+                  >
+                    +{attr}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Fun & Recreational Protocol Toggle */}

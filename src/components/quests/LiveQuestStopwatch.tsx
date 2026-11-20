@@ -1,16 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { completeQuestAction } from "@/server/actions/quest.actions";
 import {
   saveActiveSessionAction,
   clearActiveSessionAction,
   getActiveSessionAction,
+  completeSleepSessionAction,
+  applySleepDeprivationAction,
 } from "@/server/actions/player.actions";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { endQuestSession, minimizeQuestSession } from "@/store/slices/questUiSlice";
 import { triggerHaptic } from "@/lib/utils";
 import confetti from "canvas-confetti";
-import { Play, Pause, X, CheckCircle2, Zap, Flame, Shield } from "lucide-react";
+import { Play, Pause, X, CheckCircle2, Zap, Flame, Shield, Minimize2, AlertTriangle, Moon } from "lucide-react";
 import { Quest } from "@/types";
+import { ActiveFatigueDock } from "@/components/character/ActiveFatigueDock";
 
 interface LiveQuestStopwatchProps {
   quest: Quest;
@@ -18,12 +24,28 @@ interface LiveQuestStopwatchProps {
 }
 
 export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) {
-  const [seconds, setSeconds] = useState(0);
+  const dispatch = useAppDispatch();
+  const router = useRouter();
+  const reduxStartedAt = useAppSelector((state) => state.questUi.startedAtTimestamp);
+
+  const [seconds, setSeconds] = useState(() => {
+    if (reduxStartedAt) {
+      return Math.max(0, Math.floor((Date.now() - reduxStartedAt) / 1000));
+    }
+    return 0;
+  });
   const [isRunning, setIsRunning] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [startTimeIso, setStartTimeIso] = useState<string | null>(null);
+  const [showSleepDeprivedModal, setShowSleepDeprivedModal] = useState(false);
+  const [startTimeIso, setStartTimeIso] = useState<string | null>(() => {
+    if (reduxStartedAt) {
+      return new Date(reduxStartedAt).toISOString();
+    }
+    return null;
+  });
 
-  const estimatedMinutes = quest.estimated_duration_minutes || 30;
+  const isSleepQuest = quest.category === "sleep" || (quest as any).is_sleep;
+  const estimatedMinutes = isSleepQuest ? 480 : quest.estimated_duration_minutes || 30;
 
   // 1. Initialize or resume universal timestamp session from Supabase
   useEffect(() => {
@@ -32,13 +54,11 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
     async function initSession() {
       try {
         const active = await getActiveSessionAction();
-        let sessionStart = new Date().toISOString();
+        let sessionStart = startTimeIso || (quest.started_at ? quest.started_at : new Date().toISOString());
 
         if (active && active.session_id === quest.id && active.started_at) {
           sessionStart = active.started_at;
-        } else if (quest.started_at) {
-          sessionStart = quest.started_at;
-        } else {
+        } else if (!startTimeIso && !quest.started_at) {
           // Register fresh session in Supabase for cross-device & offline tracking
           await saveActiveSessionAction({
             session_id: quest.id,
@@ -49,6 +69,7 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
             is_fun: quest.is_fun || false,
             linked_attributes: Object.keys(quest.attribute_rewards || {}),
             category: quest.category,
+            quest_data: quest,
           });
         }
 
@@ -70,7 +91,7 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
     return () => {
       isMounted = false;
     };
-  }, [quest.id, quest.title, quest.started_at, quest.is_fun, quest.attribute_rewards, quest.category, estimatedMinutes]);
+  }, [quest.id, quest.title, quest.started_at, quest.is_fun, quest.attribute_rewards, quest.category, estimatedMinutes, quest, startTimeIso]);
 
   // 2. Real-time tick anchored to timestamp (never drifts or halts if tab sleeps)
   useEffect(() => {
@@ -95,11 +116,58 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
 
   const diffMinutes = minutes - estimatedMinutes;
   const isOvertime = diffMinutes > 0;
+  const hoursSlept = Number((minutes / 60).toFixed(2));
 
   const handleFinish = async () => {
     triggerHaptic("heavy");
-    setLoading(true);
 
+    // Sleep Protocol Handling
+    if (isSleepQuest) {
+      // Mistake start guard (< 1 minute / < 60 seconds): safe cancel, zero penalty, zero lockout
+      if (seconds < 60) {
+        triggerHaptic("light");
+        setLoading(true);
+        try {
+          await clearActiveSessionAction();
+          dispatch(endQuestSession());
+          onClose();
+          router.refresh();
+        } catch (err: any) {
+          console.error(err);
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // If active for >= 60 seconds and under 4.0 hours, trigger sleep deprivation penalty warning
+      if (hoursSlept < 4.0) {
+        setShowSleepDeprivedModal(true);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const sleepRes = await completeSleepSessionAction(minutes);
+        if (sleepRes.isOptimal) {
+          confetti({
+            particleCount: 150,
+            spread: 90,
+            origin: { y: 0.6 },
+          });
+        }
+        dispatch(endQuestSession());
+        onClose();
+        router.refresh();
+      } catch (err: any) {
+        console.error(err);
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Standard Quest Handling
+    setLoading(true);
     try {
       await clearActiveSessionAction();
       await completeQuestAction(quest.id, Math.max(1, minutes));
@@ -108,64 +176,194 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
         spread: 75,
         origin: { y: 0.6 },
       });
+      dispatch(endQuestSession());
       onClose();
+      router.refresh();
     } catch (err: any) {
       console.error(err);
       setLoading(false);
     }
   };
 
+  const handleMinimize = () => {
+    triggerHaptic("medium");
+    dispatch(minimizeQuestSession());
+    onClose();
+  };
+
+  const handleDiscard = async () => {
+    if (isSleepQuest) {
+      // Mistake start guard (< 1 minute / < 60 seconds): safe cancel, zero penalty, zero lockout
+      if (seconds < 60) {
+        triggerHaptic("light");
+        setLoading(true);
+        try {
+          await clearActiveSessionAction();
+          dispatch(endQuestSession());
+          onClose();
+          router.refresh();
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // If active for >= 60 seconds and under 4 hours, abandoning triggers sleep deprivation penalty warning
+      if (hoursSlept < 4.0) {
+        setShowSleepDeprivedModal(true);
+        return;
+      }
+
+      // If >= 4 hours (e.g. 9 hours), ending the session completes sleep and initiates the 12-hour lockout
+      triggerHaptic("medium");
+      setLoading(true);
+      try {
+        await completeSleepSessionAction(minutes);
+        dispatch(endQuestSession());
+        onClose();
+        router.refresh();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    if (!confirm("Abandon this active directive? Elapsed time will be discarded.")) return;
+    triggerHaptic("medium");
+    setLoading(true);
+    try {
+      await clearActiveSessionAction();
+      dispatch(endQuestSession());
+      onClose();
+      router.refresh();
+    } catch (e) {
+      console.error(e);
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-      <div className="w-full max-w-sm rounded-3xl hunter-panel border border-cyan-500/40 p-6 text-center shadow-2xl relative space-y-5 animate-in fade-in zoom-in-95 duration-150">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition"
-          title="Minimize Session (Background timer stays active)"
-        >
-          <X className="w-4 h-4" />
-        </button>
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          handleMinimize();
+        }
+      }}
+    >
+      <div className="w-full max-w-sm max-h-[94vh] overflow-y-auto rounded-3xl hunter-panel border border-cyan-500/40 p-4 sm:p-6 text-center shadow-2xl relative space-y-3.5 sm:space-y-4 animate-in fade-in zoom-in-95 duration-150 scrollbar-none">
+        {/* Top Header with Live Fatigue Dock, Explicit MINIMIZE Button & Close */}
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5 gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase tracking-widest flex items-center gap-1 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              {isSleepQuest ? "STASIS" : "TELEMETRY"}
+            </span>
+            <ActiveFatigueDock />
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleMinimize}
+              className="px-2.5 py-1 rounded-xl bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-900/60 text-[10px] font-mono font-bold flex items-center gap-1 transition shadow-[0_0_8px_rgba(0,229,255,0.2)]"
+              title="Minimize to floating capsule"
+            >
+              <Minimize2 className="w-3 h-3" />
+              <span>MINIMIZE ▼</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleMinimize}
+              className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition"
+              title="Close / Minimize Session"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
 
         {/* Title */}
         <div className="space-y-1">
-          <div className="flex items-center justify-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest block">
-              UNIVERSAL ACTIVE TELEMETRY
-            </span>
-          </div>
-          <h3 className="text-base font-black text-white tracking-tight line-clamp-1">
+          <h3 className="text-base font-black text-white tracking-tight line-clamp-1 font-solo">
             {quest.title}
           </h3>
           <p className="text-xs text-slate-400 font-mono">
-            Target Duration: {estimatedMinutes} Min • {quest.is_fun ? "Recreational Mode" : "Disciplined Mode"}
+            {isSleepQuest
+              ? "Circadian Target: 8h 00m – 8h 30m (2X EXP Window) • Minimum Safe: 4h 00m"
+              : `Target Duration: ${estimatedMinutes} Min • ${quest.is_fun ? "🎮 Recreational Mode" : "Disciplined Objective"}`}
           </p>
         </div>
 
         {/* Timer Circle */}
         <div
-          className={`w-44 h-44 mx-auto rounded-full border-4 flex flex-col items-center justify-center shadow-lg transition-all ${
-            isOvertime
+          className={`w-40 h-40 mx-auto rounded-full border-4 flex flex-col items-center justify-center shadow-lg transition-all ${
+            isSleepQuest
+              ? hoursSlept >= 8.0 && hoursSlept <= 8.5
+                ? "border-cyan-400 bg-cyan-950/40 shadow-[0_0_20px_#00e5ff]"
+                : hoursSlept < 4.0
+                ? "border-amber-500/60 bg-amber-950/20 shadow-amber-950/60"
+                : "border-blue-500/50 bg-blue-950/20"
+              : isOvertime
               ? "border-amber-500/60 bg-amber-950/20 shadow-amber-950/60"
               : "border-cyan-500/40 bg-cyan-950/20 shadow-cyan-950"
           }`}
         >
-          <span className="text-4xl font-black font-mono tracking-tight text-white mana-text-glow">
+          <span className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white mana-text-glow">
             {timeFormatted}
           </span>
           <span
-            className={`text-[10px] font-bold font-mono uppercase tracking-widest mt-1 ${
-              isOvertime ? "text-amber-400 animate-pulse" : "text-cyan-400"
+            className={`text-[9.5px] font-bold font-mono uppercase tracking-widest mt-1 ${
+              isSleepQuest
+                ? hoursSlept >= 8.0 && hoursSlept <= 8.5
+                  ? "text-cyan-300 animate-pulse"
+                  : hoursSlept < 4.0
+                  ? "text-amber-400 animate-pulse"
+                  : "text-blue-300"
+                : isOvertime
+                ? "text-amber-400 animate-pulse"
+                : "text-cyan-400"
             }`}
           >
-            {isOvertime ? `OVERTIME (+${diffMinutes}m)` : isRunning ? "SERVER TIMED" : "PAUSED"}
+            {isSleepQuest
+              ? hoursSlept >= 8.0 && hoursSlept <= 8.5
+                ? "⚡ 2X EXP OPTIMAL"
+                : hoursSlept < 4.0
+                ? `DEPRIVATION ZONE (${hoursSlept}h)`
+                : `STASIS ACTIVE (${hoursSlept}h)`
+              : isOvertime
+              ? `OVERTIME (+${diffMinutes}m)`
+              : isRunning
+              ? "SERVER TIMED"
+              : "PAUSED"}
           </span>
         </div>
 
         {/* Estimation & Overtime Kinetics */}
         <div className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 text-xs font-mono space-y-1.5">
-          {isOvertime ? (
+          {isSleepQuest ? (
+            <div className="space-y-1 text-left">
+              {hoursSlept >= 8.0 && hoursSlept <= 8.5 ? (
+                <div className="flex items-center gap-1.5 text-cyan-300 font-bold">
+                  <Zap className="w-3.5 h-3.5 text-cyan-400 shrink-0 fill-cyan-400" />
+                  <span>OPTIMAL SYNC REACHED (2X EXP BOOSTER READY)</span>
+                </div>
+              ) : hoursSlept < 4.0 ? (
+                <div className="flex items-center gap-1 text-amber-400 font-bold">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>INSUFFICIENT REST: &lt; 4h sleep penalty active.</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-slate-300">
+                  <span className="text-slate-400">STATUS:</span>
+                  <span className="text-cyan-300 font-bold">CIRCADIAN REPAIR SAFE ({(8.0 - hoursSlept).toFixed(1)}h to 2X EXP)</span>
+                </div>
+              )}
+            </div>
+          ) : isOvertime ? (
             <div className="space-y-1 text-left">
               <div className="flex items-center gap-1 text-amber-400 font-bold">
                 <Flame className="w-3.5 h-3.5 shrink-0" />
@@ -175,47 +373,32 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
                 Pushing beyond target limits rewards accelerated attribute growth.
                 {quest.is_fun
                   ? " (Fatigue growth dampened by ~70% due to fun factor)."
-                  : " (Fatigue builds rapidly during overtime)."}
+                  : " (Fatigue builds at +2% per 5 min during overtime)."}
               </p>
             </div>
           ) : (
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-slate-400">Target Pace</span>
-              <span className="text-cyan-400 font-bold">
-                {Math.max(0, estimatedMinutes - minutes)} Min Remaining
-              </span>
-            </div>
-          )}
-
-          {quest.is_fun && (
-            <div className="pt-1 border-t border-slate-800/80 flex items-center justify-between text-[10.5px] text-purple-300">
-              <span className="flex items-center gap-1">
-                <Shield className="w-3 h-3 text-purple-400" />
-                Recreational Protection Active
-              </span>
-              <span className="font-bold">~70% Fatigue Relief</span>
+            <div className="flex items-center justify-between text-slate-300">
+              <span className="text-slate-400">STATUS:</span>
+              <span className="text-cyan-300 font-bold">ON TARGET ({estimatedMinutes - minutes}m left)</span>
             </div>
           )}
         </div>
 
-        {/* Controls */}
-        <div className="flex gap-2">
+        {/* Action Controls */}
+        <div className="flex items-center gap-2 pt-1 font-hud">
           <button
             type="button"
-            onClick={() => {
-              triggerHaptic("medium");
-              setIsRunning(!isRunning);
-            }}
-            className="flex-1 py-3 rounded-xl border border-slate-700 bg-slate-900 text-xs font-bold text-slate-200 hover:text-white flex items-center justify-center gap-1.5 transition"
+            onClick={() => setIsRunning(!isRunning)}
+            className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5"
           >
             {isRunning ? (
               <>
-                <Pause className="w-4 h-4 text-amber-400" />
+                <Pause className="w-3.5 h-3.5 text-amber-400" />
                 <span>PAUSE</span>
               </>
             ) : (
               <>
-                <Play className="w-4 h-4 text-cyan-400" />
+                <Play className="w-3.5 h-3.5 text-cyan-400" />
                 <span>RESUME</span>
               </>
             )}
@@ -223,15 +406,90 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
 
           <button
             type="button"
-            onClick={handleFinish}
             disabled={loading}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-cyan-950 transition active:scale-95 disabled:opacity-50"
+            onClick={handleFinish}
+            className={`flex-2 py-2.5 px-4 rounded-xl text-xs font-black font-solo transition flex items-center justify-center gap-1.5 disabled:opacity-50 ${
+              isSleepQuest && hoursSlept >= 8.0 && hoursSlept <= 8.5
+                ? "bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_0_15px_#00e5ff] animate-pulse"
+                : isSleepQuest && hoursSlept < 4.0
+                ? "bg-amber-600 hover:bg-amber-500 text-black"
+                : "bg-cyan-500 hover:bg-cyan-400 text-black shadow-[0_0_12px_#00e5ff]"
+            }`}
           >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>{loading ? "RECORDING..." : "COMPLETE"}</span>
+            <CheckCircle2 className="w-4 h-4 fill-black text-cyan-400" />
+            <span>{loading ? "SAVING..." : isSleepQuest ? "WAKE UP & LOG" : "LOG COMPLETE"}</span>
+          </button>
+        </div>
+
+        {/* Discard Option */}
+        <div className="pt-0.5">
+          <button
+            type="button"
+            onClick={handleDiscard}
+            disabled={loading}
+            className="text-[10px] font-mono text-slate-500 hover:text-red-400 transition"
+          >
+            Abandon Directive (Discard)
           </button>
         </div>
       </div>
+
+      {/* Sleep Deprivation Warning Modal (< 4 Hours) */}
+      {showSleepDeprivedModal && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-3 sm:p-4 bg-black/95 backdrop-blur-md animate-in fade-in overflow-y-auto">
+          <div className="w-full max-w-sm max-h-[92vh] overflow-y-auto rounded-2xl hunter-panel border border-red-500/70 p-4 sm:p-5 text-center shadow-2xl space-y-3.5 sm:space-y-4 scrollbar-none">
+            <div className="w-12 h-12 mx-auto rounded-full bg-red-950/80 border border-red-500 flex items-center justify-center text-red-400 animate-pulse">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold font-solo text-red-400 uppercase tracking-wider">
+                SLEEP DEPRIVATION WARNING
+              </h4>
+              <p className="text-xs text-slate-300 font-mono">
+                You have only rested for {hoursSlept} hours. Stopping sleep before 4.0 hours causes biological breakdown!
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-[11px] font-mono text-red-300 text-left space-y-1">
+              <div className="font-bold text-red-400 uppercase">PENALTY CONSEQUENCES:</div>
+              <div>• -100 Mana / XP deducted immediately</div>
+              <div>• Circadian Debuff: 5 hours of 0.7x EXP gain speed</div>
+              <div>• 12-Hour Protocol Lockout: Main sleep directive locked for 12 hours</div>
+            </div>
+
+            <div className="space-y-2 pt-1 font-hud">
+              <button
+                type="button"
+                onClick={() => setShowSleepDeprivedModal(false)}
+                className="w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-black font-solo transition shadow-[0_0_12px_#00e5ff]"
+              >
+                RESUME SLEEP PROTOCOL ▲
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    await applySleepDeprivationAction(minutes);
+                    dispatch(endQuestSession());
+                    setShowSleepDeprivedModal(false);
+                    onClose();
+                    router.refresh();
+                  } catch (e) {
+                    console.error(e);
+                    setLoading(false);
+                  }
+                }}
+                className="w-full py-2 rounded-xl bg-slate-900 border border-red-500/50 text-red-400 hover:bg-red-950/60 text-xs font-mono font-bold transition"
+              >
+                {loading ? "APPLYING..." : "FORCE WAKE UP (ACCEPT PENALTY & 12H LOCK)"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

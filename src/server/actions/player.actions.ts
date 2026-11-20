@@ -105,6 +105,29 @@ export async function clearActiveSessionAction() {
   await PlayerRepository.clearActiveSession(user.id);
 }
 
+export async function syncFatigueOnSessionAbandonAction(physicalFatigue: number, mentalFatigue: number) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  await supabase
+    .from("profiles")
+    .update({
+      physical_fatigue: Math.min(100, Math.max(0, Number(physicalFatigue.toFixed(2)))),
+      mental_fatigue: Math.min(100, Math.max(0, Number(mentalFatigue.toFixed(2)))),
+      last_fatigue_update_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id);
+
+  await PlayerRepository.clearActiveSession(user.id);
+  revalidatePath("/");
+  revalidatePath("/gym");
+}
+
 export async function saveCustomPlanAction(dayRoutines: any) {
   const supabase = await createClient();
   const {
@@ -192,5 +215,35 @@ export async function pruneOldGranularLogsAction() {
   ]);
 
   return { success: true, prunedBefore: cutoffDateStr };
+}
+
+export async function completeSleepSessionAction(minutesSlept: number) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Unauthorized");
+
+  const result = await PlayerRepository.completeSleepSession(user.id, minutesSlept);
+  await PlayerRepository.clearActiveSession(user.id);
+  revalidatePath("/");
+  revalidatePath("/quests");
+  return result;
+}
+
+export async function applySleepDeprivationAction(minutesSlept: number) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Unauthorized");
+
+  const result = await PlayerRepository.applySleepDeprivationPenalty(user.id, minutesSlept);
+  await PlayerRepository.clearActiveSession(user.id);
+  revalidatePath("/");
+  revalidatePath("/quests");
+  return result;
 }
 

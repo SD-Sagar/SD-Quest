@@ -125,6 +125,17 @@ export function parseQuestFromNaturalLanguage(input: string): ParsedQuestResult 
   let classification: QuestClassification = recurrence === "none" ? "scheduled" : "permanent";
 
   if (
+    lower.includes("sleep") ||
+    lower.includes("nap") ||
+    lower.includes("stasis") ||
+    lower.includes("slumber") ||
+    lower.includes("bedtime")
+  ) {
+    category = "sleep";
+    classification = recurrence === "none" ? "scheduled" : "permanent";
+    relevantAttributes = ["mentality"];
+    if (durationMinutes === 30) durationMinutes = 480;
+  } else if (
     lower.includes("dog") ||
     lower.includes("pet") ||
     lower.includes("walk the dog") ||

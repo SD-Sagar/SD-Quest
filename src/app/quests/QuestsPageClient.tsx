@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { QuestList } from "@/components/quests/QuestList";
 import { SmartQuestModal } from "@/components/quests/SmartQuestModal";
 import { ManualQuestModal } from "@/components/quests/ManualQuestModal";
-import { Quest } from "@/types";
+import { Quest, Profile } from "@/types";
 
 interface QuestsPageClientProps {
   initialQuests: Quest[];
+  profile?: Profile;
   mainQuestSplit?: {
     dayName: string;
     title: string;
@@ -19,7 +20,7 @@ interface QuestsPageClientProps {
   };
 }
 
-export function QuestsPageClient({ initialQuests, mainQuestSplit }: QuestsPageClientProps) {
+export function QuestsPageClient({ initialQuests, profile, mainQuestSplit }: QuestsPageClientProps) {
   const router = useRouter();
   const [isSmartModalOpen, setIsSmartModalOpen] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
@@ -28,6 +29,7 @@ export function QuestsPageClient({ initialQuests, mainQuestSplit }: QuestsPageCl
     <>
       <QuestList
         quests={initialQuests}
+        profile={profile}
         onOpenManualModal={() => setIsManualModalOpen(true)}
         onOpenSmartModal={() => setIsSmartModalOpen(true)}
         hideCreationButtons={false}

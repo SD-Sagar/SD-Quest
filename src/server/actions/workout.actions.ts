@@ -21,6 +21,8 @@ export async function finishWorkoutAction(params: {
   isSingleExercise?: boolean;
   notes?: string;
   sets: Omit<WorkoutSetLog, "id" | "session_id" | "user_id" | "created_at">[];
+  finalPhysicalFatigue?: number;
+  finalMentalFatigue?: number;
 }) {
   const supabase = await createClient();
   const {

@@ -34,6 +34,26 @@ export class HydrationRepository {
       throw new Error(`Failed to log hydration: ${error.message}`);
     }
 
+    // 5-minute cellular hydration surge: safely update profile if cooldown has elapsed
+    try {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("last_hydration_surge_at")
+        .eq("id", userId)
+        .maybeSingle();
+
+      const lastSurge = prof?.last_hydration_surge_at ? new Date(prof.last_hydration_surge_at).getTime() : 0;
+      const now = Date.now();
+      if (now - lastSurge >= 5 * 60 * 1000) {
+        await supabase
+          .from("profiles")
+          .update({ last_hydration_surge_at: new Date(now).toISOString() })
+          .eq("id", userId);
+      }
+    } catch {
+      // Non-fatal if column is pending migration
+    }
+
     return data as HydrationLog;
   }
 

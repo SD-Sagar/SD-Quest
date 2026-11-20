@@ -24,8 +24,13 @@ import {
   addSetToCurrentExercise,
 } from "@/store/slices/workoutUiSlice";
 import { finishWorkoutAction } from "@/server/actions/workout.actions";
-import { saveActiveSessionAction, clearActiveSessionAction } from "@/server/actions/player.actions";
+import {
+  saveActiveSessionAction,
+  clearActiveSessionAction,
+  syncFatigueOnSessionAbandonAction,
+} from "@/server/actions/player.actions";
 import { triggerHaptic } from "@/lib/utils";
+import { ActiveFatigueDock } from "@/components/character/ActiveFatigueDock";
 import {
   playSetCompleteSound,
   playTimerCompleteSound,
@@ -201,7 +206,12 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
   // Cross-device persistence to Supabase (ZERO localStorage)
   useEffect(() => {
     if (session.isActive && session.status !== "completed") {
-      saveActiveSessionAction(session).catch(() => {});
+      saveActiveSessionAction({
+        ...session,
+        type: "workout",
+        mental_fatigue: session.currentMentalFatigue,
+        physical_fatigue: session.currentPhysicalFatigue,
+      }).catch(() => {});
     } else if (session.status === "completed") {
       clearActiveSessionAction().catch(() => {});
     }
@@ -218,7 +228,10 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
   // ---------------------------------------------------------------------------
   if (session.isActive && session.isMinimized) {
     return (
-      <div className="fixed bottom-16 md:bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-lg solo-notification-modal rounded-xl p-3 shadow-2xl flex items-center justify-between gap-3 text-white animate-in slide-in-from-bottom-3 font-hud">
+      <div
+        style={{ position: "fixed" }}
+        className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[9999] w-[92%] sm:w-[95%] max-w-lg solo-notification-modal is-floating rounded-xl p-2.5 sm:p-3 shadow-2xl flex items-center justify-between gap-2.5 text-white animate-in slide-in-from-bottom-3 font-hud"
+      >
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-lg bg-cyan-950/80 border border-cyan-400 flex items-center justify-center text-cyan-300 shadow-[0_0_10px_#00e5ff] shrink-0">
             <Dumbbell className="w-4 h-4 animate-pulse" />
@@ -291,11 +304,18 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
     setShowAbandonConfirmModal(false);
     triggerHaptic("heavy");
 
-    // If already in skipping phase, we preserve the core workout progress!
-    if (session.phase !== "skipping") {
+    // If lifting sets were performed, biological fatigue STAYS on the hunter's body!
+    if (session.completedSetsCount > 0 || session.currentPhysicalFatigue > session.initialPhysicalFatigue) {
+      await syncFatigueOnSessionAbandonAction(
+        session.currentPhysicalFatigue,
+        session.currentMentalFatigue
+      ).catch(() => {});
+    } else {
       await clearActiveSessionAction().catch(() => {});
     }
+
     dispatch(abandonSession());
+    router.refresh();
   };
 
   const handleFinishWorkout = (finalSkips: number) => {
@@ -342,6 +362,8 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
         isSingleExercise: session.isSingleExercise,
         notes: `[DURATION:${elapsedSeconds}s] [KCAL_ACTIVE:${accurateCal.activeCaloriesBurned}] [KCAL_GROSS:${accurateCal.grossCaloriesBurned}] [BW_USED:${effectiveWeight}] [AVG_MET:${accurateCal.averageMet}]`,
         sets: performedSets,
+        finalPhysicalFatigue: session.currentPhysicalFatigue,
+        finalMentalFatigue: session.currentMentalFatigue,
       });
 
       if (session.isSingleExercise) {
@@ -495,19 +517,25 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in duration-200 overflow-y-auto">
         <div className="w-full max-w-lg hunter-panel rounded-3xl border border-cyan-500/50 p-6 sm:p-8 shadow-2xl relative space-y-5 my-auto">
-          {/* Top Bar with Phase Badge, Minimize & Emergency Stop */}
-          <div className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-400 text-[10px] font-mono font-bold tracking-widest uppercase">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-              {session.isSingleExercise
-                ? "FOCUSED SINGLE MOVEMENT TRIAL"
-                : isBellyPhase
-                ? "PHASE 2: DAILY BELLY PROTOCOL"
-                : "PHASE 1: CORE SPLIT"}{" "}
-              • {session.currentExerciseIndex + 1}/{session.exercises.length}
-            </span>
+          {/* Top Bar with Phase Badge, Live Fatigue Dock, Minimize & Emergency Stop */}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-400 text-[10px] font-mono font-bold tracking-widest uppercase">
+                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-cyan-400 animate-pulse" />
+                {session.isSingleExercise
+                  ? "SOLO TRIAL"
+                  : isBellyPhase
+                  ? "PHASE 2"
+                  : "PHASE 1"}{" "}
+                • {session.currentExerciseIndex + 1}/{session.exercises.length}
+              </span>
+              <ActiveFatigueDock
+                initialMental={session.currentMentalFatigue}
+                initialPhysical={session.currentPhysicalFatigue}
+              />
+            </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => {
@@ -527,7 +555,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
                 className="px-2.5 py-1 rounded-xl bg-red-950/60 border border-red-500/40 text-red-400 hover:bg-red-900/60 text-[10px] font-mono font-bold flex items-center gap-1 transition"
               >
                 <OctagonAlert className="w-3 h-3" />
-                <span>EMERGENCY STOP</span>
+                <span>STOP</span>
               </button>
             </div>
           </div>
@@ -751,11 +779,17 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200">
         <div className="w-full max-w-md hunter-panel rounded-3xl border border-cyan-500/40 p-6 text-center shadow-2xl relative overflow-hidden space-y-5">
-          <div className="flex items-center justify-between text-xs font-mono text-cyan-400">
-            <span className="flex items-center gap-1.5 font-bold">
-              <Clock className="w-4 h-4 animate-spin text-cyan-400" />
-              REST PROTOCOL ACTIVE
-            </span>
+          <div className="flex items-center justify-between gap-2 flex-wrap text-xs font-mono text-cyan-400">
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 font-bold">
+                <Clock className="w-4 h-4 animate-spin text-cyan-400" />
+                REST PROTOCOL
+              </span>
+              <ActiveFatigueDock
+                initialMental={session.currentMentalFatigue}
+                initialPhysical={session.currentPhysicalFatigue}
+              />
+            </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"

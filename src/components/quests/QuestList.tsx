@@ -2,14 +2,19 @@
 
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useAppDispatch, useAppSelector } from "@/store";
+import {
+  startQuestSession,
+  maximizeQuestSession,
+  endQuestSession,
+} from "@/store/slices/questUiSlice";
 import { completeQuestAction, deleteQuestAction, createQuestAction } from "@/server/actions/quest.actions";
 import { getTodaysWorkoutsAction } from "@/server/actions/workout.actions";
-import { getActiveSessionAction } from "@/server/actions/player.actions";
+import { saveActiveSessionAction, clearActiveSessionAction } from "@/server/actions/player.actions";
 import { triggerHaptic } from "@/lib/utils";
 import { playQuestCompleteSound } from "@/lib/audio/soundEffects";
 import confetti from "canvas-confetti";
-import { Quest, QuestCategory } from "@/types";
-import { LiveQuestStopwatch } from "./LiveQuestStopwatch";
+import { Quest, QuestCategory, Profile } from "@/types";
 import {
   CheckCircle2,
   Clock,
@@ -25,10 +30,12 @@ import {
   RotateCcw,
   Flame,
   Award,
+  Moon,
 } from "lucide-react";
 
 interface QuestListProps {
   quests: Quest[];
+  profile?: Profile;
   onOpenManualModal?: () => void;
   onOpenSmartModal?: () => void;
   hideCreationButtons?: boolean;
@@ -55,24 +62,36 @@ const CATEGORY_TABS: { value: QuestCategory | "all"; label: string }[] = [
 
 export function QuestList({
   quests,
+  profile,
   onOpenManualModal,
   onOpenSmartModal,
   hideCreationButtons = false,
   mainQuestSplit,
 }: QuestListProps) {
+  const dispatch = useAppDispatch();
+  const isQuestActive = useAppSelector((state) => state.questUi.isActive);
+  const activeQuestInRedux = useAppSelector((state) => state.questUi.quest);
+  const isWorkoutActive = useAppSelector((state) => state.workoutUi.isActive);
+
   const [viewMode, setViewMode] = useState<ViewMode>("today");
   const [categoryFilter, setCategoryFilter] = useState<QuestCategory | "all">("all");
-  const [activeTimedQuest, setActiveTimedQuest] = useState<Quest | null>(null);
-  const [activeSession, setActiveSession] = useState<any | null>(null);
   const [isPending, startTransition] = useTransition();
   const [completedWorkouts, setCompletedWorkouts] = useState<any[]>([]);
   const [isSeeding, setIsSeeding] = useState(false);
 
-  useEffect(() => {
-    getActiveSessionAction()
-      .then((res) => setActiveSession(res))
-      .catch(() => {});
-  }, [activeTimedQuest]);
+  // Biological Sleep Directive Cooldown & State
+  const lastSleepAt = profile?.last_sleep_completed_at
+    ? new Date(profile.last_sleep_completed_at).getTime()
+    : 0;
+  const hoursSinceLastSleep = lastSleepAt > 0 ? (Date.now() - lastSleepAt) / (1000 * 60 * 60) : 999;
+  const isSleepCooldown = hoursSinceLastSleep < 12;
+  const cooldownHoursRemaining = Math.max(0, Math.ceil(12 - hoursSinceLastSleep));
+
+  const isSleepActive =
+    isQuestActive &&
+    (activeQuestInRedux?.category === "sleep" ||
+      (activeQuestInRedux as any)?.is_sleep ||
+      activeQuestInRedux?.id === "system-compulsory-sleep-stasis");
 
   useEffect(() => {
     getTodaysWorkoutsAction()
@@ -121,11 +140,15 @@ export function QuestList({
     return true;
   });
 
-  // Apply Category filter
+  // Apply Category filter (Routine includes custom Sleep quests)
   const finalQuests =
     categoryFilter === "all"
       ? modeFiltered
-      : modeFiltered.filter((q) => q.category === categoryFilter);
+      : modeFiltered.filter((q) =>
+          categoryFilter === "routine"
+            ? q.category === "routine" || q.category === "sleep"
+            : q.category === categoryFilter
+        );
 
   const handleSeedRoadmap = () => {
     triggerHaptic("heavy");
@@ -234,6 +257,53 @@ export function QuestList({
     });
   };
 
+  const handleToggleQuest = async (e: React.MouseEvent, q: Quest) => {
+    e.stopPropagation();
+    triggerHaptic("heavy");
+
+    // If this exact quest is already active in Redux, maximize the stopwatch UI immediately
+    if (isQuestActive && activeQuestInRedux?.id === q.id) {
+      dispatch(maximizeQuestSession());
+      return;
+    }
+
+    if (isWorkoutActive) {
+      alert("A Gym Training protocol is currently active. Please minimize or complete your workout before launching another timed directive.");
+      return;
+    }
+
+    // 12-Hour Lockout Guard for Main Sleep Directive
+    if (q.id === "system-compulsory-sleep-stasis" && isSleepCooldown) {
+      alert(`Main Sleep Protocol is locked for 12 hours (${cooldownHoursRemaining}h remaining). Only after 12 hours have passed can this main sleep directive be started again. You may forge a custom Sleep/Nap quest under Routine if you wish to sleep now.`);
+      return;
+    }
+
+    // Launch fresh universal quest session
+    const startedAt = Date.now();
+    dispatch(
+      startQuestSession({
+        quest: q,
+        startedAtTimestamp: startedAt,
+      })
+    );
+
+    try {
+      await saveActiveSessionAction({
+        session_id: q.id,
+        type: "quest",
+        title: q.title,
+        started_at: new Date(startedAt).toISOString(),
+        target_minutes: q.estimated_duration_minutes || 60,
+        is_fun: q.is_fun || false,
+        linked_attributes: Object.keys(q.attribute_rewards || {}),
+        category: q.category,
+        quest_data: q,
+      });
+    } catch (err) {
+      console.warn("Failed to persist quest session to cloud:", err);
+    }
+  };
+
   const handleComplete = (quest: Quest) => {
     if (quest.status === "completed") return;
 
@@ -246,71 +316,29 @@ export function QuestList({
     });
 
     startTransition(async () => {
+      if (isQuestActive && activeQuestInRedux?.id === quest.id) {
+        dispatch(endQuestSession());
+        await clearActiveSessionAction().catch(() => {});
+      }
       await completeQuestAction(quest.id);
     });
   };
 
   const handleDelete = (questId: string) => {
-    triggerHaptic("light");
+    if (!confirm("Are you sure you want to abandon and delete this quest?")) return;
+    triggerHaptic("medium");
+
     startTransition(async () => {
+      if (isQuestActive && activeQuestInRedux?.id === questId) {
+        dispatch(endQuestSession());
+        await clearActiveSessionAction().catch(() => {});
+      }
       await deleteQuestAction(questId);
     });
   };
 
   return (
     <div className="space-y-4">
-      {/* Universal Active Session Telemetry Banner (survives app close / phone lock) */}
-      {activeSession && (
-        <div className="p-3.5 rounded-2xl bg-cyan-950/70 border border-cyan-400/60 shadow-[0_0_15px_rgba(0,229,255,0.25)] flex items-center justify-between gap-3 animate-in fade-in">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping shrink-0" />
-            <div className="truncate">
-              <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest block font-solo">
-                ACTIVE DIRECTIVE IN PROGRESS (OFFLINE TRACKED)
-              </span>
-              <span className="text-xs font-bold text-white truncate block">
-                {activeSession.title}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              triggerHaptic("heavy");
-              const found = quests.find((q) => q.id === activeSession.session_id);
-              if (found) {
-                setActiveTimedQuest(found);
-              } else {
-                setActiveTimedQuest({
-                  id: activeSession.session_id,
-                  user_id: "",
-                  title: activeSession.title,
-                  classification: "scheduled",
-                  category: activeSession.category || "career",
-                  start_date: todayStr,
-                  recurrence: "none",
-                  recurrence_days: [],
-                  estimated_duration_minutes: activeSession.target_minutes || 60,
-                  priority: "medium",
-                  difficulty: "Recruit",
-                  attribute_rewards: {},
-                  xp_reward: 50,
-                  penalty_config: {},
-                  status: "in_progress",
-                  is_manual: true,
-                  is_fun: activeSession.is_fun || false,
-                  started_at: activeSession.started_at,
-                  created_at: activeSession.started_at,
-                  updated_at: activeSession.started_at,
-                });
-              }
-            }}
-            className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-mono font-black uppercase tracking-wider shrink-0 shadow transition flex items-center gap-1.5"
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>RESUME TIMER</span>
-          </button>
-        </div>
-      )}
       {/* Dual Creation Buttons (Only in Quest Forge page; Dashboard has clean navigation) */}
       {!hideCreationButtons ? (
         <div className="flex items-center gap-2">
@@ -418,7 +446,14 @@ export function QuestList({
             let count =
               tab.value === "all"
                 ? modeFiltered.length
+                : tab.value === "routine"
+                ? modeFiltered.filter((q) => q.category === "routine" || q.category === "sleep").length
                 : modeFiltered.filter((q) => q.category === tab.value).length;
+
+            // Compulsory Sleep Directive is pinned under Routine & All Categories (except completed archive)
+            if (viewMode !== "completed" && (tab.value === "all" || tab.value === "routine")) {
+              count += 1;
+            }
 
             // Main Quest is counted under Fitness and All Categories when in Today view
             if (viewMode === "today" && mainQuestSplit) {
@@ -550,6 +585,159 @@ export function QuestList({
           </div>
         )}
 
+        {/* COMPULSORY SYSTEM DIRECTIVE: REGENERATIVE STASIS // SLEEP (PINNED IN ROUTINE) */}
+        {viewMode !== "completed" && (categoryFilter === "all" || categoryFilter === "routine") && (
+          <div
+            className={`p-4 rounded-2xl border transition-all duration-200 relative overflow-hidden ${
+              isSleepActive
+                ? "hunter-panel border-cyan-400 bg-cyan-950/30 shadow-[0_0_20px_rgba(0,229,255,0.3)] animate-pulse"
+                : isSleepCooldown
+                ? "hunter-panel border-slate-800/80 bg-slate-950/60 opacity-80"
+                : "hunter-panel border-blue-500/40 hover:border-cyan-400/60 shadow-md"
+            }`}
+          >
+            {/* Priority Color Stripe */}
+            <div
+              className={`absolute top-0 left-0 bottom-0 w-1 ${
+                isSleepActive
+                  ? "bg-cyan-400 shadow-[0_0_12px_#00e5ff]"
+                  : isSleepCooldown
+                  ? "bg-slate-700"
+                  : "bg-blue-400"
+              }`}
+            />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pl-2">
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-mono font-bold tracking-widest text-cyan-400 uppercase bg-cyan-950/70 border border-cyan-500/40 px-2 py-0.5 rounded flex items-center gap-1 font-solo">
+                    <Moon className="w-3 h-3 text-cyan-400" />
+                    SYSTEM DIRECTIVE // MANDATORY STASIS
+                  </span>
+
+                  {isSleepActive ? (
+                    <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-900/60 border border-cyan-400 px-2 py-0.5 rounded animate-pulse flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                      CIRCADIAN STASIS ACTIVE
+                    </span>
+                  ) : isSleepCooldown ? (
+                    <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900 border border-slate-700 px-2 py-0.5 rounded flex items-center gap-1">
+                      ❄ 12H COOLDOWN ({cooldownHoursRemaining}h left)
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/50 border border-cyan-500/30 px-2 py-0.5 rounded">
+                      ⚡ 2X EXP BOOSTER READY
+                    </span>
+                  )}
+
+                  <span className="text-[10px] font-mono text-slate-400">
+                    Target: 8.0h – 8.5h • Safe: 4.0h+
+                  </span>
+                </div>
+
+                <h4 className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5 font-solo">
+                  Regenerative Circadian Stasis &amp; Neural Flush
+                </h4>
+                <p className="text-xs text-slate-400 font-hud line-clamp-2">
+                  Mandatory biological repair protocol. Resting between 8.0h and 8.5h unlocks a <strong>⚡ 2X EXP Booster for 5 hours</strong> and purges fatigue. Stopping before 4.0h inflicts a -100 Mana penalty and a 5-hour EXP debuff.
+                </p>
+
+                <div className="flex items-center gap-2 mt-2 pt-0.5 flex-wrap">
+                  <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-500/30">
+                    +150 XP (2X Boost Active)
+                  </span>
+                  <span className="text-[10px] font-mono font-semibold text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                    +0.75 MEN
+                  </span>
+                  <span className="text-[10px] font-mono font-semibold text-cyan-300/80 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                    -35% MNT • -45% PHY
+                  </span>
+                </div>
+              </div>
+
+              <div className="shrink-0 sm:self-center">
+                {isSleepActive ? (
+                  <button
+                    type="button"
+                    onClick={(e) =>
+                      handleToggleQuest(e, {
+                        id: "system-compulsory-sleep-stasis",
+                        user_id: profile?.id || "",
+                        title: "System Directive: Regenerative Stasis // Sleep",
+                        description:
+                          "Mandatory circadian cellular and neural repair protocol. Target 8h 00m – 8h 30m to unlock ⚡ 2X EXP Booster for 5 hours. Resting under 4.0h incurs a -100 Mana penalty.",
+                        classification: "permanent",
+                        category: "sleep",
+                        start_date: todayStr,
+                        recurrence: "daily",
+                        recurrence_days: [],
+                        estimated_duration_minutes: 480,
+                        priority: "high",
+                        difficulty: "Recruit",
+                        attribute_rewards: { mentality: 0.75 },
+                        xp_reward: 150,
+                        penalty_config: { xp: 100 },
+                        status: "in_progress",
+                        is_manual: false,
+                        is_fun: false,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                      })
+                    }
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl font-mono text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow-md bg-cyan-950/90 border border-cyan-400 text-cyan-300 shadow-[0_0_15px_#00e5ff] animate-pulse"
+                  >
+                    <Clock className="w-3.5 h-3.5 animate-spin text-cyan-300" />
+                    <span>RESUME STASIS ▲</span>
+                  </button>
+                ) : isSleepCooldown ? (
+                  <button
+                    type="button"
+                    disabled
+                    title="Main Sleep Protocol requires a 12-hour biological cooldown. Only after 12 hours can this main sleep directive be started again. If you wish to take an extra nap now, forge a custom Sleep quest under Routine below."
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl font-mono text-xs font-bold uppercase tracking-wider bg-slate-900 border border-slate-800 text-slate-500 cursor-not-allowed flex items-center justify-center gap-1.5"
+                  >
+                    <Moon className="w-3.5 h-3.5 opacity-50" />
+                    <span>LOCKED ({cooldownHoursRemaining}H COOLDOWN)</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) =>
+                      handleToggleQuest(e, {
+                        id: "system-compulsory-sleep-stasis",
+                        user_id: profile?.id || "",
+                        title: "System Directive: Regenerative Stasis // Sleep",
+                        description:
+                          "Mandatory circadian cellular and neural repair protocol. Target 8h 00m – 8h 30m to unlock ⚡ 2X EXP Booster for 5 hours. Resting under 4.0h incurs a -100 Mana penalty.",
+                        classification: "permanent",
+                        category: "sleep",
+                        start_date: todayStr,
+                        recurrence: "daily",
+                        recurrence_days: [],
+                        estimated_duration_minutes: 480,
+                        priority: "high",
+                        difficulty: "Recruit",
+                        attribute_rewards: { mentality: 0.75 },
+                        xp_reward: 150,
+                        penalty_config: { xp: 100 },
+                        status: "pending",
+                        is_manual: false,
+                        is_fun: false,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                      })
+                    }
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl font-mono text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow-md bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-cyan-950"
+                  >
+                    <Moon className="w-3.5 h-3.5 fill-current" />
+                    <span>INITIATE SLEEP</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ROADMAP EMPTY STATE & VISUALIZER */}
         {viewMode === "upcoming" && finalQuests.length === 0 && (
           <div className="p-6 rounded-3xl hunter-panel border border-cyan-500/30 space-y-4 text-center">
@@ -642,12 +830,13 @@ export function QuestList({
 
         {/* TODAY EMPTY STATE */}
         {viewMode === "today" && finalQuests.length === 0 && (
-          mainQuestSplit && (categoryFilter === "all" || categoryFilter === "fitness") ? null : (
+          (mainQuestSplit && (categoryFilter === "all" || categoryFilter === "fitness")) ||
+          (categoryFilter === "all" || categoryFilter === "routine") ? null : (
             <div className="p-8 text-center rounded-3xl hunter-panel border border-dashed border-slate-800 space-y-3">
               <Sparkles className="w-6 h-6 text-cyan-400 mx-auto" />
               <div className="space-y-1">
                 <h4 className="text-sm font-bold text-white font-solo">
-                  No Quests in {categoryFilter === "all" ? "Today's" : categoryFilter.toUpperCase()} Category
+                  No Quests in {categoryFilter.toUpperCase()} Category
                 </h4>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto">
                   {!hideCreationButtons
@@ -746,6 +935,7 @@ export function QuestList({
         {/* REGULAR QUESTS LIST */}
         {finalQuests.map((quest) => {
             const isCompleted = quest.status === "completed";
+            const isCurrentQuestActive = isQuestActive && activeQuestInRedux?.id === quest.id;
 
             return (
               <div
@@ -753,6 +943,8 @@ export function QuestList({
                 className={`p-4 rounded-2xl border transition-all duration-200 relative overflow-hidden ${
                   isCompleted
                     ? "bg-slate-950/40 border-slate-800/60 opacity-60"
+                    : isCurrentQuestActive
+                    ? "hunter-panel border-cyan-400 bg-slate-900/95 shadow-[0_0_20px_rgba(0,229,255,0.25)]"
                     : "hunter-panel border-cyan-500/30 hover:border-cyan-400/60 shadow-md"
                 }`}
               >
@@ -761,6 +953,8 @@ export function QuestList({
                   className={`absolute top-0 left-0 bottom-0 w-1 ${
                     isCompleted
                       ? "bg-cyan-600"
+                      : isCurrentQuestActive
+                      ? "bg-cyan-400 shadow-[0_0_12px_#00e5ff]"
                       : quest.priority === "urgent"
                       ? "bg-cyan-400 shadow-[0_0_8px_#00e5ff]"
                       : "bg-blue-600"
@@ -773,6 +967,13 @@ export function QuestList({
                       <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-slate-900 text-cyan-400 border border-slate-700">
                         {quest.category}
                       </span>
+
+                      {isCurrentQuestActive && (
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-950/90 text-cyan-300 border border-cyan-400 shadow-[0_0_8px_rgba(0,229,255,0.3)] animate-pulse flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-cyan-400 animate-spin" />
+                          ACTIVE PROTOCOL
+                        </span>
+                      )}
 
                       {quest.deadline && (
                         <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-500/40 flex items-center gap-1">
@@ -832,17 +1033,24 @@ export function QuestList({
                     {!isCompleted && (
                       <>
                         <button
-                          onClick={() => {
-                            triggerHaptic("medium");
-                            setActiveTimedQuest(quest);
-                          }}
-                          className="p-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-400 hover:text-cyan-400 hover:border-cyan-500/40 transition"
-                          title="Start Timed Session"
+                          type="button"
+                          onClick={(e) => handleToggleQuest(e, quest)}
+                          className={`p-2 rounded-xl border transition ${
+                            isCurrentQuestActive
+                              ? "bg-cyan-950/80 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,229,255,0.4)] animate-pulse"
+                              : "bg-slate-900 border-slate-700 text-slate-400 hover:text-cyan-400 hover:border-cyan-500/40"
+                          }`}
+                          title={isCurrentQuestActive ? "Active Directive in Progress — Click to Resume UI" : "Start Timed Session"}
                         >
-                          <Play className="w-4 h-4 fill-current" />
+                          {isCurrentQuestActive ? (
+                            <Clock className="w-4 h-4 text-cyan-300 animate-spin" />
+                          ) : (
+                            <Play className="w-4 h-4 fill-current" />
+                          )}
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => handleComplete(quest)}
                           className="p-2 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-black transition"
                           title="Quick Complete"
@@ -853,6 +1061,7 @@ export function QuestList({
                     )}
 
                     <button
+                      type="button"
                       onClick={() => handleDelete(quest.id)}
                       className="p-2 rounded-xl bg-slate-900/40 text-slate-600 hover:text-rose-400 hover:bg-rose-950/40 transition"
                       title="Delete Quest"
@@ -865,14 +1074,6 @@ export function QuestList({
             );
           })}
       </div>
-
-      {/* Live Stopwatch Modal for Timed Quests */}
-      {activeTimedQuest && (
-        <LiveQuestStopwatch
-          quest={activeTimedQuest}
-          onClose={() => setActiveTimedQuest(null)}
-        />
-      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { QuestRepository } from "@/server/repositories/quest.repository";
 import { WorkoutRepository } from "@/server/repositories/workout.repository";
+import { PlayerRepository } from "@/server/repositories/player.repository";
 import { DesktopNavbar } from "@/components/layout/DesktopNavbar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { QuestsPageClient } from "./QuestsPageClient";
@@ -68,9 +69,10 @@ export default async function QuestsPage() {
   }
   const todaySplitInfo = SPLIT_INFO[dayName] || SPLIT_INFO.Monday;
 
-  const [quests, todaysWorkouts] = await Promise.all([
+  const [quests, todaysWorkouts, profile] = await Promise.all([
     QuestRepository.getQuests(user.id),
     WorkoutRepository.getTodaysCompletedWorkouts(user.id),
+    PlayerRepository.getProfile(user.id),
   ]);
 
   const isFullSplitSession = (s: any) =>
@@ -100,6 +102,7 @@ export default async function QuestsPage() {
 
         <QuestsPageClient
           initialQuests={quests}
+          profile={profile || undefined}
           mainQuestSplit={{
             dayName,
             title: todaySplitInfo.title,

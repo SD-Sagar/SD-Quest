@@ -1,11 +1,13 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
 import workoutUiReducer from "./slices/workoutUiSlice";
+import questUiReducer from "./slices/questUiSlice";
 import uiReducer from "./slices/uiSlice";
 
 export const store = configureStore({
   reducer: {
     workoutUi: workoutUiReducer,
+    questUi: questUiReducer,
     ui: uiReducer,
   },
   middleware: (getDefaultMiddleware) =>

@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { NutritionRepository } from "@/server/repositories/nutrition.repository";
 import { PlayerRepository } from "@/server/repositories/player.repository";
-import { calculatePoisonDurationHours } from "@/lib/calculations/nutrition";
+import { calculatePoisonDurationHours, calculateDrinkPoisonHours } from "@/lib/calculations/nutrition";
 import { MealType, DailyNutritionTargets } from "@/types";
 import { revalidatePath } from "next/cache";
 
@@ -71,11 +71,16 @@ export async function logPresetMealAction(item: {
     is_verified: true,
   });
 
-  // If poisonous (Liquor/Alcohol), apply level-scaled poison debuff
+  // If poisonous (Liquor/Alcohol), apply level & vitality scaled drink intoxication
   if (item.isPoisonous) {
     const profile = await PlayerRepository.getProfile(user.id);
-    const durationHours = calculatePoisonDurationHours(profile?.current_level || 1);
-    await PlayerRepository.applyPoisonDebuff(user.id, durationHours);
+    const attrs = await PlayerRepository.getAttributes(user.id);
+    const drinkPoison = calculateDrinkPoisonHours(
+      profile?.current_level || 1,
+      attrs?.vitality || 10,
+      profile?.poison_expires_at
+    );
+    await PlayerRepository.setPoisonDebuffExpiry(user.id, drinkPoison.newExpiresAt);
   } else {
     // If refreshing non-alcoholic beverage, relieve fatigue
     const nameLower = item.food_name.toLowerCase();

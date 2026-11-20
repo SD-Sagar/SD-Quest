@@ -36,6 +36,7 @@ import {
   ChevronDown,
   ChevronUp,
   Settings,
+  Activity,
 } from "lucide-react";
 
 interface TodayDashboardViewProps {
@@ -374,6 +375,7 @@ export function TodayDashboardView({
 
               <QuestList
                 quests={quests}
+                profile={profile}
                 hideCreationButtons={true}
                 mainQuestSplit={{
                   dayName,

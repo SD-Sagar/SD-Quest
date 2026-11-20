@@ -1,5 +1,9 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { ExerciseDefinition } from "@/types";
+import {
+  calculateSetFatigueDelta,
+  calculateRestRecoveryPerSecond,
+} from "@/lib/calculations/fatigue";
 
 export interface ActiveSetState {
   setNumber: number;
@@ -39,6 +43,13 @@ export interface ActiveWorkoutUiState {
   playerHeightCm?: number;
   playerLevel?: number;
   playerRank?: string;
+  currentPhysicalFatigue: number;
+  currentMentalFatigue: number;
+  initialPhysicalFatigue: number;
+  initialMentalFatigue: number;
+  totalPlannedSets: number;
+  totalPlannedTonnage: number;
+  completedSetsCount: number;
   phase: WorkoutPhase;
   status: WorkoutUiStatus;
   coreExercisesCount: number;
@@ -74,6 +85,13 @@ const initialState: ActiveWorkoutUiState = {
   playerHeightCm: 175,
   playerLevel: 1,
   playerRank: "Recruit",
+  currentPhysicalFatigue: 0,
+  currentMentalFatigue: 0,
+  initialPhysicalFatigue: 0,
+  initialMentalFatigue: 0,
+  totalPlannedSets: 0,
+  totalPlannedTonnage: 0,
+  completedSetsCount: 0,
   phase: "core",
   status: "idle",
   coreExercisesCount: 0,
@@ -100,6 +118,8 @@ export const workoutUiSlice = createSlice({
         playerHeightCm?: number;
         playerLevel?: number;
         playerRank?: string;
+        initialPhysicalFatigue?: number;
+        initialMentalFatigue?: number;
         exercises: {
           definition: ExerciseDefinition;
           defaultWeightKg: number;
@@ -138,17 +158,23 @@ export const workoutUiSlice = createSlice({
 
       let coreCount = 0;
       let bellyCount = 0;
+      let totalSets = 0;
+      let totalTonnage = 0;
 
       state.exercises = action.payload.exercises.map((item) => {
         const exPhase = item.phase || "core";
         if (exPhase === "core") coreCount += 1;
         else bellyCount += 1;
 
+        const count = item.definition.default_sets || 3;
+        totalSets += count;
+        totalTonnage += (item.defaultWeightKg || 10) * (item.definition.default_reps_min || 10) * count;
+
         return {
           definition: item.definition,
           phase: exPhase,
           isPreCompleted: item.isPreCompleted || false,
-          sets: Array.from({ length: item.definition.default_sets }, (_, i) => ({
+          sets: Array.from({ length: count }, (_, i) => ({
             setNumber: i + 1,
             weightKg: item.defaultWeightKg,
             reps: item.definition.default_reps_min,
@@ -162,6 +188,13 @@ export const workoutUiSlice = createSlice({
 
       state.coreExercisesCount = coreCount;
       state.bellyExercisesCount = bellyCount;
+      state.totalPlannedSets = totalSets;
+      state.totalPlannedTonnage = totalTonnage;
+      state.completedSetsCount = 0;
+      state.initialPhysicalFatigue = action.payload.initialPhysicalFatigue ?? 0;
+      state.initialMentalFatigue = action.payload.initialMentalFatigue ?? 0;
+      state.currentPhysicalFatigue = action.payload.initialPhysicalFatigue ?? 0;
+      state.currentMentalFatigue = action.payload.initialMentalFatigue ?? 0;
     },
 
     abandonSession: () => {
@@ -236,6 +269,30 @@ export const workoutUiSlice = createSlice({
         currentSet.reps = action.payload.actualReps;
         currentSet.rpe = action.payload.rpe;
         currentSet.completed = true;
+
+        // Calculate compounding fatigue delta for this completed set
+        const plannedWeight = exercise.sets[0]?.weightKg || action.payload.actualWeightKg;
+        const plannedReps = exercise.definition.default_reps_min || action.payload.actualReps;
+
+        const fatigueDelta = calculateSetFatigueDelta({
+          setIndex: state.completedSetsCount,
+          totalSets: state.totalPlannedSets || 12,
+          weightKg: action.payload.actualWeightKg,
+          reps: action.payload.actualReps,
+          plannedWeightKg: plannedWeight,
+          plannedReps: plannedReps,
+          hunterLevel: state.playerLevel || 1,
+        });
+
+        state.currentPhysicalFatigue = Math.min(
+          100,
+          Math.max(0, Number((state.currentPhysicalFatigue + fatigueDelta.physicalDelta).toFixed(2)))
+        );
+        state.currentMentalFatigue = Math.min(
+          100,
+          Math.max(0, Number((state.currentMentalFatigue + fatigueDelta.mentalDelta).toFixed(2)))
+        );
+        state.completedSetsCount += 1;
 
         if (state.currentSetIndex + 1 < exercise.sets.length) {
           // More sets remain for this exercise -> start rest timer
@@ -315,6 +372,16 @@ export const workoutUiSlice = createSlice({
       if (!state.restTimerActive) return;
       if (state.restTimerSeconds > 0) {
         state.restTimerSeconds -= 1;
+
+        // Biological rest recovery per second (~2.0% per full planned rest interval)
+        const plannedRest = state.exercises[state.currentExerciseIndex]?.definition.default_rest_seconds || 90;
+        const recoveryPerSec = calculateRestRecoveryPerSecond(plannedRest);
+        // Do not recover below the hunter's initial starting fatigue (or 0)
+        const fatigueFloor = Math.max(0, state.initialPhysicalFatigue);
+        state.currentPhysicalFatigue = Math.max(
+          fatigueFloor,
+          Number((state.currentPhysicalFatigue - recoveryPerSec).toFixed(3))
+        );
       } else {
         state.restTimerActive = false;
         state.status = "lifting";
@@ -364,7 +431,17 @@ export const workoutUiSlice = createSlice({
     },
 
     restoreWorkoutSession: (_state, action: PayloadAction<ActiveWorkoutUiState>) => {
-      return { ...action.payload, isMinimized: false };
+      return {
+        ...action.payload,
+        isMinimized: false,
+        currentPhysicalFatigue: action.payload.currentPhysicalFatigue ?? 0,
+        currentMentalFatigue: action.payload.currentMentalFatigue ?? 0,
+        initialPhysicalFatigue: action.payload.initialPhysicalFatigue ?? 0,
+        initialMentalFatigue: action.payload.initialMentalFatigue ?? 0,
+        totalPlannedSets: action.payload.totalPlannedSets ?? 0,
+        totalPlannedTonnage: action.payload.totalPlannedTonnage ?? 0,
+        completedSetsCount: action.payload.completedSetsCount ?? 0,
+      };
     },
 
     endSession: () => {
