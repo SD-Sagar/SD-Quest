@@ -38,6 +38,7 @@ import {
   X,
   Check,
   Zap,
+  Crown,
 } from "lucide-react";
 
 interface QuestListProps {
@@ -46,6 +47,7 @@ interface QuestListProps {
   onOpenManualModal?: () => void;
   onOpenSmartModal?: () => void;
   hideCreationButtons?: boolean;
+  compactView?: boolean;
   mainQuestSplit?: {
     dayName: string;
     title: string;
@@ -65,6 +67,7 @@ const CATEGORY_TABS: { value: QuestCategory | "all"; label: string }[] = [
   { value: "fitness", label: "Fitness" },
   { value: "routine", label: "Routine" },
   { value: "education", label: "Study" },
+  { value: "finance", label: "Finance" },
 ];
 
 export function QuestList({
@@ -73,8 +76,11 @@ export function QuestList({
   onOpenManualModal,
   onOpenSmartModal,
   hideCreationButtons = false,
+  compactView,
   mainQuestSplit,
 }: QuestListProps) {
+  const isCompact = compactView !== undefined ? compactView : hideCreationButtons;
+  const [questToDelete, setQuestToDelete] = useState<Quest | null>(null);
   const dispatch = useAppDispatch();
   const router = useRouter();
   const isQuestActive = useAppSelector((state) => state.questUi.isActive);
@@ -185,6 +191,26 @@ export function QuestList({
             ? q.category === "routine" || q.category === "sleep"
             : q.category === categoryFilter
         );
+
+  const userMainDomain = profile?.active_main_quest || "fitness";
+  const isFitnessMain = userMainDomain === "fitness";
+
+  // Identify the hunter's true Main Quest when a non-fitness domain is selected
+  const primaryDomainQuest = useMemo(() => {
+    if (isFitnessMain) return null;
+    const candidates = finalQuests.filter((q) => q.category === userMainDomain);
+    const pending = candidates.find((q) => q.status !== "completed");
+    return pending || candidates[0] || null;
+  }, [finalQuests, userMainDomain, isFitnessMain]);
+
+  // When viewing "all" categories, prioritize the primary domain quest at the top of the quest list
+  const displayQuests = useMemo(() => {
+    if (!primaryDomainQuest || categoryFilter !== "all") return finalQuests;
+    return [
+      primaryDomainQuest,
+      ...finalQuests.filter((q) => q.id !== primaryDomainQuest.id),
+    ];
+  }, [finalQuests, primaryDomainQuest, categoryFilter]);
 
   const handleSeedRoadmap = () => {
     triggerHaptic("heavy");
@@ -379,10 +405,13 @@ export function QuestList({
     });
   };
 
-  const handleDelete = (questId: string) => {
-    if (!confirm("Are you sure you want to abandon and delete this quest?")) return;
+  const handleDelete = (quest: Quest) => {
     triggerHaptic("medium");
+    setQuestToDelete(quest);
+  };
 
+  const executeDelete = (questId: string) => {
+    triggerHaptic("heavy");
     startTransition(async () => {
       if (isQuestActive && activeQuestInRedux?.id === questId) {
         dispatch(endQuestSession());
@@ -438,9 +467,9 @@ export function QuestList({
       )}
 
       {/* Sticky Primary Roadmap View Tabs & Category Filters on Mobile & PC */}
-      <div className="sticky top-0 md:top-16 z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 py-2.5 bg-[#07080b]/92 backdrop-blur-xl border-b border-cyan-950/40 shadow-xl shadow-black/40 space-y-2 transition-all">
+      <div className="sticky top-0 md:top-16 z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 py-2.5 bg-[#05070c]/50 backdrop-blur-md border-b border-cyan-500/20 shadow-lg shadow-black/30 space-y-2 transition-all">
         {/* Primary Roadmap View Tabs */}
-        <div className="flex rounded-2xl bg-slate-900/90 p-1 border border-slate-800 shadow-sm">
+        <div className="flex rounded-2xl bg-slate-950/60 backdrop-blur-md p-1 border border-slate-800/80 shadow-sm">
           <button
             onClick={() => {
               triggerHaptic("light");
@@ -548,92 +577,110 @@ export function QuestList({
         {viewMode === "today" && mainQuestSplit && (categoryFilter === "all" || categoryFilter === "fitness") && (
           <div
             onClick={mainQuestSplit.onEnterGym}
-            className={`p-4 sm:p-5 rounded-2xl border transition-all duration-200 relative overflow-hidden cursor-pointer group ${
+            className={`rounded-2xl border transition-all duration-200 relative overflow-hidden cursor-pointer group ${
+              isCompact ? "p-3 sm:p-3.5" : "p-4 sm:p-5"
+            } ${
               mainQuestSplit.isCompleted
                 ? "bg-slate-950/70 border-cyan-500/40 shadow-sm shadow-cyan-950/30"
-                : "hunter-panel border-cyan-500/60 hover:border-cyan-400 shadow-lg shadow-cyan-950/40"
+                : isFitnessMain
+                ? "hunter-panel border-cyan-500/60 hover:border-cyan-400 shadow-md shadow-cyan-950/40"
+                : "bg-[#070b14]/90 border-slate-800 hover:border-cyan-500/40 shadow-md"
             }`}
           >
-            {/* Glowing Main Quest Priority Stripe */}
+            {/* Main Quest Priority Stripe (Pulsing glowing only when fitness is user's active main quest) */}
             <div
-              className={`absolute top-0 left-0 bottom-0 w-1.5 ${
+              className={`absolute top-0 left-0 bottom-0 ${isCompact ? "w-1" : "w-1.5"} ${
                 mainQuestSplit.isCompleted
                   ? "bg-cyan-400"
-                  : "bg-gradient-to-b from-cyan-400 to-blue-600 animate-pulse"
+                  : isFitnessMain
+                  ? "bg-gradient-to-b from-cyan-400 to-blue-600 animate-pulse"
+                  : "bg-slate-700"
               }`}
             />
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pl-2">
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="text-[10px] font-mono font-black uppercase px-2.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500/40 tracking-wider">
-                    MAIN QUEST // {mainQuestSplit.dayName.toUpperCase()}
+            <div className="flex items-center justify-between gap-3 pl-2">
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span
+                    className={`text-[9.5px] font-mono font-black uppercase px-2 py-0.2 rounded-full border tracking-wider ${
+                      isFitnessMain
+                        ? "bg-cyan-950 text-cyan-300 border-cyan-500/40"
+                        : "bg-slate-900 text-slate-300 border-slate-700"
+                    }`}
+                  >
+                    {isFitnessMain
+                      ? `MAIN // ${mainQuestSplit.dayName.toUpperCase()}`
+                      : `DUNGEON // ${mainQuestSplit.dayName.toUpperCase()}`}
                   </span>
-                  <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-slate-900 text-cyan-400 border border-slate-700 flex items-center gap-1">
-                    <Dumbbell className="w-3 h-3 text-cyan-400" />
-                    FITNESS
+                  <span className="text-[9.5px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-slate-900 text-cyan-400 border border-slate-700 flex items-center gap-1">
+                    <Dumbbell className="w-2.5 h-2.5 text-cyan-400" />
+                    {isFitnessMain ? "FITNESS" : "PHYSICAL"}
                   </span>
                   {mainQuestSplit.isCompleted ? (
-                    <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/90 border border-cyan-500/50 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm shadow-cyan-950">
-                      <CheckCircle2 className="w-3 h-3 text-cyan-400" />
-                      COMPLETED ✓
+                    <span className="text-[9.5px] font-mono font-bold text-emerald-400 flex items-center gap-0.5">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      CLEARED
                     </span>
                   ) : (
-                    <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-2.5 py-0.5 rounded-full">
+                    <span className="text-[9.5px] font-mono text-cyan-300">
                       PENDING ENTRY ◆
                     </span>
                   )}
                 </div>
 
-                <h4 className="text-base font-black text-white tracking-tight group-hover:text-cyan-300 transition-colors font-solo">
+                <h4 className={`font-black text-white truncate font-solo group-hover:text-cyan-300 transition-colors ${isCompact ? "text-sm sm:text-base" : "text-base"}`}>
                   {mainQuestSplit.title}
                 </h4>
-                <p className="text-xs text-slate-400 font-medium font-hud">
+                <p className="text-[11px] text-slate-400 truncate font-hud">
                   {mainQuestSplit.subtitle}
                 </p>
 
-                {mainQuestSplit.isCompleted && mainQuestSplit.sessionData ? (
-                  <div className="flex items-center gap-2 text-xs font-mono text-slate-400 pt-1 flex-wrap">
-                    <span>Conquered: {mainQuestSplit.sessionData.workout_set_logs?.length || 0} Sets</span>
-                    <span>•</span>
-                    <span className="text-cyan-400 font-bold">{mainQuestSplit.sessionData.calories_burned || 0} kcal</span>
-                    <span>•</span>
-                    <span className="text-white font-bold">{Math.round(mainQuestSplit.sessionData.total_tonnage_kg || 0)}kg</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-xs font-mono text-slate-400 pt-1 flex-wrap">
-                    <span>20-in-1 Bench Flow • 60kg Plates Solver • 100+ Skips Challenge</span>
-                  </div>
-                )}
+                {!isCompact && (
+                  <>
+                    {mainQuestSplit.isCompleted && mainQuestSplit.sessionData ? (
+                      <div className="flex items-center gap-2 text-xs font-mono text-slate-400 pt-1 flex-wrap">
+                        <span>Conquered: {mainQuestSplit.sessionData.workout_set_logs?.length || 0} Sets</span>
+                        <span>•</span>
+                        <span className="text-cyan-400 font-bold">{mainQuestSplit.sessionData.calories_burned || 0} kcal</span>
+                        <span>•</span>
+                        <span className="text-white font-bold">{Math.round(mainQuestSplit.sessionData.total_tonnage_kg || 0)}kg</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs font-mono text-slate-400 pt-1 flex-wrap">
+                        <span>20-in-1 Bench Flow • 60kg Plates Solver • 100+ Skips Challenge</span>
+                      </div>
+                    )}
 
-                <div className="flex items-center gap-2 mt-2 pt-0.5 flex-wrap">
-                  <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-500/30">
-                    +200-350 XP
-                  </span>
-                  <span className="text-[10px] font-mono font-semibold text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                    +0.40 STR
-                  </span>
-                  <span className="text-[10px] font-mono font-semibold text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                    +0.30 DIS
-                  </span>
-                </div>
+                    <div className="flex items-center gap-2 mt-2 pt-0.5 flex-wrap">
+                      <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-500/30">
+                        +200-350 XP
+                      </span>
+                      <span className="text-[10px] font-mono font-semibold text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                        +0.40 STR
+                      </span>
+                      <span className="text-[10px] font-mono font-semibold text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                        +0.30 DIS
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
 
-              <div className="shrink-0 sm:self-center">
+              <div className="shrink-0">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     mainQuestSplit.onEnterGym();
                   }}
-                  className={`w-full sm:w-auto px-4 py-2.5 rounded-xl font-mono text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow-md ${
+                  className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-mono text-[11px] font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow-md ${
                     mainQuestSplit.isCompleted
                       ? "bg-slate-900 hover:bg-slate-800 border border-cyan-500/40 text-cyan-300"
                       : "bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-cyan-950"
                   }`}
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>{mainQuestSplit.isCompleted ? "REVIEW / GYM HUB" : "ENTER GATE"}</span>
+                  <span>{mainQuestSplit.isCompleted ? "REVIEW" : "ENTER"}</span>
                 </button>
               </div>
             </div>
@@ -642,6 +689,153 @@ export function QuestList({
 
         {/* COMPULSORY SYSTEM DIRECTIVE: REGENERATIVE STASIS // SLEEP (PINNED IN ROUTINE) */}
         {viewMode !== "completed" && (categoryFilter === "all" || categoryFilter === "routine") && (
+          isCompact ? (
+            <div
+              className={`p-3 rounded-xl border transition-all duration-200 relative overflow-hidden hunter-panel ${
+                isSleepActive
+                  ? "border-cyan-400 bg-cyan-950/30 shadow-[0_0_15px_rgba(0,229,255,0.25)] animate-pulse"
+                  : isSleepCooldown
+                  ? "border-slate-800/80 bg-slate-950/60 opacity-80"
+                  : "border-cyan-500/30 hover:border-cyan-400/50"
+              }`}
+            >
+              <div
+                className={`absolute top-0 left-0 bottom-0 w-1 ${
+                  isSleepActive
+                    ? "bg-cyan-400 shadow-[0_0_10px_#00e5ff]"
+                    : isSleepCooldown
+                    ? "bg-slate-700"
+                    : "bg-blue-400"
+                }`}
+              />
+              <div className="flex items-center justify-between gap-3 pl-2">
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[9.5px] font-mono font-bold tracking-widest text-cyan-400 uppercase bg-cyan-950/70 border border-cyan-500/40 px-1.5 py-0.2 rounded flex items-center gap-1 font-solo">
+                      <Moon className="w-2.5 h-2.5 text-cyan-400" />
+                      SLEEP DIRECTIVE
+                    </span>
+                    {isSleepActive ? (
+                      <span className="text-[9px] font-mono font-bold text-cyan-300 bg-cyan-900/60 border border-cyan-400 px-1.5 py-0.2 rounded animate-pulse">
+                        STASIS ACTIVE
+                      </span>
+                    ) : isSleepCooldown ? (
+                      <span className="text-[9px] font-mono text-slate-400 bg-slate-900 border border-slate-700 px-1.5 py-0.2 rounded">
+                        ❄ {cooldownHoursRemaining}h COOLDOWN
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-mono font-bold text-cyan-300 bg-cyan-950/50 border border-cyan-500/30 px-1.5 py-0.2 rounded">
+                        ⚡ 2X EXP READY
+                      </span>
+                    )}
+                    <span
+                      className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border ${
+                        circadian.hasAdequateSleep
+                          ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/30"
+                          : "bg-red-950/80 text-red-300 border-red-500/50"
+                      }`}
+                    >
+                      {(circadian.cumulativeSleepMinutes / 60).toFixed(1)}h / 4.0h
+                    </span>
+                  </div>
+                  <h4 className="text-xs sm:text-sm font-bold text-white truncate font-solo">
+                    Regenerative Circadian Stasis &amp; Neural Flush
+                  </h4>
+                </div>
+
+                <div className="shrink-0 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("medium");
+                      setIsManualSleepModalOpen(true);
+                    }}
+                    className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg font-mono text-[10px] font-bold uppercase transition flex items-center gap-1 bg-slate-900/90 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40"
+                    title="Log offline nap or recovery sleep"
+                  >
+                    <BedDouble className="w-3 h-3 text-cyan-400" />
+                    <span className="hidden sm:inline">NAP</span>
+                  </button>
+
+                  {isSleepActive ? (
+                    <button
+                      type="button"
+                      onClick={(e) =>
+                        handleToggleQuest(e, {
+                          id: "system-compulsory-sleep-stasis",
+                          user_id: profile?.id || "",
+                          title: "System Directive: Regenerative Stasis // Sleep",
+                          description:
+                            "Mandatory circadian cellular and neural repair protocol. Target 8h 00m – 8h 30m to unlock ⚡ 2X EXP Booster for 5 hours. Resting under 4.0h incurs a -100 Mana penalty.",
+                          classification: "permanent",
+                          category: "sleep",
+                          start_date: todayStr,
+                          recurrence: "daily",
+                          recurrence_days: [],
+                          estimated_duration_minutes: 480,
+                          priority: "high",
+                          difficulty: "Recruit",
+                          attribute_rewards: { mentality: 0.75 },
+                          xp_reward: 150,
+                          penalty_config: { xp: 100 },
+                          status: "in_progress",
+                          is_manual: false,
+                          is_fun: false,
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString(),
+                        })
+                      }
+                      className="px-2.5 py-1.5 rounded-lg font-mono text-[10px] font-black uppercase transition flex items-center gap-1 bg-cyan-950/90 border border-cyan-400 text-cyan-300 shadow-[0_0_10px_#00e5ff] animate-pulse"
+                    >
+                      <Clock className="w-3 h-3 animate-spin text-cyan-300" />
+                      <span>RESUME</span>
+                    </button>
+                  ) : isSleepCooldown ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="px-2.5 py-1.5 rounded-lg font-mono text-[10px] font-bold uppercase bg-slate-900 border border-slate-800 text-slate-500 cursor-not-allowed"
+                    >
+                      <span>LOCKED</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) =>
+                        handleToggleQuest(e, {
+                          id: "system-compulsory-sleep-stasis",
+                          user_id: profile?.id || "",
+                          title: "System Directive: Regenerative Stasis // Sleep",
+                          description:
+                            "Mandatory circadian cellular and neural repair protocol. Target 8h 00m – 8h 30m to unlock ⚡ 2X EXP Booster for 5 hours. Resting under 4.0h incurs a -100 Mana penalty.",
+                          classification: "permanent",
+                          category: "sleep",
+                          start_date: todayStr,
+                          recurrence: "daily",
+                          recurrence_days: [],
+                          estimated_duration_minutes: 480,
+                          priority: "high",
+                          difficulty: "Recruit",
+                          attribute_rewards: { mentality: 0.75 },
+                          xp_reward: 150,
+                          penalty_config: { xp: 100 },
+                          status: "pending",
+                          is_manual: false,
+                          is_fun: false,
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString(),
+                        })
+                      }
+                      className="px-2.5 py-1.5 rounded-lg font-mono text-[10px] font-black uppercase transition flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white"
+                    >
+                      <Moon className="w-3 h-3 fill-current" />
+                      <span>SLEEP</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
           <div
             className={`p-4 rounded-2xl border transition-all duration-200 relative overflow-hidden ${
               isSleepActive
@@ -813,6 +1007,7 @@ export function QuestList({
               </div>
             </div>
           </div>
+          )
         )}
 
         {/* ROADMAP EMPTY STATE & VISUALIZER */}
@@ -961,6 +1156,23 @@ export function QuestList({
         {viewMode === "completed" &&
           (categoryFilter === "all" || categoryFilter === "fitness") &&
           completedWorkouts.map((workout) => (
+            isCompact ? (
+              <div
+                key={workout.id}
+                className="p-2.5 sm:p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-3 text-xs font-mono"
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span className="font-bold text-white truncate font-solo text-xs">{workout.title}</span>
+                  <span className="text-[9px] text-slate-500 font-mono hidden sm:inline">{workout.split_day}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-slate-400 shrink-0">
+                  <span>{workout.calories_burned || 0} kcal</span>
+                  <span>•</span>
+                  <span className="text-cyan-400 font-bold">+{workout.xp_earned || 250} XP</span>
+                </div>
+              </div>
+            ) : (
             <div
               key={workout.id}
               className="p-4 rounded-2xl border bg-slate-950/70 border-cyan-500/30 relative overflow-hidden shadow-md"
@@ -1007,12 +1219,119 @@ export function QuestList({
                 </div>
               </div>
             </div>
+            )
           ))}
 
         {/* REGULAR QUESTS LIST */}
-        {finalQuests.map((quest) => {
+        {displayQuests.map((quest) => {
             const isCompleted = quest.status === "completed";
             const isCurrentQuestActive = isQuestActive && activeQuestInRedux?.id === quest.id;
+            const isPrimaryDomainMainQuest = primaryDomainQuest?.id === quest.id;
+
+            if (isCompact) {
+              return (
+                <div
+                  key={quest.id}
+                  className={`p-2.5 sm:p-3 rounded-xl border transition-all duration-200 relative overflow-hidden ${
+                    isCompleted
+                      ? "bg-slate-950/40 border-slate-800/60 opacity-60"
+                      : isCurrentQuestActive
+                      ? "hunter-panel border-cyan-400 bg-slate-900/95 shadow-[0_0_15px_rgba(0,229,255,0.22)]"
+                      : isPrimaryDomainMainQuest
+                      ? "hunter-panel border-cyan-400/80 bg-slate-900/95 shadow-[0_0_15px_rgba(0,229,255,0.2)]"
+                      : "hunter-panel border-cyan-500/30 hover:border-cyan-400/60 shadow-sm"
+                  }`}
+                >
+                  <div
+                    className={`absolute top-0 left-0 bottom-0 ${isPrimaryDomainMainQuest ? "w-1.5" : "w-1"} ${
+                      isCompleted
+                        ? "bg-cyan-600"
+                        : isCurrentQuestActive
+                        ? "bg-cyan-400 shadow-[0_0_10px_#00e5ff]"
+                        : isPrimaryDomainMainQuest
+                        ? "bg-gradient-to-b from-cyan-400 to-blue-600 animate-pulse shadow-[0_0_10px_#00e5ff]"
+                        : quest.priority === "urgent"
+                        ? "bg-cyan-400 shadow-[0_0_8px_#00e5ff]"
+                        : "bg-blue-600"
+                    }`}
+                  />
+                  <div className="flex items-center justify-between gap-2.5 pl-2">
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {isPrimaryDomainMainQuest && (
+                          <span className="text-[9px] font-mono font-black uppercase px-1.5 py-0.2 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-400 flex items-center gap-0.5">
+                            <Crown className="w-2.5 h-2.5 text-cyan-300" />
+                            MAIN
+                          </span>
+                        )}
+                        <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-slate-900 text-cyan-400 border border-slate-700">
+                          {quest.category}
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-mono flex items-center gap-0.5">
+                          <Clock className="w-2.5 h-2.5" />
+                          {quest.estimated_duration_minutes}m
+                        </span>
+                        <span className="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-950/50 px-1.5 py-0.2 rounded border border-cyan-500/30">
+                          +{quest.xp_reward} XP
+                        </span>
+                        {isCurrentQuestActive && (
+                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-cyan-950/90 text-cyan-300 border border-cyan-400 animate-pulse">
+                            ACTIVE
+                          </span>
+                        )}
+                      </div>
+                      <h4
+                        className={`text-xs sm:text-sm font-bold truncate ${
+                          isCompleted ? "line-through text-slate-500" : "text-white font-solo"
+                        }`}
+                      >
+                        {quest.title}
+                      </h4>
+                    </div>
+
+                    {/* Quick Compact Actions */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {!isCompleted && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleQuest(e, quest)}
+                            className={`p-1.5 rounded-lg border transition ${
+                              isCurrentQuestActive
+                                ? "bg-cyan-950/80 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(0,229,255,0.4)] animate-pulse"
+                                : "bg-slate-900 border-slate-700 text-slate-400 hover:text-cyan-400 hover:border-cyan-500/40"
+                            }`}
+                            title={isCurrentQuestActive ? "Resume active session" : "Start session"}
+                          >
+                            {isCurrentQuestActive ? (
+                              <Clock className="w-3.5 h-3.5 text-cyan-300 animate-spin" />
+                            ) : (
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleComplete(quest)}
+                            className="p-1.5 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-black transition"
+                            title="Complete directive"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(quest)}
+                        className="p-1.5 rounded-lg bg-slate-900/40 text-slate-600 hover:text-rose-400 hover:bg-rose-950/40 transition"
+                        title="Abandon directive"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <div
@@ -1022,16 +1341,20 @@ export function QuestList({
                     ? "bg-slate-950/40 border-slate-800/60 opacity-60"
                     : isCurrentQuestActive
                     ? "hunter-panel border-cyan-400 bg-slate-900/95 shadow-[0_0_20px_rgba(0,229,255,0.25)]"
+                    : isPrimaryDomainMainQuest
+                    ? "hunter-panel border-cyan-400/80 bg-slate-900/95 shadow-[0_0_20px_rgba(0,229,255,0.22)]"
                     : "hunter-panel border-cyan-500/30 hover:border-cyan-400/60 shadow-md"
                 }`}
               >
                 {/* Priority Color Stripe */}
                 <div
-                  className={`absolute top-0 left-0 bottom-0 w-1 ${
+                  className={`absolute top-0 left-0 bottom-0 ${isPrimaryDomainMainQuest ? "w-1.5" : "w-1"} ${
                     isCompleted
                       ? "bg-cyan-600"
                       : isCurrentQuestActive
                       ? "bg-cyan-400 shadow-[0_0_12px_#00e5ff]"
+                      : isPrimaryDomainMainQuest
+                      ? "bg-gradient-to-b from-cyan-400 to-blue-600 animate-pulse shadow-[0_0_12px_#00e5ff]"
                       : quest.priority === "urgent"
                       ? "bg-cyan-400 shadow-[0_0_8px_#00e5ff]"
                       : "bg-blue-600"
@@ -1041,6 +1364,13 @@ export function QuestList({
                 <div className="flex items-start justify-between gap-3 pl-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
+                      {isPrimaryDomainMainQuest && (
+                        <span className="text-[10px] font-mono font-black uppercase px-2.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-400 shadow-[0_0_10px_rgba(0,229,255,0.4)] tracking-wider flex items-center gap-1">
+                          <Crown className="w-3 h-3 text-cyan-300" />
+                          MAIN QUEST // {quest.category.toUpperCase()}
+                        </span>
+                      )}
+
                       <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-slate-900 text-cyan-400 border border-slate-700">
                         {quest.category}
                       </span>
@@ -1153,7 +1483,7 @@ export function QuestList({
 
                     <button
                       type="button"
-                      onClick={() => handleDelete(quest.id)}
+                      onClick={() => handleDelete(quest)}
                       className="p-2 rounded-xl bg-slate-900/40 text-slate-600 hover:text-rose-400 hover:bg-rose-950/40 transition"
                       title="Delete Quest"
                     >
@@ -1283,6 +1613,79 @@ export function QuestList({
               >
                 <Check className="w-3.5 h-3.5" />
                 <span>{manualSleepLoading ? "LOGGING REST..." : `CONFIRM ${(manualSleepMinutes / 60).toFixed(1)}H SLEEP`}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* SOLO LEVELING SYSTEM ABANDONMENT CONFIRMATION MODAL */}
+      {questToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-[#05070c]/95 border border-red-500/50 rounded-2xl p-5 shadow-[0_0_30px_rgba(239,68,68,0.25)] space-y-4">
+            <div className="flex items-center justify-between border-b border-red-500/20 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-red-950/80 border border-red-500/40 text-red-400">
+                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-white font-solo tracking-widest uppercase">
+                    SYSTEM DIRECTIVE // ABANDONMENT
+                  </h3>
+                  <span className="text-[10px] font-mono text-red-400">
+                    Mandatory Confirmation Required
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuestToDelete(null)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-slate-300 font-hud leading-relaxed">
+                Hunter, are you sure you want to abandon and purge this directive from your system ledger?
+              </p>
+              <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                <span className="text-[10px] font-mono text-cyan-400 uppercase block">
+                  Target Directive:
+                </span>
+                <span className="text-sm font-bold text-white font-solo block">
+                  {questToDelete.title}
+                </span>
+                <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400 pt-1">
+                  <span>Category: {questToDelete.category}</span>
+                  <span>•</span>
+                  <span>Reward: +{questToDelete.xp_reward} XP</span>
+                </div>
+              </div>
+              <p className="text-[10px] font-mono text-red-400/80">
+                ⚠ WARNING: Abandoned directives forfeit all pending XP, streak preservation, and attribute gains.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/80">
+              <button
+                type="button"
+                onClick={() => setQuestToDelete(null)}
+                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 font-mono text-xs font-bold transition"
+              >
+                DISMISS
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const id = questToDelete.id;
+                  setQuestToDelete(null);
+                  executeDelete(id);
+                }}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-mono text-xs font-black uppercase tracking-wider transition flex items-center gap-1.5 shadow-md shadow-red-950"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>CONFIRM ABANDON</span>
               </button>
             </div>
           </div>

@@ -33,11 +33,43 @@ export class PlayerRepository {
     }
 
     // Resilient fallback for circadian sleep telemetry
-    if (!profile.last_sleep_started_at && sessionState.last_sleep_started_at) {
-      profile.last_sleep_started_at = sessionState.last_sleep_started_at;
+    if (!profile.last_sleep_started_at) {
+      if (sessionState.last_sleep_started_at) {
+        profile.last_sleep_started_at = sessionState.last_sleep_started_at;
+      } else if (profile.last_sleep_completed_at) {
+        profile.last_sleep_started_at = new Date(
+          new Date(profile.last_sleep_completed_at).getTime() - 8 * 3600 * 1000
+        ).toISOString();
+      }
     }
-    if (profile.rolling_sleep_minutes === undefined && sessionState.rolling_sleep_minutes !== undefined) {
-      profile.rolling_sleep_minutes = sessionState.rolling_sleep_minutes;
+
+    // Auto-clear expired sleep deprivation debuff
+    if (profile.sleep_deprived_expires_at && new Date(profile.sleep_deprived_expires_at).getTime() <= Date.now()) {
+      profile.sleep_deprived_expires_at = null;
+      if (sessionState.sleep_deprived_expires_at) {
+        sessionState.sleep_deprived_expires_at = null;
+      }
+    }
+
+    if (profile.rolling_sleep_minutes === undefined || profile.rolling_sleep_minutes === null || profile.rolling_sleep_minutes === 0) {
+      if (sessionState.rolling_sleep_minutes !== undefined && sessionState.rolling_sleep_minutes > 0) {
+        profile.rolling_sleep_minutes = sessionState.rolling_sleep_minutes;
+      } else if (profile.last_sleep_completed_at) {
+        // If the hunter completed a restorative sleep session in the last 26 hours and has no active sleep deprivation debuff
+        const isDeprived = Boolean(
+          profile.sleep_deprived_expires_at &&
+          new Date(profile.sleep_deprived_expires_at).getTime() > Date.now()
+        );
+        const msSinceSleep = Date.now() - new Date(profile.last_sleep_completed_at).getTime();
+        if (msSinceSleep <= 26 * 3600 * 1000 && !isDeprived) {
+          profile.rolling_sleep_minutes = 420; // 7.0 hours verified restorative rest
+          sessionState.rolling_sleep_minutes = 420;
+        } else {
+          profile.rolling_sleep_minutes = 0;
+        }
+      } else {
+        profile.rolling_sleep_minutes = 0;
+      }
     }
 
     // Continuous Circadian 26h+ Exhaustion Mana Drain (-50 XP/min)
@@ -500,7 +532,7 @@ export class PlayerRepository {
       new_xp: newXp,
       xp_to_next: xpToNext,
       new_level: newLevel,
-      levels_gained: levelsGained,
+      levels_gained: transition.levelsDelta,
       new_rank: newRank,
       unallocated_stat_points: newStatPoints,
       attributes: {
@@ -594,6 +626,122 @@ export class PlayerRepository {
       points_spent: points,
       remaining_points: currentPoints - points,
       new_attribute_value: newVal,
+    };
+  }
+
+  static async useGraceCoin(
+    userId: string,
+    debuffType: "poison" | "circadian" | "sleep_deprivation" | "fatigue"
+  ): Promise<{
+    success: boolean;
+    remainingCoins: number;
+    message: string;
+  }> {
+    const supabase = await createClient();
+    const profile = await this.getProfile(userId);
+    if (!profile) throw new Error("Hunter profile not found");
+
+    const currentCoins = profile.unallocated_stat_points || 0;
+    if (currentCoins < 1) {
+      throw new Error("Insufficient Grace Coins. Complete hunter milestones to earn Grace Coins.");
+    }
+
+    const sessionState = ((profile.active_session_state as any) || {});
+    const updatePayload: Record<string, any> = {
+      unallocated_stat_points: currentCoins - 1,
+      updated_at: new Date().toISOString(),
+    };
+
+    let message = "";
+
+    if (debuffType === "poison") {
+      const poisonExpires = profile.poison_expires_at || sessionState.poison_expires_at;
+      if (poisonExpires) {
+        const msRemaining = new Date(poisonExpires).getTime() - Date.now();
+        if (msRemaining <= 3 * 3600 * 1000) {
+          updatePayload.poison_expires_at = null;
+          delete sessionState.poison_expires_at;
+          message = "Grace Coin activated: Alcohol Poison completely cleansed!";
+        } else {
+          const newExp = new Date(new Date(poisonExpires).getTime() - 3 * 3600 * 1000).toISOString();
+          updatePayload.poison_expires_at = newExp;
+          sessionState.poison_expires_at = newExp;
+          message = "Grace Coin activated: Poison clearance accelerated by 3 hours!";
+        }
+      } else {
+        message = "Grace Coin activated: Liver biological pathways reinforced.";
+      }
+    } else if (debuffType === "circadian") {
+      // 3-hour reduction of active awake strain + 3-hour (180m) stasis credit
+      const currentStart = profile.last_sleep_started_at || sessionState.last_sleep_started_at;
+      const now = Date.now();
+      let newStartIso: string;
+      if (currentStart) {
+        newStartIso = new Date(new Date(currentStart).getTime() + 3 * 3600 * 1000).toISOString();
+      } else {
+        newStartIso = new Date(now - 19 * 3600 * 1000).toISOString();
+      }
+
+      const currentRolling = Number(profile.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes ?? 0);
+      const newRolling = currentRolling + 180; // 3 hours of restorative stasis credit
+
+      updatePayload.last_sleep_started_at = newStartIso;
+      updatePayload.rolling_sleep_minutes = newRolling;
+      sessionState.last_sleep_started_at = newStartIso;
+      sessionState.rolling_sleep_minutes = newRolling;
+      delete sessionState.last_circadian_drain_at;
+
+      if (newRolling >= 240) {
+        updatePayload.sleep_deprived_expires_at = null;
+        sessionState.sleep_deprived_expires_at = null;
+      }
+
+      message = `Grace Coin activated: Awake strain reduced by 3.0h (+180m sleep credit)! Total rest: ${(newRolling / 60).toFixed(1)}h/4.0h.`;
+    } else if (debuffType === "sleep_deprivation") {
+      const depExpires = profile.sleep_deprived_expires_at || sessionState.sleep_deprived_expires_at;
+      if (depExpires) {
+        const msRemaining = new Date(depExpires).getTime() - Date.now();
+        if (msRemaining <= 3 * 3600 * 1000) {
+          updatePayload.sleep_deprived_expires_at = null;
+          sessionState.sleep_deprived_expires_at = null;
+          message = "Grace Coin activated: Sleep Deprivation debuff completely purged!";
+        } else {
+          const newExp = new Date(new Date(depExpires).getTime() - 3 * 3600 * 1000).toISOString();
+          updatePayload.sleep_deprived_expires_at = newExp;
+          sessionState.sleep_deprived_expires_at = newExp;
+          message = "Grace Coin activated: Sleep Deprivation debuff shortened by 3 hours!";
+        }
+      } else {
+        updatePayload.sleep_deprived_expires_at = null;
+        sessionState.sleep_deprived_expires_at = null;
+        message = "Grace Coin activated: Rest deficit lifted.";
+      }
+    } else if (debuffType === "fatigue") {
+      const currentMental = Number(profile.mental_fatigue) || 0;
+      const currentPhysical = Number(profile.physical_fatigue) || 0;
+      const newMental = currentMental <= 30 ? 0 : Math.max(0, Number((currentMental - 30).toFixed(1)));
+      const newPhysical = currentPhysical <= 30 ? 0 : Math.max(0, Number((currentPhysical - 30).toFixed(1)));
+
+      updatePayload.mental_fatigue = newMental;
+      updatePayload.physical_fatigue = newPhysical;
+      updatePayload.last_fatigue_update_at = new Date().toISOString();
+      message = `Grace Coin activated: Biological fatigue purged by -30% (Physical: ${newPhysical}%, Mental: ${newMental}%)!`;
+    }
+
+    updatePayload.active_session_state = sessionState;
+
+    const { error } = await supabase.from("profiles").update(updatePayload).eq("id", userId);
+    if (error) {
+      console.warn("Retrying useGraceCoin without dedicated columns:", error.message);
+      delete updatePayload.last_sleep_started_at;
+      delete updatePayload.rolling_sleep_minutes;
+      await supabase.from("profiles").update(updatePayload).eq("id", userId);
+    }
+
+    return {
+      success: true,
+      remainingCoins: currentCoins - 1,
+      message,
     };
   }
 
@@ -764,7 +912,13 @@ export class PlayerRepository {
     delete sessionState.last_circadian_drain_at;
     updatePayload.active_session_state = sessionState;
 
-    await supabase.from("profiles").update(updatePayload).eq("id", userId);
+    const { error: endSleepErr } = await supabase.from("profiles").update(updatePayload).eq("id", userId);
+    if (endSleepErr) {
+      console.warn("Retrying endSleepSession with active_session_state fallback:", endSleepErr.message);
+      delete updatePayload.last_sleep_started_at;
+      delete updatePayload.rolling_sleep_minutes;
+      await supabase.from("profiles").update(updatePayload).eq("id", userId);
+    }
 
     if (result.mentalityGain > 0) {
       await this.grantXpAndAttributes({
@@ -803,7 +957,13 @@ export class PlayerRepository {
     sessionState.rolling_sleep_minutes = newRolling;
     updatePayload.active_session_state = sessionState;
 
-    await supabase.from("profiles").update(updatePayload).eq("id", userId);
+    const { error: endSleepErr } = await supabase.from("profiles").update(updatePayload).eq("id", userId);
+    if (endSleepErr) {
+      console.warn("Retrying endSleepSession with active_session_state fallback:", endSleepErr.message);
+      delete updatePayload.last_sleep_started_at;
+      delete updatePayload.rolling_sleep_minutes;
+      await supabase.from("profiles").update(updatePayload).eq("id", userId);
+    }
 
     // Apply -100 XP / Mana penalty (stays deducted, universal de-leveling triggers if XP drops below 0)
     await this.grantXpAndAttributes({
@@ -868,7 +1028,13 @@ export class PlayerRepository {
     delete sessionState.last_circadian_drain_at;
     updatePayload.active_session_state = sessionState;
 
-    await supabase.from("profiles").update(updatePayload).eq("id", userId);
+    const { error: endSleepErr } = await supabase.from("profiles").update(updatePayload).eq("id", userId);
+    if (endSleepErr) {
+      console.warn("Retrying endSleepSession with active_session_state fallback:", endSleepErr.message);
+      delete updatePayload.last_sleep_started_at;
+      delete updatePayload.rolling_sleep_minutes;
+      await supabase.from("profiles").update(updatePayload).eq("id", userId);
+    }
 
     return {
       cumulativeMinutes: newRolling,

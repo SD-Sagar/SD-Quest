@@ -34,16 +34,34 @@ function getFormattedDuration(s: WorkoutSession): string {
   return `${s.duration_minutes}m`;
 }
 
+function getLocalDateString(d: Date | string): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+const DEFAULT_SPLIT_HINTS: Record<number, string> = {
+  0: "REST",
+  1: "CHEST",
+  2: "BACK",
+  3: "LEGS",
+  4: "SHOULDERS",
+  5: "ARMS",
+  6: "FULL BODY",
+};
+
 export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalendarProps) {
-  const [currentDate, setCurrentDate] = useState<Date>(() => new Date("2026-11-01"));
-  const [selectedDateStr, setSelectedDateStr] = useState("2026-11-15");
-  const [todayStr, setTodayStr] = useState("2026-11-15");
+  const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
+  const [selectedDateStr, setSelectedDateStr] = useState<string>(() => getLocalDateString(new Date()));
+  const [todayStr, setTodayStr] = useState<string>(() => getLocalDateString(new Date()));
   const [isTelemetryCollapsed, setIsTelemetryCollapsed] = useState(false);
 
   useEffect(() => {
     const now = new Date();
     setCurrentDate(now);
-    const str = now.toISOString().split("T")[0];
+    const str = getLocalDateString(now);
     setSelectedDateStr(str);
     setTodayStr(str);
   }, []);
@@ -66,19 +84,23 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
 
   const monthName = currentDate.toLocaleString("en-US", { month: "long" });
 
-  // Map sessions by date
+  // Map sessions by local date
   const sessionsByDate: Record<string, WorkoutSession[]> = {};
   for (const s of sessions) {
-    const d = s.completed_at ? s.completed_at.split("T")[0] : s.started_at.split("T")[0];
-    if (!sessionsByDate[d]) sessionsByDate[d] = [];
-    sessionsByDate[d].push(s);
+    const raw = s.completed_at || s.started_at;
+    if (raw) {
+      const d = getLocalDateString(raw);
+      if (!sessionsByDate[d]) sessionsByDate[d] = [];
+      sessionsByDate[d].push(s);
+    }
   }
 
   // Map quests by deadline date or start date
   const questsByDate: Record<string, Quest[]> = {};
   for (const q of quests) {
-    const d = q.deadline ? q.deadline.split("T")[0] : q.start_date;
-    if (d) {
+    const raw = q.deadline || q.start_date;
+    if (raw) {
+      const d = raw.includes("T") ? getLocalDateString(raw) : raw;
       if (!questsByDate[d]) questsByDate[d] = [];
       questsByDate[d].push(q);
     }
@@ -108,6 +130,19 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
           </div>
 
           <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic("light");
+                const now = new Date();
+                setCurrentDate(now);
+                setSelectedDateStr(getLocalDateString(now));
+              }}
+              className="px-2.5 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-950/40 text-cyan-300 font-mono text-[10px] font-bold hover:bg-cyan-900/40 transition"
+              title="Jump to Today"
+            >
+              TODAY
+            </button>
             <button
               onClick={handlePrevMonth}
               className="p-2 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-white transition"
@@ -149,10 +184,12 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
             const isRest = dayOfWeek === 0; // Sunday
             const daySessions = sessionsByDate[dateStr] || [];
             const dayQuests = questsByDate[dateStr] || [];
-            const hasCompleted = daySessions.some((s) => s.status === "completed");
+            const completedSession = daySessions.find((s) => s.status === "completed");
+            const hasCompleted = Boolean(completedSession);
             const hasDueQuests = dayQuests.length > 0;
             const isToday = dateStr === todayStr;
             const isSelected = dateStr === selectedDateStr;
+            const splitHint = DEFAULT_SPLIT_HINTS[dayOfWeek] || "";
 
             let statusBg = "bg-slate-900/40 border-slate-800/80";
             let indicatorColor = "bg-slate-700";
@@ -182,23 +219,41 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
                 <div className="flex justify-between items-center w-full">
                   <span
                     className={`text-[10px] font-mono font-bold ${
-                      isToday ? "text-cyan-400" : "text-slate-300"
+                      isToday ? "text-cyan-400" : isSelected ? "text-white" : "text-slate-300"
                     }`}
                   >
                     {dayNum}
                   </span>
-                  <div className={`w-1.5 h-1.5 rounded-full ${indicatorColor}`} />
+                  {isToday ? (
+                    <span className="text-[7.5px] font-mono font-black text-cyan-300 uppercase px-1 rounded bg-cyan-950/80 border border-cyan-400 animate-pulse">
+                      TODAY
+                    </span>
+                  ) : (
+                    <div className={`w-1.5 h-1.5 rounded-full ${indicatorColor}`} />
+                  )}
                 </div>
 
-                <div className="text-[9px] font-mono truncate text-left text-slate-400">
+                <div className="text-[8.5px] font-mono truncate text-left w-full space-y-0.5">
                   {hasCompleted ? (
-                    <span className="text-emerald-400 font-bold">CLEARED</span>
-                  ) : hasDueQuests ? (
-                    <span className="text-cyan-400">{dayQuests.length} Qst</span>
-                  ) : isRest ? (
-                    "REST"
+                    <div className="truncate">
+                      <span className="text-emerald-400 font-bold block truncate">
+                        CLEARED
+                      </span>
+                      <span className="text-[7.5px] text-emerald-300/80 truncate block uppercase">
+                        {completedSession?.split_day ? completedSession.split_day.split(" ")[0] : splitHint}
+                      </span>
+                    </div>
                   ) : (
-                    ""
+                    <div className="truncate">
+                      {hasDueQuests && (
+                        <span className="text-cyan-400 font-semibold block truncate">
+                          {dayQuests.length} Qst
+                        </span>
+                      )}
+                      <span className={`text-[8px] block truncate uppercase ${isRest ? "text-slate-500 font-bold" : "text-slate-500/80"}`}>
+                        {splitHint}
+                      </span>
+                    </div>
                   )}
                 </div>
               </button>
@@ -212,8 +267,13 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
         <div className="flex items-center justify-between border-b border-cyan-500/20 pb-2.5">
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-cyan-400" />
-            <span className="text-xs font-solo font-bold text-cyan-300 uppercase tracking-wider">
-              TELEMETRY FOR: {selectedDateStr}
+            <span className="text-xs font-solo font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5 flex-wrap">
+              <span>TELEMETRY FOR: {selectedDateStr}</span>
+              {selectedDateStr === todayStr && (
+                <span className="text-cyan-400 font-mono text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-400/50">
+                  CURRENT CYCLE (TODAY)
+                </span>
+              )}
             </span>
           </div>
 

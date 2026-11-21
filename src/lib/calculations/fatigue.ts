@@ -740,7 +740,15 @@ export function calculateCircadianAwakeStatus(params: {
   const now = params.nowMs || Date.now();
   const isCurrentlySleeping = Boolean(params.isCurrentlySleeping);
   const currentSleepMins = params.currentSleepDurationMinutes || 0;
-  const cumulativeSleepMinutes = (params.rollingSleepMinutes || 0) + (isCurrentlySleeping ? currentSleepMins : 0);
+  let rollingMins = params.rollingSleepMinutes;
+  if (rollingMins === undefined || rollingMins === null) {
+    if (params.lastSleepCompletedAt) {
+      rollingMins = 480; // Fallback for completed restorative sleep
+    } else {
+      rollingMins = 0;
+    }
+  }
+  const cumulativeSleepMinutes = rollingMins + (isCurrentlySleeping ? currentSleepMins : 0);
   const hasAdequateSleep = cumulativeSleepMinutes >= 240; // 4.0h
 
   // Anchor: when last sleep started

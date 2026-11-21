@@ -42,9 +42,17 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
 
   // Date and Timing state
   const [startDate, setStartDate] = useState(todayStr);
+  const [isDateRange, setIsDateRange] = useState(false);
+  const [endDate, setEndDate] = useState(todayStr);
+
   const [hasDeadline, setHasDeadline] = useState(false);
   const [deadlineDate, setDeadlineDate] = useState(todayStr);
   const [deadlineTime, setDeadlineTime] = useState("18:00");
+
+  const [hasTimeWindow, setHasTimeWindow] = useState(false);
+  const [startTime, setStartTime] = useState("14:00");
+  const [endTime, setEndTime] = useState("15:30");
+
   const [recurrence, setRecurrence] = useState<"none" | "daily" | "weekly" | "weekdays">("none");
   const [selectedDays, setSelectedDays] = useState<number[]>([1]); // Monday default for weekly
 
@@ -100,6 +108,22 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
     setClassification("scheduled");
   };
 
+  const handleTimeWindowChange = (newStart: string, newEnd: string) => {
+    setStartTime(newStart);
+    setEndTime(newEnd);
+    try {
+      const [sh, sm] = newStart.split(":").map(Number);
+      const [eh, em] = newEnd.split(":").map(Number);
+      if (!isNaN(sh) && !isNaN(sm) && !isNaN(eh) && !isNaN(em)) {
+        let diff = eh * 60 + em - (sh * 60 + sm);
+        if (diff <= 0) diff += 24 * 60;
+        setDurationMinutes(diff);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const calculatedRewards = calculateFairStatYield(durationMinutes, difficulty, selectedAttributes);
   const calculatedXp = calculateFairQuestXp(durationMinutes, difficulty, priority);
 
@@ -111,11 +135,26 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
     setLoading(true);
 
     try {
-      const fullDeadline = hasDeadline ? `${deadlineDate}T${deadlineTime}:00` : null;
+      let fullDeadline = null;
+      if (hasDeadline || isDateRange || hasTimeWindow) {
+        const targetDate = isDateRange ? endDate : deadlineDate;
+        const targetTime = hasTimeWindow ? endTime : deadlineTime;
+        fullDeadline = `${targetDate}T${targetTime}:00`;
+      }
+
+      let questDesc = description.trim();
+      if (hasTimeWindow) {
+        const timeNote = `[Time Window: ${startTime} – ${endTime}]`;
+        questDesc = questDesc ? `${questDesc} • ${timeNote}` : timeNote;
+      }
+      if (isDateRange) {
+        const dateRangeNote = `[Campaign: ${startDate} to ${endDate}]`;
+        questDesc = questDesc ? `${questDesc} • ${dateRangeNote}` : dateRangeNote;
+      }
 
       await createQuestAction({
         title: title.trim(),
-        description: description.trim() || undefined,
+        description: questDesc || undefined,
         category,
         classification,
         start_date: startDate,
@@ -265,35 +304,145 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
               </div>
             </div>
 
-            {/* Start Date */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
-                />
-              </div>
+            {/* Date Mode Toggle */}
+            <div className="flex items-center gap-2 pb-1">
+              <button
+                type="button"
+                onClick={() => setIsDateRange(false)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition ${
+                  !isDateRange
+                    ? "bg-cyan-500/25 text-cyan-300 border border-cyan-400/60 shadow-[0_0_8px_rgba(0,229,255,0.2)]"
+                    : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200"
+                }`}
+              >
+                Target Date
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDateRange(true);
+                  if (endDate < startDate) setEndDate(startDate);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition ${
+                  isDateRange
+                    ? "bg-cyan-500/25 text-cyan-300 border border-cyan-400/60 shadow-[0_0_8px_rgba(0,229,255,0.2)]"
+                    : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200"
+                }`}
+              >
+                Date Range (From – To)
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                  Recurrence
-                </label>
-                <select
-                  value={recurrence}
-                  onChange={(e) => setRecurrence(e.target.value as any)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
-                >
-                  <option value="none">One-Time Date Quest</option>
-                  <option value="daily">Daily Habit (Every day)</option>
-                  <option value="weekdays">Weekdays (Mon-Fri)</option>
-                  <option value="weekly">Weekly on Specific Days</option>
-                </select>
+            {/* Date Inputs */}
+            {isDateRange ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    From Date
+                  </label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    To Date
+                  </label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
               </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Recurrence
+                  </label>
+                  <select
+                    value={recurrence}
+                    onChange={(e) => setRecurrence(e.target.value as any)}
+                    className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                  >
+                    <option value="none">One-Time Date Quest</option>
+                    <option value="daily">Daily Habit (Every day)</option>
+                    <option value="weekdays">Weekdays (Mon-Fri)</option>
+                    <option value="weekly">Weekly on Specific Days</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Time Window (From Time to Time Within Day) */}
+            <div className="pt-2 border-t border-slate-800/80">
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={hasTimeWindow}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setHasTimeWindow(checked);
+                    if (checked) {
+                      handleTimeWindowChange(startTime, endTime);
+                    }
+                  }}
+                  className="rounded border-slate-700 text-cyan-500 focus:ring-0"
+                />
+                <span className="font-semibold flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                  Fixed Time Window (From Time to Time)
+                </span>
+                {hasTimeWindow && (
+                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 border border-cyan-500/40 px-1.5 py-0.2 rounded">
+                    Auto-calc: {durationMinutes}m
+                  </span>
+                )}
+              </label>
+
+              {hasTimeWindow && (
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <label className="block text-[10px] font-mono text-slate-400 mb-1">
+                      From Time
+                    </label>
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => handleTimeWindowChange(e.target.value, endTime)}
+                      className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono text-slate-400 mb-1">
+                      To Time
+                    </label>
+                    <input
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => handleTimeWindowChange(startTime, e.target.value)}
+                      className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Weekly Days Selector if Weekly */}

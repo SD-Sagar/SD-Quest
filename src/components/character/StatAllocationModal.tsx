@@ -1,21 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { AttributeType, PlayerAttributes, Profile } from "@/types";
-import { allocateStatPointAction } from "@/server/actions/player.actions";
+import { Profile, PlayerAttributes } from "@/types";
+import { useGraceCoinAction } from "@/server/actions/player.actions";
 import { soundEffects } from "@/lib/audio/soundEffects";
 import { triggerHaptic } from "@/lib/utils";
+import { getRemainingPoisonTime } from "@/lib/calculations/nutrition";
+import { calculateCircadianAwakeStatus, getFatigueStatus } from "@/lib/calculations/fatigue";
 import {
-  Flame,
-  Wind,
-  Brain,
+  Coins,
   Shield,
-  Heart,
-  Zap,
   Sparkles,
   X,
-  Plus,
+  Skull,
+  Moon,
+  AlertTriangle,
+  Brain,
   CheckCircle2,
+  Clock,
+  Zap,
 } from "lucide-react";
 
 interface StatAllocationModalProps {
@@ -25,211 +28,269 @@ interface StatAllocationModalProps {
   attributes: PlayerAttributes;
 }
 
-const STAT_DETAILS: Record<
-  AttributeType,
-  { name: string; tag: string; icon: any; color: string; desc: string }
-> = {
-  strength: {
-    name: "Strength",
-    tag: "STR",
-    icon: Flame,
-    color: "text-red-400 border-red-500/40 bg-red-950/30",
-    desc: "Increases physical power, dumbbell tonnage capacity & raw muscle force.",
-  },
-  agility: {
-    name: "Agility",
-    tag: "AGI",
-    icon: Zap,
-    color: "text-cyan-400 border-cyan-500/40 bg-cyan-950/30",
-    desc: "Improves skipping rhythm, speed bonus window & kinetic coordination.",
-  },
-  endurance: {
-    name: "Endurance",
-    tag: "END",
-    icon: Wind,
-    color: "text-emerald-400 border-emerald-500/40 bg-emerald-950/30",
-    desc: "Reduces stamina decay in extended training and high-volume sessions.",
-  },
-  discipline: {
-    name: "Discipline",
-    tag: "DIS",
-    icon: Shield,
-    color: "text-amber-400 border-amber-500/40 bg-amber-950/30",
-    desc: "Strengthens daily quest streak multiplier and resistance to skipping.",
-  },
-  mentality: {
-    name: "Mentality",
-    tag: "MEN",
-    icon: Heart,
-    color: "text-purple-400 border-purple-500/40 bg-purple-950/30",
-    desc: "Mental composure under fatigue, stress resilience & deep focus.",
-  },
-  vitality: {
-    name: "Vitality",
-    tag: "VIT",
-    icon: Sparkles,
-    color: "text-pink-400 border-pink-500/40 bg-pink-950/30",
-    desc: "Accelerates biological muscle recovery, sleep score & metabolic health.",
-  },
-  intelligence: {
-    name: "Intelligence",
-    tag: "INT",
-    icon: Brain,
-    color: "text-blue-400 border-blue-500/40 bg-blue-950/30",
-    desc: "Enhances coding output, cognitive problem solving & learning capacity.",
-  },
-};
-
 export function StatAllocationModal({
   isOpen,
   onClose,
   profile,
   attributes,
 }: StatAllocationModalProps) {
-  const [unallocated, setUnallocated] = useState(
-    profile.unallocated_stat_points || 0
-  );
-  const [localAttrs, setLocalAttrs] = useState<Record<AttributeType, number>>({
-    strength: Number(attributes.strength) || 10,
-    agility: Number(attributes.agility) || 10,
-    endurance: Number(attributes.endurance) || 10,
-    discipline: Number(attributes.discipline) || 10,
-    mentality: Number(attributes.mentality) || 10,
-    vitality: Number(attributes.vitality) || 10,
-    intelligence: Number(attributes.intelligence) || 10,
+  const [coins, setCoins] = useState(profile.unallocated_stat_points || 0);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+
+  const poisonInfo = getRemainingPoisonTime(profile.poison_expires_at);
+  const sessionState = ((profile.active_session_state as any) || {});
+  const circadian = calculateCircadianAwakeStatus({
+    lastSleepStartedAt: profile.last_sleep_started_at || sessionState.last_sleep_started_at,
+    lastSleepCompletedAt: profile.last_sleep_completed_at,
+    rollingSleepMinutes: profile.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes,
+    isCurrentlySleeping: Boolean(sessionState.is_sleeping),
+    createdAt: profile.created_at,
   });
-  const [pendingStat, setPendingStat] = useState<string | null>(null);
+
+  const fatigueStatus = getFatigueStatus(
+    Number(profile.mental_fatigue) || 0,
+    Number(profile.physical_fatigue) || 0
+  );
+  const isSleepDeprived = Boolean(
+    profile.sleep_deprived_expires_at &&
+      new Date(profile.sleep_deprived_expires_at).getTime() > Date.now()
+  );
 
   if (!isOpen) return null;
 
-  const handleAllocate = async (attr: AttributeType) => {
-    if (unallocated <= 0 || pendingStat) return;
-    setPendingStat(attr);
-    triggerHaptic("heavy");
-    soundEffects.clank();
+  const handleUseCoin = async (
+    type: "poison" | "circadian" | "sleep_deprivation" | "fatigue"
+  ) => {
+    if (coins < 1 || pendingAction) return;
 
-    // Optimistic update
-    setUnallocated((prev) => Math.max(0, prev - 1));
-    setLocalAttrs((prev) => ({
-      ...prev,
-      [attr]: Number((prev[attr] + 1.0).toFixed(1)),
-    }));
+    setPendingAction(type);
+    triggerHaptic("heavy");
+    soundEffects.purify();
+
+    // Optimistic deduction
+    setCoins((prev) => Math.max(0, prev - 1));
 
     try {
-      await allocateStatPointAction(attr, 1);
-      soundEffects.chime();
-    } catch (err) {
-      console.error("Failed to allocate stat point:", err);
+      const res = await useGraceCoinAction(type);
+      setSuccessBanner(res.message);
+      setCoins(res.remainingCoins);
+      setTimeout(() => setSuccessBanner(null), 5000);
+    } catch (err: any) {
+      console.error("Failed to use Grace Coin:", err);
       // Revert if error
-      setUnallocated((prev) => prev + 1);
-      setLocalAttrs((prev) => ({
-        ...prev,
-        [attr]: Number((prev[attr] - 1.0).toFixed(1)),
-      }));
+      setCoins((prev) => prev + 1);
     } finally {
-      setPendingStat(null);
+      setPendingAction(null);
     }
   };
 
-  const statKeys: AttributeType[] = [
-    "strength",
-    "agility",
-    "endurance",
-    "discipline",
-    "mentality",
-    "vitality",
-    "intelligence",
-  ];
+  const hasAnyDebuff =
+    poisonInfo.isPoisoned ||
+    circadian.isExhaustionLockout ||
+    !circadian.hasAdequateSleep ||
+    isSleepDeprived ||
+    fatigueStatus.tier !== "optimal";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-lg hunter-panel rounded-3xl border border-amber-500/40 p-5 sm:p-6 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="w-full max-w-lg hunter-panel rounded-3xl border border-amber-500/40 p-5 sm:p-6 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto text-slate-200 font-hud">
         {/* Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-36 bg-amber-500/10 blur-3xl pointer-events-none" />
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
-            <h2 className="text-base sm:text-lg font-black text-white uppercase tracking-tight">
-              HUNTER STAT MATRIX // ATTRIBUTE ALLOCATION
-            </h2>
+        <div className="flex items-center justify-between border-b border-amber-500/20 pb-3 relative z-10">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-950/80 border border-amber-500/50 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.3)]">
+              <Coins className="w-5 h-5 fill-amber-400 text-amber-950" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-white tracking-wider font-solo flex items-center gap-1.5">
+                <span>SYSTEM SANCTUARY</span>
+                <span className="text-amber-400 font-black">// GRACE COIN PURIFICATION</span>
+              </h2>
+              <p className="text-[11px] text-slate-400 font-mono">
+                1 Coin = 3h Strain Relief • &le;3h or &le;30% Cleansed 100%
+              </p>
+            </div>
           </div>
+
           <button
             onClick={onClose}
-            className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Free Points Counter Banner */}
-        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/60 border border-amber-500/40 flex items-center justify-between">
-          <div>
-            <span className="text-[10px] text-amber-400 font-mono font-bold uppercase tracking-widest block">
-              SYSTEM LEVEL REWARD
-            </span>
-            <span className="text-xs text-slate-300">
-              Unallocated Stat Points
-            </span>
+        {/* Success Banner */}
+        {successBanner && (
+          <div className="p-3 rounded-2xl bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 animate-in fade-in duration-200 shadow-[0_0_12px_rgba(16,185,129,0.2)]">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{successBanner}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-black font-mono text-amber-400 animate-pulse">
-              {unallocated}
+        )}
+
+        {/* Grace Coin Balance Banner */}
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/60 via-[#070b14]/90 to-amber-950/40 border border-amber-500/40 flex items-center justify-between gap-3 shadow-lg relative overflow-hidden">
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300 font-bold block">
+              AVAILABLE SANCTUARY CURRENCY
             </span>
-            <span className="text-xs text-slate-500 font-mono uppercase">PTS</span>
+            <div className="text-xl sm:text-2xl font-black text-white font-solo flex items-center gap-2">
+              <Coins className="w-6 h-6 fill-amber-400 text-amber-950 shrink-0" />
+              <span>{coins} GRACE COIN{coins !== 1 ? "S" : ""}</span>
+            </div>
+            <p className="text-[10px] text-slate-400 max-w-sm">
+              Attributes in SD-Quest are earned through real sweat and discipline. Grace Coins are reserved exclusively to purify adverse debuffs and fatigue!
+            </p>
+          </div>
+
+          <div className="shrink-0 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-center font-mono">
+            <span className="text-[9px] uppercase block text-slate-400">VALUE</span>
+            <span className="text-xs font-black text-amber-400">-3H / -30%</span>
           </div>
         </div>
 
-        {/* Stats Allocation Rows */}
-        <div className="space-y-2">
-          {statKeys.map((attr) => {
-            const config = STAT_DETAILS[attr];
-            const Icon = config.icon;
-            const currentVal = localAttrs[attr];
-            const isAllocating = pendingStat === attr;
+        {/* Active Debuffs & Purification Cards */}
+        <div className="space-y-2.5">
+          <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider block">
+            ACTIVE ADVERSE CONDITIONS &amp; STRAIN
+          </span>
 
-            return (
-              <div
-                key={attr}
-                className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${config.color}`}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-800 shrink-0">
-                    <Icon className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black text-white uppercase tracking-wider font-mono">
-                        {config.name}
-                      </span>
-                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-900 text-slate-400">
-                        {config.tag}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 truncate max-w-[220px] sm:max-w-xs">
-                      {config.desc}
-                    </p>
-                  </div>
+          {/* 1. Alcohol Poison Debuff */}
+          {poisonInfo.isPoisoned && (
+            <div className="p-3.5 rounded-2xl bg-[#070b14]/90 border border-white/20 shadow-[0_0_14px_rgba(255,255,255,0.06)] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/70 text-red-400 shrink-0">
+                  <Skull className="w-4 h-4" />
                 </div>
-
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <span className="font-mono font-black text-base text-white">
-                    {currentVal.toFixed(1)}
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-white block truncate">
+                    <span className="text-red-400 font-black">POISON</span> // INTOXICATION ({poisonInfo.intoxicationTier.toUpperCase()})
                   </span>
-                  <button
-                    type="button"
-                    disabled={unallocated <= 0 || isAllocating}
-                    onClick={() => handleAllocate(attr)}
-                    className="w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-30 disabled:pointer-events-none text-black flex items-center justify-center font-black transition shadow-md shadow-amber-950 active:scale-95"
-                    title={`Allocate 1 Point to ${config.name}`}
-                  >
-                    <Plus className="w-4 h-4 stroke-[3]" />
-                  </button>
+                  <span className="text-[10px] font-mono text-slate-300 block">
+                    -{poisonInfo.xpPenaltyPct}% XP • Time Remaining: {poisonInfo.formattedString}
+                  </span>
                 </div>
               </div>
-            );
-          })}
+
+              <button
+                type="button"
+                disabled={coins < 1 || Boolean(pendingAction)}
+                onClick={() => handleUseCoin("poison")}
+                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-mono font-black uppercase tracking-wider transition disabled:opacity-50 shrink-0 shadow-[0_0_10px_rgba(251,191,36,0.5)] flex items-center gap-1"
+              >
+                <Coins className="w-3.5 h-3.5 fill-black" />
+                <span>PURGE 1 COIN (-3H)</span>
+              </button>
+            </div>
+          )}
+
+          {/* 2. Circadian Awake Exhaustion & Lockout */}
+          {(circadian.isExhaustionLockout || !circadian.hasAdequateSleep) && (
+            <div className="p-3.5 rounded-2xl bg-[#070b14]/90 border border-white/20 shadow-[0_0_14px_rgba(255,255,255,0.06)] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/70 text-red-400 shrink-0">
+                  <Moon className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-white block truncate">
+                    <span className="text-red-400 font-black">
+                      {circadian.isExhaustionLockout ? "CRITICAL EXHAUSTION" : "INADEQUATE REST"}
+                    </span>
+                    {" // 26H SLEEP DEFICIT"}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-300 block">
+                    Awake: {circadian.hoursAwakeLive.toFixed(1)}h/26h • Sleep credit: {(circadian.cumulativeSleepMinutes / 60).toFixed(1)}h/4.0h
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={coins < 1 || Boolean(pendingAction)}
+                onClick={() => handleUseCoin("circadian")}
+                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-mono font-black uppercase tracking-wider transition disabled:opacity-50 shrink-0 shadow-[0_0_10px_rgba(251,191,36,0.5)] flex items-center gap-1"
+              >
+                <Coins className="w-3.5 h-3.5 fill-black" />
+                <span>-3.0H AWAKE (+180M REST)</span>
+              </button>
+            </div>
+          )}
+
+          {/* 3. Sleep Deprivation Penalty Debuff */}
+          {isSleepDeprived && (
+            <div className="p-3.5 rounded-2xl bg-[#070b14]/90 border border-white/20 shadow-[0_0_14px_rgba(255,255,255,0.06)] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/70 text-red-400 shrink-0">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-white block truncate">
+                    <span className="text-red-400 font-black">SLEEP DEPRIVED</span> // REST PROTOCOL DEFICIT
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-300 block">
+                    -30% XP Speed • Cognitive stamina impaired
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={coins < 1 || Boolean(pendingAction)}
+                onClick={() => handleUseCoin("sleep_deprivation")}
+                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-mono font-black uppercase tracking-wider transition disabled:opacity-50 shrink-0 shadow-[0_0_10px_rgba(251,191,36,0.5)] flex items-center gap-1"
+              >
+                <Coins className="w-3.5 h-3.5 fill-black" />
+                <span>PURGE 1 COIN (-3H)</span>
+              </button>
+            </div>
+          )}
+
+          {/* 4. Biological Fatigue Strain */}
+          {fatigueStatus.tier !== "optimal" && (
+            <div className="p-3.5 rounded-2xl bg-[#070b14]/90 border border-white/20 shadow-[0_0_14px_rgba(255,255,255,0.06)] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/70 text-red-400 shrink-0">
+                  <Brain className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-white block truncate">
+                    <span className="text-red-400 font-black">BIOLOGICAL STRAIN</span> // {fatigueStatus.statusLabel.toUpperCase()}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-300 block">
+                    Physical: {profile.physical_fatigue}% • Mental: {profile.mental_fatigue}%
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={coins < 1 || Boolean(pendingAction)}
+                onClick={() => handleUseCoin("fatigue")}
+                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-mono font-black uppercase tracking-wider transition disabled:opacity-50 shrink-0 shadow-[0_0_10px_rgba(251,191,36,0.5)] flex items-center gap-1"
+              >
+                <Coins className="w-3.5 h-3.5 fill-black" />
+                <span>PURGE -30% FATIGUE</span>
+              </button>
+            </div>
+          )}
+
+          {/* Tranquil Optimal State if No Debuffs */}
+          {!hasAnyDebuff && (
+            <div className="p-6 rounded-2xl bg-cyan-950/20 border border-cyan-500/30 text-center space-y-2">
+              <div className="w-10 h-10 rounded-full bg-cyan-500/10 border border-cyan-400/50 text-cyan-300 flex items-center justify-center mx-auto shadow-[0_0_14px_rgba(0,229,255,0.25)]">
+                <Shield className="w-5 h-5" />
+              </div>
+              <h4 className="text-sm font-bold text-white font-solo">
+                ALL BIOLOGICAL SYSTEMS OPTIMAL
+              </h4>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                No active poison, sleep exhaustion, or biological strain detected. Your {coins} Grace Coin{coins !== 1 ? "s are" : " is"} safely preserved in the System Sanctuary for emergency purification.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -237,13 +298,12 @@ export function StatAllocationModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-mono font-bold text-xs uppercase tracking-wider transition"
+            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-mono font-bold text-white transition"
           >
-            CONFIRM &amp; RETURN TO SYSTEM
+            RETURN TO SYSTEM
           </button>
         </div>
       </div>
     </div>
   );
 }
-

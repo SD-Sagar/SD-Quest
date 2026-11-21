@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/store";
@@ -182,6 +182,20 @@ export function TodayDashboardView({
   const stepsTarget = 6000;
   const streakInfo = getEffectiveStreakInfo(profile, todayDateStr);
 
+  const userMainDomain = profile.active_main_quest || (isGymEnabled ? "fitness" : "career");
+  const isMainGoalCompleted = useMemo(() => {
+    if (userMainDomain === "career") {
+      return quests.some((q) => q.category === "career" && q.status === "completed");
+    }
+    if (userMainDomain === "education") {
+      return quests.some((q) => q.category === "education" && q.status === "completed");
+    }
+    if (userMainDomain === "finance") {
+      return quests.some((q) => q.category === "finance" && q.status === "completed");
+    }
+    return isTodayWorkoutCompleted || isSunday;
+  }, [userMainDomain, quests, isTodayWorkoutCompleted, isSunday]);
+
   return (
     <div className="min-h-screen bg-[#05070c] text-slate-100 selection:bg-cyan-500 selection:text-black">
       {/* Top Ambient Mana Glow */}
@@ -362,6 +376,8 @@ export function TodayDashboardView({
               streakMessage={streakInfo.statusMessage}
               initialCrateClaimed={profile.last_mystery_box_claimed_date === todayDateStr}
               enableGym={isGymEnabled}
+              activeMainQuest={userMainDomain}
+              isMainGoalCompleted={isMainGoalCompleted}
             />
 
             {/* Quests Engine */}
@@ -379,6 +395,7 @@ export function TodayDashboardView({
                 quests={quests}
                 profile={profile}
                 hideCreationButtons={true}
+                compactView={true}
                 mainQuestSplit={
                   isGymEnabled
                     ? {

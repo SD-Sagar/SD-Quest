@@ -30,7 +30,7 @@ export function getRankForLevel(level: number): HunterRank {
   return "Recruit";
 }
 export type QuestClassification = "permanent" | "temporary" | "scheduled";
-export type QuestCategory = "career" | "fitness" | "routine" | "education" | "household" | "social" | "personal" | "sleep";
+export type QuestCategory = "career" | "fitness" | "routine" | "education" | "finance" | "household" | "social" | "personal" | "sleep";
 export type QuestStatus = "pending" | "in_progress" | "completed" | "failed" | "excused";
 export type ConditionStatus = "normal" | "fatigued" | "chicken" | "medical_sanctuary";
 export type DayOfWeek = "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
@@ -150,6 +150,7 @@ export interface EquipmentInventory {
   has_ez_bar?: boolean;
   ez_bar_weight_kg?: number;
   has_cable_pulley?: boolean;
+  has_leg_developer?: boolean;
   plate_10kg_count?: number;
   plate_5kg_count: number;
   plate_2_5kg_count: number;
@@ -168,7 +169,8 @@ export type ExerciseRequiredEquipment =
   | "barbell"
   | "bench_and_barbell"
   | "ez_bar"
-  | "cable_pulley";
+  | "cable_pulley"
+  | "leg_developer";
 
 export type MetCategory =
   | "general_resistance"

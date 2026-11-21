@@ -50,6 +50,7 @@ export default function CharacterCreationPage() {
   const [hasEzBar, setHasEzBar] = useState(true);
   const [ezBarWeight, setEzBarWeight] = useState(5.0);
   const [hasCablePulley, setHasCablePulley] = useState(true);
+  const [hasLegDeveloper, setHasLegDeveloper] = useState(true);
   const [handleWeight, setHandleWeight] = useState(2.0);
   const [plate10kgCount, setPlate10kgCount] = useState(2); // 20 kg
   const [plate5kgCount, setPlate5kgCount] = useState(8); // 40 kg
@@ -120,6 +121,7 @@ export default function CharacterCreationPage() {
         hasEzBar: enableGym && !isCalisthenicsOnly ? hasEzBar : false,
         ezBarWeightKg: Number(ezBarWeight),
         hasCablePulley: enableGym && !isCalisthenicsOnly ? hasCablePulley : false,
+        hasLegDeveloper: enableGym && !isCalisthenicsOnly ? hasLegDeveloper : false,
         plate10kgCount: enableGym && !isCalisthenicsOnly ? Number(plate10kgCount) : 0,
         plate5kgCount: enableGym && !isCalisthenicsOnly ? Number(plate5kgCount) : 0,
         plate25kgCount: enableGym && !isCalisthenicsOnly ? Number(plate25kgCount) : 0,
@@ -530,6 +532,28 @@ export default function CharacterCreationPage() {
                       }`}
                     >
                       {hasCablePulley ? "EQUIPPED ✓" : "MISSING ✕"}
+                    </button>
+                  </div>
+
+                  {/* Bench Leg Developer (Extension & Curl) */}
+                  <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-white block">Bench Leg Developer</span>
+                      <span className="text-[10px] text-slate-400 font-mono">Plate-Loaded Leg Extension &amp; Curl Attachment</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setHasLegDeveloper(!hasLegDeveloper);
+                      }}
+                      className={`px-3 py-1 rounded-xl text-xs font-mono font-bold border transition ${
+                        hasLegDeveloper
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-400 shadow-sm"
+                          : "bg-red-950/40 text-red-400 border-red-500/40"
+                      }`}
+                    >
+                      {hasLegDeveloper ? "EQUIPPED ✓" : "MISSING ✕"}
                     </button>
                   </div>
                 </div>

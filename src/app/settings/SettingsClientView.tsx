@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { updateHunterSettingsAction, logoutAction } from "@/server/actions/auth.actions";
 import { triggerHaptic } from "@/lib/utils";
 import { Profile, EquipmentInventory, DailyNutritionTargets } from "@/types";
@@ -9,6 +10,7 @@ import {
   Dumbbell,
   Utensils,
   CheckCircle2,
+  AlertTriangle,
   Briefcase,
   BookOpen,
   DollarSign,
@@ -32,8 +34,10 @@ export function SettingsClientView({
   equipment,
   nutritionTargets,
 }: SettingsClientViewProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [successMsg, setSuccessMsg] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Form states
   const [name, setName] = useState(profile.name);
@@ -50,6 +54,7 @@ export function SettingsClientView({
   const [hasEzBar, setHasEzBar] = useState(equipment?.has_ez_bar ?? false);
   const [ezBarWeight, setEzBarWeight] = useState(equipment?.ez_bar_weight_kg ?? 5.0);
   const [hasCablePulley, setHasCablePulley] = useState(equipment?.has_cable_pulley ?? false);
+  const [hasLegDeveloper, setHasLegDeveloper] = useState(equipment?.has_leg_developer ?? false);
   const [handleWeight, setHandleWeight] = useState(equipment?.dumbbell_handle_weight_kg ?? 2.0);
   const [plate10kgCount, setPlate10kgCount] = useState(equipment?.plate_10kg_count ?? 0);
   const [plate5kgCount, setPlate5kgCount] = useState(equipment?.plate_5kg_count ?? 8);
@@ -75,6 +80,7 @@ export function SettingsClientView({
     e.preventDefault();
     triggerHaptic("heavy");
     setSuccessMsg(false);
+    setErrorMsg(null);
 
     startTransition(async () => {
       const res = await updateHunterSettingsAction({
@@ -88,6 +94,7 @@ export function SettingsClientView({
         hasEzBar,
         ezBarWeightKg: Number(ezBarWeight),
         hasCablePulley,
+        hasLegDeveloper,
         dumbbellHandleWeightKg: Number(handleWeight),
         plate10kgCount: Number(plate10kgCount),
         plate5kgCount: Number(plate5kgCount),
@@ -101,7 +108,11 @@ export function SettingsClientView({
       if (res.success) {
         setSuccessMsg(true);
         triggerHaptic("success");
-        setTimeout(() => setSuccessMsg(false), 3000);
+        router.refresh();
+        setTimeout(() => setSuccessMsg(false), 3500);
+      } else {
+        setErrorMsg(res.error || "Failed to update hunter settings.");
+        triggerHaptic("warning");
       }
     });
   };
@@ -113,6 +124,13 @@ export function SettingsClientView({
           <div className="p-3.5 rounded-2xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2 font-mono">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>System ledger updated successfully. Changes applied across all modules.</span>
+          </div>
+        )}
+
+        {errorMsg && (
+          <div className="p-3.5 rounded-2xl bg-red-950/70 border border-red-500/60 text-red-300 text-xs flex items-center gap-2 font-mono">
+            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+            <span>{errorMsg}</span>
           </div>
         )}
 
@@ -349,6 +367,30 @@ export function SettingsClientView({
                   {hasCablePulley ? "EQUIPPED ✓" : "MISSING ✕"}
                 </button>
               </div>
+
+              {/* Bench Leg Developer (Extension & Curl) */}
+              <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-white block">Bench Leg Developer</span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Plate-Loaded Leg Extension &amp; Hamstring Curl Attachment
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setHasLegDeveloper(!hasLegDeveloper);
+                  }}
+                  className={`px-3 py-1 rounded-xl text-xs font-mono font-bold border transition ${
+                    hasLegDeveloper
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-400 shadow-sm"
+                      : "bg-red-950/40 text-red-400 border-red-500/40"
+                  }`}
+                >
+                  {hasLegDeveloper ? "EQUIPPED ✓" : "MISSING ✕"}
+                </button>
+              </div>
             </div>
 
             {/* Weight Plate Inventory */}
@@ -497,6 +539,44 @@ export function SettingsClientView({
           </form>
         </div>
       </div>
+
+      {/* FLOATING SYSTEM TOAST (ALWAYS VISIBLE REGARDLESS OF SCROLL POSITION) */}
+      {successMsg && (
+        <div className="fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 max-w-md w-[92%] sm:w-auto px-4 py-3 rounded-2xl bg-[#05070c]/95 border border-cyan-400 shadow-[0_0_25px_rgba(0,229,255,0.4)] backdrop-blur-md animate-in slide-in-from-bottom-5 duration-300 flex items-center gap-3">
+          <div className="p-1.5 rounded-lg bg-cyan-950 border border-cyan-400 text-cyan-400">
+            <CheckCircle2 className="w-4 h-4 text-cyan-300" />
+          </div>
+          <div className="min-w-0 pr-2">
+            <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-widest block font-solo">
+              SYSTEM CONFIGURATION APPLIED
+            </span>
+            <p className="text-xs text-white font-hud truncate">
+              System ledger updated successfully. Changes applied across all modules.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 max-w-md w-[92%] sm:w-auto px-4 py-3 rounded-2xl bg-[#05070c]/95 border border-red-500 shadow-[0_0_25px_rgba(239,68,68,0.4)] backdrop-blur-md animate-in slide-in-from-bottom-5 duration-300 flex items-center gap-3">
+          <div className="p-1.5 rounded-lg bg-red-950 border border-red-500 text-red-400">
+            <AlertTriangle className="w-4 h-4 text-red-400" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-[10px] font-mono font-bold text-red-400 uppercase tracking-widest block font-solo">
+              SYSTEM REJECTION
+            </span>
+            <p className="text-xs text-white font-hud truncate">{errorMsg}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMsg(null)}
+            className="p-1 text-slate-400 hover:text-white"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

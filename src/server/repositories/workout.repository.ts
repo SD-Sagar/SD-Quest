@@ -18,7 +18,17 @@ export class WorkoutRepository {
       throw new Error(`Failed to fetch equipment inventory: ${error.message}`);
     }
 
-    return data as EquipmentInventory;
+    const equip = data as EquipmentInventory;
+    if (equip && equip.has_leg_developer === undefined) {
+      try {
+        const { data: prof } = await supabase.from("profiles").select("active_session_state").eq("id", userId).single();
+        if (prof?.active_session_state?.has_leg_developer !== undefined) {
+          equip.has_leg_developer = Boolean(prof.active_session_state.has_leg_developer);
+        }
+      } catch {}
+    }
+
+    return equip;
   }
 
   static async upsertEquipment(userId: string, equipment: Partial<EquipmentInventory>): Promise<EquipmentInventory> {
@@ -43,6 +53,7 @@ export class WorkoutRepository {
       has_ez_bar: equipment.has_ez_bar ?? false,
       ez_bar_weight_kg: equipment.ez_bar_weight_kg ?? 5.0,
       has_cable_pulley: equipment.has_cable_pulley ?? false,
+      has_leg_developer: equipment.has_leg_developer ?? false,
       plate_5kg_count: equipment.plate_5kg_count ?? 8,
       plate_2_5kg_count: equipment.plate_2_5kg_count ?? 4,
       plate_2kg_count: equipment.plate_2kg_count ?? 4,
@@ -54,11 +65,12 @@ export class WorkoutRepository {
 
     let { data, error } = await supabase
       .from("equipment_inventory")
-      .upsert(payload)
+      .upsert(payload, { onConflict: "user_id" })
       .select()
       .single();
 
     if (error && error.message.toLowerCase().includes("column")) {
+      delete payload.has_leg_developer;
       delete payload.plate_10kg_count;
       delete payload.has_barbell;
       delete payload.barbell_weight_kg;
@@ -67,7 +79,7 @@ export class WorkoutRepository {
       delete payload.has_cable_pulley;
       const retry = await supabase
         .from("equipment_inventory")
-        .upsert(payload)
+        .upsert(payload, { onConflict: "user_id" })
         .select()
         .single();
       data = retry.data;
@@ -78,7 +90,23 @@ export class WorkoutRepository {
       throw new Error(`Failed to update equipment inventory: ${error.message}`);
     }
 
-    return data as EquipmentInventory;
+    // Resilient sync of extended equipment flags to active_session_state
+    try {
+      const { data: prof } = await supabase.from("profiles").select("active_session_state").eq("id", userId).single();
+      const sessionState = prof?.active_session_state || {};
+      sessionState.has_leg_developer = equipment.has_leg_developer ?? false;
+      sessionState.has_barbell = equipment.has_barbell ?? false;
+      sessionState.has_ez_bar = equipment.has_ez_bar ?? false;
+      sessionState.has_cable_pulley = equipment.has_cable_pulley ?? false;
+      await supabase.from("profiles").update({ active_session_state: sessionState }).eq("id", userId);
+    } catch {}
+
+    const result = data as EquipmentInventory;
+    if (result && equipment.has_leg_developer !== undefined) {
+      result.has_leg_developer = equipment.has_leg_developer;
+    }
+
+    return result;
   }
 
   static async getExerciseCatalog(): Promise<ExerciseDefinition[]> {

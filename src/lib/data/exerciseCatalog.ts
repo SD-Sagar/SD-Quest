@@ -7695,6 +7695,11 @@ export function isExerciseCompatibleWithEquipment(
     return !!equipment.has_cable_pulley;
   }
 
+  // Leg developer requirements (plate-loaded leg extension & curl on bench)
+  if (exercise.required_equipment === "leg_developer") {
+    return !!(equipment.has_bench && equipment.has_leg_developer);
+  }
+
   // Dumbbell requirements (has total plates > 0 or handle weight > 0)
   const totalDumbbellPlates =
     (equipment.plate_10kg_count || 0) +

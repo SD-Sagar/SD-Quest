@@ -1124,5 +1124,609 @@ export const NEW_GYM_AND_CALISTHENICS_EXERCISES: MasterExercise[] = [
       { step: 2, title: "Knee Drive", description: "Drive knee directly to chest cavity.", coachTip: "Stay low." },
       { step: 3, title: "Switch Cadence", description: "Rapid alternating rhythm under control.", coachTip: "Breathe continuously." }
     ]
+  },
+
+  // =========================================================================
+  // BENCH LEG DEVELOPER ATTACHMENT (QUAD EXTENSIONS & HAMSTRING CURLS)
+  // =========================================================================
+  {
+    id: "ex-bench-leg-extension",
+    name: "Seated Bench Leg Extension (Plate-Loaded)",
+    split_day: "Monday",
+    order_index: 3,
+    target_muscle: "Quadriceps (Rectus Femoris & Vasti)",
+    secondary_muscles: ["Patellar Tendon", "Hip Flexors"],
+    bench_angle: "Flat",
+    required_equipment: "leg_developer",
+    unlock_tier: "Recruit",
+    unlock_level: 1,
+    unlock_criteria: "Bench Leg Developer Isolation",
+    target_duration_mins: 7,
+    default_sets: 4,
+    default_reps_min: 10,
+    default_reps_max: 15,
+    default_rest_seconds: 60,
+    met_category: "general_resistance",
+    attribute_yield: { strength: 0.35, vitality: 0.25, endurance: 0.15 },
+    instructions: [
+      "Sit upright on the 20-in-1 bench with back flat against backrest and knees aligned with the pivot point.",
+      "Hook lower shins/ankles snugly beneath the foam padded lever loaded with weight plates.",
+      "Grip the bench sides for pelvic stabilization; brace core tightly.",
+      "Extend knees smoothly to raise legs straight out until fully locked horizontally.",
+      "Squeeze quadriceps forcefully at peak contraction for 1 full second, then lower under 3-second eccentric control."
+    ],
+    form_cues: ["Point toes slightly upward", "Pause at horizontal lockout", "Do not swing or kick hips", "Control the negative"],
+    common_mistakes: ["Using momentum/swinging hips off bench", "Incomplete knee extension", "Dropping weight abruptly"],
+    alternatives: ["Sissy Squats", "Isometric Wall Sit", "Single-Leg Bench Extension"],
+    demo_steps: [
+      { step: 1, title: "Ankle Anchor", description: "Lock shins behind foam roller, hips pinned to bench.", coachTip: "Align knee joint with machine pivot." },
+      { step: 2, title: "Horizontal Extension", description: "Drive legs straight up to lockout, contract quad teardrops.", coachTip: "Hold 1s at apex." },
+      { step: 3, title: "Resisted Lowering", description: "Lower slowly over 3 seconds to maintain continuous tension.", coachTip: "Feel the deep quad stretch." }
+    ]
+  },
+  {
+    id: "ex-bench-lying-leg-curl",
+    name: "Lying Bench Hamstring Leg Curl (Plate-Loaded)",
+    split_day: "Monday",
+    order_index: 4,
+    target_muscle: "Hamstrings (Biceps Femoris & Semitendinosus)",
+    secondary_muscles: ["Calves (Gastrocnemius)", "Glutes"],
+    bench_angle: "Flat",
+    required_equipment: "leg_developer",
+    unlock_tier: "Recruit",
+    unlock_level: 1,
+    unlock_criteria: "Bench Leg Developer Posterior Chain",
+    target_duration_mins: 7,
+    default_sets: 4,
+    default_reps_min: 10,
+    default_reps_max: 12,
+    default_rest_seconds: 60,
+    met_category: "general_resistance",
+    attribute_yield: { strength: 0.35, endurance: 0.25, discipline: 0.15 },
+    instructions: [
+      "Lie face-down (prone) flat on the bench with kneecaps resting just over the edge.",
+      "Position the lower Achilles/back of heels securely beneath the foam roller lever.",
+      "Grip front bench handles or frame edges firmly, pressing hips and pelvis flat into the bench pad.",
+      "Curl heels upward toward glutes in a smooth arc, flexing hamstrings fully at top peak.",
+      "Slowly lower lever back down until legs are almost fully extended, resisting the loaded plates."
+    ],
+    form_cues: ["Hips glued to bench", "Point toes straight back", "Full contraction at top", "Smooth negative"],
+    common_mistakes: ["Hips piking upward off bench pad", "Hyperextending lower lumbar", "Fast uncontrolled descent"],
+    alternatives: ["Barbell Romanian Deadlift", "Single-Leg Glute Bridges", "Nordic Hamstring Curls"],
+    demo_steps: [
+      { step: 1, title: "Prone Setup", description: "Lie prone, anchor heels under foam roller, grip frame.", coachTip: "Press pelvis into pad." },
+      { step: 2, title: "Heel-to-Glute Curl", description: "Contract hamstrings aggressively, curling lever to glutes.", coachTip: "Squeeze hamstrings at top." },
+      { step: 3, title: "Controlled Stretch", description: "Lower under control, stopping just shy of dead hang.", coachTip: "3-second descent." }
+    ]
+  },
+  {
+    id: "ex-bench-single-leg-extension",
+    name: "Single-Leg Bench Extension (Unilateral Quad Focus)",
+    split_day: "Monday",
+    order_index: 5,
+    target_muscle: "Quadriceps (Vastus Medialis Oblique - Teardrop)",
+    secondary_muscles: ["Patellar Stability", "Core"],
+    bench_angle: "Flat",
+    required_equipment: "leg_developer",
+    unlock_tier: "Initiate",
+    unlock_level: 6,
+    unlock_criteria: "Initiate Unilateral Leg Balance",
+    target_duration_mins: 6,
+    default_sets: 3,
+    default_reps_min: 12,
+    default_reps_max: 15,
+    default_rest_seconds: 45,
+    met_category: "general_resistance",
+    attribute_yield: { agility: 0.30, strength: 0.25, vitality: 0.20 },
+    instructions: [
+      "Sit upright with one leg centered behind the padded roller lever, resting opposite foot flat on floor.",
+      "Isolate active leg, extending knee straight out to horizontal lockout.",
+      "Pause for 1 second at peak contraction to stimulate the vastus medialis teardrop head.",
+      "Lower smoothly with strict tempo, complete all reps, then alternate sides."
+    ],
+    form_cues: ["Isolate one quad at a time", "Square hips on bench", "Full lockout at peak", "Fixes muscle imbalances"],
+    common_mistakes: ["Using torso sway to initiate lift", "Incomplete range of motion"],
+    alternatives: ["Seated Bench Leg Extension (Plate-Loaded)", "Pistol Squats"],
+    demo_steps: [
+      { step: 1, title: "Single Shin Placement", description: "Center one shin on roller, anchor opposite foot.", coachTip: "Zero torso lean." },
+      { step: 2, title: "Unilateral Drive", description: "Extend leg straight out to parallel.", coachTip: "Mind-muscle focus on quad." },
+      { step: 3, title: "Eccentric Lower", description: "Lower with controlled cadence.", coachTip: "Eliminate asymmetry." }
+    ]
+  },
+
+  // =========================================================================
+  // COACH-STRUCTURED TUESDAY (CHEST, TRICEPS & CALISTHENICS FINISHERS)
+  // =========================================================================
+  {
+    id: "ex-cable-crossover-low-to-high",
+    name: "Low-to-High Cable Chest Fly (Upper Clavicular Focus)",
+    split_day: "Tuesday",
+    order_index: 4,
+    target_muscle: "Upper Chest (Clavicular Head)",
+    secondary_muscles: ["Front Deltoids", "Core"],
+    bench_angle: "Floor / Standing",
+    required_equipment: "cable_pulley",
+    unlock_tier: "Initiate",
+    unlock_level: 5,
+    unlock_criteria: "Initiate Upper Chest Sculpting",
+    target_duration_mins: 7,
+    default_sets: 4,
+    default_reps_min: 12,
+    default_reps_max: 15,
+    default_rest_seconds: 60,
+    met_category: "general_resistance",
+    attribute_yield: { strength: 0.30, discipline: 0.25, agility: 0.15 },
+    instructions: [
+      "Set cable attachments to lowest pulley position with D-handles.",
+      "Take a step forward into a staggered stance with chest high and elbows slightly bent.",
+      "Drive hands upward and inward in a sweeping arc, meeting at upper chest/chin level.",
+      "Squeeze upper pectorals tightly at the top, then lower with controlled resistance."
+    ],
+    form_cues: ["Chest proud", "Scoop upward", "Keep elbows fixed at soft bend", "Peak squeeze"],
+    common_mistakes: ["Using excessive shoulder shrugging", "Bending and straightening elbows like a press"],
+    alternatives: ["Standing Cable Chest Fly (Pulley)", "Incline Dumbbell Fly"],
+    demo_steps: [
+      { step: 1, title: "Low Stagger", description: "Low cables, step forward, chest up.", coachTip: "Solid staggered base." },
+      { step: 2, title: "Scoop to Center", description: "Sweep hands up and together toward chin line.", coachTip: "Squeeze upper pecs." },
+      { step: 3, title: "Wide Negative", description: "Return wide under tension.", coachTip: "Feel the stretch across chest." }
+    ]
+  },
+  {
+    id: "ex-diamond-pushups",
+    name: "Diamond Close-Grip Push-Ups (Triceps & Inner Chest)",
+    split_day: "Tuesday",
+    order_index: 5,
+    target_muscle: "Triceps Lateral & Medial Heads",
+    secondary_muscles: ["Inner Chest", "Front Deltoids", "Core"],
+    bench_angle: "Floor / Standing",
+    required_equipment: "bodyweight",
+    unlock_tier: "Recruit",
+    unlock_level: 2,
+    unlock_criteria: "Calisthenics Tricep Overload",
+    target_duration_mins: 6,
+    default_sets: 3,
+    default_reps_min: 10,
+    default_reps_max: 15,
+    default_rest_seconds: 60,
+    met_category: "general_bodyweight",
+    attribute_yield: { strength: 0.35, discipline: 0.25, endurance: 0.20 },
+    instructions: [
+      "Assume standard plank position, placing thumbs and index fingers together on floor forming a diamond shape.",
+      "Lower chest directly down until touching the back of hands, keeping elbows tucked close to torso.",
+      "Press through triceps and palms forcefully to full lockout at the top."
+    ],
+    form_cues: ["Elbows tucked 30° to body", "Form diamond with fingers", "Full lockout at apex", "Rigid core plank"],
+    common_mistakes: ["Flaring elbows 90° outward (strains wrists)", "Sagging lumbar spine"],
+    alternatives: ["Bench Tricep Dips (Bodyweight)", "Cable Tricep Pushdown (Pulley)"],
+    demo_steps: [
+      { step: 1, title: "Diamond Base", description: "Hands touching beneath sternum, legs straight.", coachTip: "Diamond with index & thumbs." },
+      { step: 2, title: "Sternum Drop", description: "Lower chest to back of hands, elbows tracking back.", coachTip: "Keep body rigid." },
+      { step: 3, title: "Tricep Lockout", description: "Drive palms into ground, fully extending arms.", coachTip: "Flex triceps at top." }
+    ]
+  },
+  {
+    id: "ex-decline-pushups",
+    name: "Decline Push-Ups (Feet Elevated on Bench)",
+    split_day: "Tuesday",
+    order_index: 6,
+    target_muscle: "Upper Chest & Front Deltoids",
+    secondary_muscles: ["Triceps", "Serratus Anterior", "Core"],
+    bench_angle: "Floor / Standing",
+    required_equipment: "bodyweight",
+    unlock_tier: "Recruit",
+    unlock_level: 3,
+    unlock_criteria: "Calisthenics Clavicular Loading",
+    target_duration_mins: 6,
+    default_sets: 3,
+    default_reps_min: 10,
+    default_reps_max: 15,
+    default_rest_seconds: 60,
+    met_category: "general_bodyweight",
+    attribute_yield: { strength: 0.35, agility: 0.20, discipline: 0.20 },
+    instructions: [
+      "Place toes elevated on the 20-in-1 bench with hands flat on floor shoulder-width apart.",
+      "Maintain a straight rigid plank from heels to crown of head.",
+      "Lower chest smoothly toward floor until nose is 1 inch away, keeping core tight.",
+      "Press floor away to full lockout, focusing tension onto upper clavicular chest."
+    ],
+    form_cues: ["Feet elevated on bench pad", "Head neutral", "Tuck elbows slightly", "Deep upper chest stretch"],
+    common_mistakes: ["Excessive lower back sagging", "Pushing hips back instead of pressing vertically"],
+    alternatives: ["Archer Push-Ups", "Incline Barbell Bench Press (30°)"],
+    demo_steps: [
+      { step: 1, title: "Elevated Feet", description: "Toes on bench, hands stacked under shoulders on floor.", coachTip: "Brace abs." },
+      { step: 2, title: "Floor Dip", description: "Lower upper body controlled toward floor.", coachTip: "Feel upper chest stretch." },
+      { step: 3, title: "Lockout", description: "Drive through hands to full extension.", coachTip: "Protract shoulders at top." }
+    ]
+  },
+
+  // =========================================================================
+  // COACH-STRUCTURED WEDNESDAY (BACK & BICEPS EXTENSIONS)
+  // =========================================================================
+  {
+    id: "ex-seated-cable-row-close-grip",
+    name: "Seated Cable Row (Close-Grip V-Bar on Pulley)",
+    split_day: "Wednesday",
+    order_index: 3,
+    target_muscle: "Mid-Back (Rhomboids & Lower Lat Thickness)",
+    secondary_muscles: ["Biceps", "Rear Deltoids", "Spinal Erectors"],
+    bench_angle: "Floor / Standing",
+    required_equipment: "cable_pulley",
+    unlock_tier: "Recruit",
+    unlock_level: 2,
+    unlock_criteria: "Cable Pulley Thickness Foundation",
+    target_duration_mins: 8,
+    default_sets: 4,
+    default_reps_min: 10,
+    default_reps_max: 12,
+    default_rest_seconds: 75,
+    met_category: "general_resistance",
+    attribute_yield: { strength: 0.35, discipline: 0.25, endurance: 0.20 },
+    instructions: [
+      "Sit facing the cable pulley attachment with feet braced against footrests or bench frame, knees softly bent.",
+      "Grip V-bar handle with neutral grip, sit tall with chest puffed out and neutral spine.",
+      "Drive elbows straight back, pulling handle into lower abdomen while retracting shoulder blades.",
+      "Hold squeeze for 1 second, then extend arms forward under control to allow full lat stretch."
+    ],
+    form_cues: ["Chest out proud", "Drive with elbows", "Squeeze shoulder blades together", "No rocking torso"],
+    common_mistakes: ["Swinging torso backward to hoist load", "Shoulders shrugging upward toward ears"],
+    alternatives: ["Barbell Bent-Over Row", "Inverted Rows (Bodyweight Rows)"],
+    demo_steps: [
+      { step: 1, title: "Seated Brace", description: "Feet braced, knees soft, spine tall and neutral.", coachTip: "Chest proud." },
+      { step: 2, title: "Elbow Drive", description: "Pull handle to belly button, pin shoulder blades back.", coachTip: "Drive elbows back." },
+      { step: 3, title: "Controlled Stretch", description: "Extend arms forward, feeling deep lat stretch.", coachTip: "Do not round lower back." }
+    ]
+  },
+  {
+    id: "ex-straight-arm-cable-pulldown",
+    name: "Straight-Arm Cable Lat Pulldown",
+    split_day: "Wednesday",
+    order_index: 4,
+    target_muscle: "Lats (Latissimus Dorsi Sweep)",
+    secondary_muscles: ["Teres Major", "Triceps Long Head", "Core"],
+    bench_angle: "Floor / Standing",
+    required_equipment: "cable_pulley",
+    unlock_tier: "Initiate",
+    unlock_level: 5,
+    unlock_criteria: "Initiate Lat Sweep Isolation",
+    target_duration_mins: 7,
+    default_sets: 3,
+    default_reps_min: 12,
+    default_reps_max: 15,
+    default_rest_seconds: 60,
+    met_category: "general_resistance",
+    attribute_yield: { strength: 0.30, endurance: 0.25, discipline: 0.20 },
+    instructions: [
+      "Attach straight or lat bar to high pulley, stand with feet hip-width, hips hinged back 20°.",
+      "Grip bar with overhand grip wider than shoulders, arms nearly straight with elbows unlocked.",
+      "Without bending elbows, drive bar downward in an arc until touching upper thighs.",
+      "Contract lats fiercely at the bottom, then allow bar to rise smoothly back to eye level."
+    ],
+    form_cues: ["Arms stay locked in slight bend", "Drive bar down to hips", "Squeeze lats", "Torso stays stationary"],
+    common_mistakes: ["Bending elbows turning it into a tricep pushdown", "Swinging torso up and down"],
+    alternatives: ["Cable Lat Pulldown (Back Pull Chain)", "Dumbbell Pullover"],
+    demo_steps: [
+      { step: 1, title: "Hinged Posture", description: "Slight hip hinge, arms extended high at eye level.", coachTip: "Soft elbow lock." },
+      { step: 2, title: "Arc Pulldown", description: "Pull bar down to upper thighs in a sweeping arc.", coachTip: "Crush armpits closed." },
+      { step: 3, title: "High Stretch", description: "Let bar ascend back to eye height under control.", coachTip: "Feel lats lengthen." }
+    ]
+  },
+  {
+    id: "ex-doorframe-rows",
+    name: "Doorframe Isometric Rows (Zero-Equipment Pull)",
+    split_day: "Wednesday",
+    order_index: 5,
+    target_muscle: "Rhomboids, Lats & Biceps",
+    secondary_muscles: ["Grip", "Rear Deltoids", "Core"],
+    bench_angle: "Floor / Standing",
+    required_equipment: "bodyweight",
+    unlock_tier: "Recruit",
+    unlock_level: 1,
+    unlock_criteria: "Pure Calisthenics Home Pull",
+    target_duration_mins: 6,
+    default_sets: 3,
+    default_reps_min: 12,
+    default_reps_max: 15,
+    default_rest_seconds: 45,
+    met_category: "general_bodyweight",
+    attribute_yield: { strength: 0.30, endurance: 0.25, discipline: 0.20 },
+    instructions: [
+      "Stand facing a sturdy doorframe or structural pillar, feet close to base.",
+      "Grip edge firmly with hands at chest height, lean torso backward until arms are fully extended.",
+      "Pull chest firmly into the frame, squeezing shoulder blades together and contracting biceps.",
+      "Lower backward under control, resisting with back muscles."
+    ],
+    form_cues: ["Feet braced against doorframe", "Squeeze shoulder blades", "Control the negative", "Great home alternative"],
+    common_mistakes: ["Pulling only with arms without engaging back", "Jerking torso"],
+    alternatives: ["Inverted Rows (Bodyweight Rows)", "Strict Deadhang Pull-Ups"],
+    demo_steps: [
+      { step: 1, title: "Grip Edge", description: "Grip doorframe securely, lean back with arms straight.", coachTip: "Body in straight plank." },
+      { step: 2, title: "Chest to Frame", description: "Pull torso directly into doorframe edge.", coachTip: "Squeeze scapulae." },
+      { step: 3, title: "Controlled Fall", description: "Lower body back smoothly.", coachTip: "Feel back stretch." }
+    ]
+  },
+
+  // =========================================================================
+  // COACH-STRUCTURED THURSDAY (DELTS, TRAPS & ROTATOR CUFF)
+  // =========================================================================
+  {
+    id: "ex-cable-lateral-raise",
+    name: "Single-Arm Cable Lateral Raise (Continuous Tension)",
+    split_day: "Thursday",
+    order_index: 3,
+    target_muscle: "Lateral Deltoids (Shoulder Width)",
+    secondary_muscles: ["Trapezius", "Forearms"],
+    bench_angle: "Floor / Standing",
+    required_equipment: "cable_pulley",
+    unlock_tier: "Recruit",
+    unlock_level: 2,
+    unlock_criteria: "Cable Lateral Hypertrophy",
+    target_duration_mins: 7,
+    default_sets: 4,
+    default_reps_min: 12,
+    default_reps_max: 15,
+    default_rest_seconds: 45,
+    met_category: "general_resistance",
+    attribute_yield: { agility: 0.35, strength: 0.25, discipline: 0.20 },
+    instructions: [
+      "Set cable pulley to lowest position, stand perpendicular to frame holding D-handle with outside hand.",
+      "Cable runs behind body or across front of thighs.",
+      "Raise arm out to the side until parallel to floor, leading with elbow and pinky finger slightly higher than thumb.",
+      "Hold peak contraction for 1 second, then lower slowly resisting the cable's continuous inward pull."
+    ],
+    form_cues: ["Lead with elbow", "Pinky slightly tilted up", "No swinging torso", "Constant tension throughout"],
+    common_mistakes: ["Using momentum/shrugging neck", "Lifting above shoulder height", "Dropping weight fast"],
+    alternatives: ["Standing Lateral Raise", "Pike Push-Ups"],
+    demo_steps: [
+      { step: 1, title: "Perpendicular Base", description: "Stand side-on to pulley, handle in outside hand.", coachTip: "Arm across thigh." },
+      { step: 2, title: "Lateral Arc", description: "Raise arm outward to shoulder height.", coachTip: "Lead with elbow." },
+      { step: 3, title: "Slow Descent", description: "Lower with 3-second cadence resisting weight stack.", coachTip: "Constant tension." }
+    ]
+  },
+  {
+    id: "ex-barbell-shrugs",
+    name: "Barbell Power Shrugs (Heavy Trapezius Loading)",
+    split_day: "Thursday",
+    order_index: 4,
+    target_muscle: "Upper Trapezius",
+    secondary_muscles: ["Forearms & Grip", "Spinal Erectors"],
+    bench_angle: "Floor / Standing",
+    required_equipment: "barbell",
+    unlock_tier: "Recruit",
+    unlock_level: 3,
+    unlock_criteria: "Barbell Trapezius Foundation",
+    target_duration_mins: 7,
+    default_sets: 4,
+    default_reps_min: 10,
+    default_reps_max: 12,
+    default_rest_seconds: 75,
+    met_category: "general_resistance",
+    attribute_yield: { strength: 0.40, discipline: 0.25, endurance: 0.15 },
+    instructions: [
+      "Stand tall holding barbell with shoulder-width overhand grip at mid-thigh level.",
+      "Without bending elbows, elevate shoulders directly toward ears as high as humanly possible.",
+      "Hold squeeze for 2 seconds at the top contraction, feeling traps bunch tightly.",
+      "Lower shoulders slowly under control back to starting position."
+    ],
+    form_cues: ["Elevate straight up to ears", "Do not roll shoulders backward or forward", "2-second squeeze at apex", "Arms stay straight ropes"],
+    common_mistakes: ["Rolling shoulders (grinds rotator cuff)", "Bending elbows to assist lift", "Using knee bounce"],
+    alternatives: ["EZ-Bar Upright Row (Curly Rod)", "Dumbbell Shrugs"],
+    demo_steps: [
+      { step: 1, title: "Erect Stance", description: "Bar resting on thighs, arms straight like chains.", coachTip: "Spine neutral." },
+      { step: 2, title: "Shoulders to Ears", description: "Shrug traps violently toward ears.", coachTip: "Hold 2s squeeze." },
+      { step: 3, title: "Smooth Reset", description: "Lower straight down.", coachTip: "Control the stretch." }
+    ]
+  },
+  {
+    id: "ex-pike-pushups",
+    name: "Calisthenics Pike Push-Ups (Vertical Deltoid Power)",
+    split_day: "Thursday",
+    order_index: 5,
+    target_muscle: "Front & Lateral Deltoids",
+    secondary_muscles: ["Triceps", "Upper Trapezius", "Core"],
+    bench_angle: "Floor / Standing",
+    required_equipment: "bodyweight",
+    unlock_tier: "Recruit",
+    unlock_level: 2,
+    unlock_criteria: "Calisthenics Shoulder Mastery",
+    target_duration_mins: 6,
+    default_sets: 3,
+    default_reps_min: 8,
+    default_reps_max: 12,
+    default_rest_seconds: 60,
+    met_category: "general_bodyweight",
+    attribute_yield: { strength: 0.35, agility: 0.25, discipline: 0.20 },
+    instructions: [
+      "Assume a downward dog / inverted V-shape position, hips piked high, hands on floor shoulder-width apart.",
+      "Look back toward feet; head aligns between arms.",
+      "Lower head diagonally forward in a tripod pattern until crown gently touches floor.",
+      "Press through palms backward and upward to push back into piked V-shape."
+    ],
+    form_cues: ["Hips piked as high as possible", "Tripod descent pattern", "Elbows track back 45°", "Press back and up"],
+    common_mistakes: ["Flaring elbows out 90°", "Flattening body into a standard pushup"],
+    alternatives: ["Wall Handstand Hold", "Standing Barbell Overhead Military Press"],
+    demo_steps: [
+      { step: 1, title: "Inverted V", description: "Hips high in the air, legs straight, hands planted.", coachTip: "Pike hips high." },
+      { step: 2, title: "Crown Dip", description: "Lower head diagonally forward ahead of fingertips.", coachTip: "Tripod shape." },
+      { step: 3, title: "Vertical Press", description: "Press through palms returning to inverted V.", coachTip: "Push head through shoulders." }
+    ]
+  },
+
+  // =========================================================================
+  // COACH-STRUCTURED FRIDAY (POSTERIOR CHAIN & UPPER BACK)
+  // =========================================================================
+  {
+    id: "ex-barbell-conventional-deadlift",
+    name: "Barbell Conventional Deadlift (Master Kinetic Chain)",
+    split_day: "Friday",
+    order_index: 1,
+    target_muscle: "Entire Posterior Chain (Erectors, Glutes, Hamstrings)",
+    secondary_muscles: ["Trapezius", "Lats", "Forearms & Grip", "Core"],
+    bench_angle: "Floor / Standing",
+    required_equipment: "barbell",
+    unlock_tier: "Initiate",
+    unlock_level: 5,
+    unlock_criteria: "Initiate Supreme Posterior Power",
+    target_duration_mins: 10,
+    default_sets: 4,
+    default_reps_min: 5,
+    default_reps_max: 8,
+    default_rest_seconds: 120,
+    met_category: "squats_deadlifts",
+    attribute_yield: { strength: 0.50, vitality: 0.25, discipline: 0.25 },
+    instructions: [
+      "Stand with mid-foot directly beneath the loaded barbell, shins 1 inch away, feet hip-width.",
+      "Hinge at hips, grip bar just outside knees with double-overhand or mixed grip.",
+      "Drop hips slightly until shins touch bar; pull slack out of bar and lock lats into back pockets.",
+      "Brace core with deep abdominal breath, push floor away through mid-foot to stand erect.",
+      "Lock hips and knees firmly at top without hyperextending lumbar; lower under controlled hip hinge."
+    ],
+    form_cues: ["Pull slack out of bar", "Push floor away", "Bar drags against shins", "Neutral spine throughout"],
+    common_mistakes: ["Rounding lumbar spine (cat back)", "Hips shooting up before bar leaves floor", "Over-arching lower back at lockout"],
+    alternatives: ["Barbell Romanian Deadlift (RDL)", "Barbell Back Squat"],
+    demo_steps: [
+      { step: 1, title: "Barbell Wedge", description: "Shins against bar, lats squeezed tight, spine locked.", coachTip: "Pull slack out of bar." },
+      { step: 2, title: "Floor Push", description: "Drive floor away aggressively with legs.", coachTip: "Keep bar close to body." },
+      { step: 3, title: "Crisp Lockout", description: "Stand tall, squeeze glutes firmly.", coachTip: "Do not lean back." }
+    ]
+  },
+  {
+    id: "ex-bodyweight-bulgarian-split-squat",
+    name: "Bodyweight Bulgarian Split Squats (Unilateral Leg Power)",
+    split_day: "Friday",
+    order_index: 3,
+    target_muscle: "Glutes & Quadriceps",
+    secondary_muscles: ["Hamstrings", "Calves", "Core Stabilizers"],
+    bench_angle: "Flat",
+    required_equipment: "bodyweight",
+    unlock_tier: "Recruit",
+    unlock_level: 2,
+    unlock_criteria: "Unilateral Calisthenics Mastery",
+    target_duration_mins: 7,
+    default_sets: 3,
+    default_reps_min: 10,
+    default_reps_max: 12,
+    default_rest_seconds: 60,
+    met_category: "general_bodyweight",
+    attribute_yield: { strength: 0.35, agility: 0.30, vitality: 0.20 },
+    instructions: [
+      "Stand facing away from the bench, place top of rear foot laces down on the flat bench.",
+      "Front foot takes a long stride forward so front knee tracks over ankle when descended.",
+      "Lower torso vertically until rear knee hovers 1 inch above floor.",
+      "Drive aggressively through front heel to return to top, keeping torso upright."
+    ],
+    form_cues: ["90% of weight on front heel", "Torso slightly angled forward", "Drive through front mid-foot", "Full hip extension at top"],
+    common_mistakes: ["Stance too short jamming front knee forward", "Pushing off back foot"],
+    alternatives: ["Walking Lunges with Dumbbells", "Side Lunges (Cossack Squats)"],
+    demo_steps: [
+      { step: 1, title: "Elevated Rear Foot", description: "Laces flat on bench, front foot set forward.", coachTip: "Find your balance." },
+      { step: 2, title: "Vertical Descent", description: "Drop hips down until back knee hovers over floor.", coachTip: "Weight on front heel." },
+      { step: 3, title: "Ascent", description: "Press through front heel to stand tall.", coachTip: "Feel deep glute activation." }
+    ]
+  },
+
+  // =========================================================================
+  // COACH-STRUCTURED SATURDAY (ARM SPECIALIZATION & GRIP)
+  // =========================================================================
+  {
+    id: "ex-close-grip-barbell-bench-press",
+    name: "Close-Grip Barbell Bench Press (Heavy Tricep Compound)",
+    split_day: "Saturday",
+    order_index: 1,
+    target_muscle: "Triceps Brachii (All 3 Heads)",
+    secondary_muscles: ["Front Deltoids", "Inner Chest"],
+    bench_angle: "Flat",
+    required_equipment: "bench_and_barbell",
+    unlock_tier: "Recruit",
+    unlock_level: 3,
+    unlock_criteria: "Tricep Power Compound",
+    target_duration_mins: 8,
+    default_sets: 4,
+    default_reps_min: 8,
+    default_reps_max: 10,
+    default_rest_seconds: 90,
+    met_category: "general_resistance",
+    attribute_yield: { strength: 0.40, discipline: 0.25, endurance: 0.15 },
+    instructions: [
+      "Lie flat on the 20-in-1 bench with eyes beneath the racked barbell.",
+      "Grip bar with shoulder-width grip (hands ~12-14 inches apart, inside shoulder lines).",
+      "Unrack, lower bar with elbows tucked 30°-45° toward torso until touching lower sternum.",
+      "Press through triceps and palms forcefully back to vertical lockout."
+    ],
+    form_cues: ["Shoulder-width grip (not too narrow)", "Elbows tucked close to ribs", "Touch lower chest", "Full tricep lockout"],
+    common_mistakes: ["Hands touching each other (wrecks wrists)", "Flaring elbows out wide"],
+    alternatives: ["EZ-Bar Skull Crushers (Lying Triceps Extension)", "Chest Dips"],
+    demo_steps: [
+      { step: 1, title: "Shoulder-Width Grip", description: "Hands 12-14 inches apart, shoulder-width.", coachTip: "Protect wrists." },
+      { step: 2, title: "Tucked Descent", description: "Lower bar to bottom of ribcage, elbows tight to body.", coachTip: "Elbows in." },
+      { step: 3, title: "Lockout", description: "Drive bar straight up, flexing triceps at top.", coachTip: "Lock out arms firmly." }
+    ]
+  },
+  {
+    id: "ex-ez-bar-reverse-curls",
+    name: "EZ-Bar Reverse Curls (Brachialis & Forearm Armor)",
+    split_day: "Saturday",
+    order_index: 4,
+    target_muscle: "Brachialis & Brachioradialis (Forearms)",
+    secondary_muscles: ["Biceps", "Wrist Extensors & Grip"],
+    bench_angle: "Floor / Standing",
+    required_equipment: "ez_bar",
+    unlock_tier: "Recruit",
+    unlock_level: 2,
+    unlock_criteria: "Forearm & Grip Armor",
+    target_duration_mins: 6,
+    default_sets: 3,
+    default_reps_min: 10,
+    default_reps_max: 12,
+    default_rest_seconds: 60,
+    met_category: "general_resistance",
+    attribute_yield: { strength: 0.30, discipline: 0.25, endurance: 0.20 },
+    instructions: [
+      "Stand tall holding EZ curl bar with overhand (pronated) grip on outer angled grips.",
+      "Pin upper arms to ribs, keep wrists straight without cocking backward.",
+      "Curl bar upward in a smooth arc to shoulder height using forearms and brachialis.",
+      "Lower bar slowly with strict negative, maintaining overhand wrist integrity."
+    ],
+    form_cues: ["Overhand pronated grip", "Elbows pinned to sides", "Do not flick wrists", "Squeeze forearms at apex"],
+    common_mistakes: ["Swinging elbows forward", "Bending wrists backward under weight"],
+    alternatives: ["EZ-Bar Standing Bicep Curl (Curly Rod)", "Inverted Rows"],
+    demo_steps: [
+      { step: 1, title: "Overhand Grip", description: "Hands over outer bends of EZ bar, arms extended.", coachTip: "Wrists firm." },
+      { step: 2, title: "Brachialis Curl", description: "Curl bar upward keeping knuckles facing ceiling.", coachTip: "Feel deep forearm burn." },
+      { step: 3, title: "Negative Control", description: "Lower with 3-second tempo.", coachTip: "Build dense forearms." }
+    ]
+  },
+  {
+    id: "ex-cable-overhead-tricep-extension",
+    name: "Cable Overhead Rope Tricep Extension (Long Head Stretch)",
+    split_day: "Saturday",
+    order_index: 3,
+    target_muscle: "Triceps Brachii (Long Head)",
+    secondary_muscles: ["Core", "Shoulder Stabilizers"],
+    bench_angle: "Floor / Standing",
+    required_equipment: "cable_pulley",
+    unlock_tier: "Recruit",
+    unlock_level: 3,
+    unlock_criteria: "Tricep Long Head Deep Stretch",
+    target_duration_mins: 7,
+    default_sets: 3,
+    default_reps_min: 12,
+    default_reps_max: 15,
+    default_rest_seconds: 60,
+    met_category: "general_resistance",
+    attribute_yield: { strength: 0.30, agility: 0.25, discipline: 0.20 },
+    instructions: [
+      "Attach rope handle to high or mid cable pulley, turn facing away from the stack into a staggered stance.",
+      "Hold rope ends behind head with elbows pointed upward toward ceiling.",
+      "Extend forearms forward and overhead, flaring rope apart at the peak lockout.",
+      "Return slowly, allowing forearms to travel deep behind head for a massive long head stretch."
+    ],
+    form_cues: ["Elbows stay pointed high", "Flare rope apart at top", "Deep stretch behind neck", "Solid staggered stance"],
+    common_mistakes: ["Dropping elbows down to shoulders", "Arching lower back"],
+    alternatives: ["EZ-Bar Skull Crushers (Lying Triceps Extension)", "Cable Tricep Pushdown (Pulley)"],
+    demo_steps: [
+      { step: 1, title: "Forward Stagger", description: "Rope behind neck, elbows high and forward.", coachTip: "Stable core." },
+      { step: 2, title: "Overhead Lockout", description: "Extend arms forward-overhead, pull rope apart.", coachTip: "Flex long head." },
+      { step: 3, title: "Deep Stretch", description: "Lower rope behind head feeling deep tricep stretch.", coachTip: "Keep elbows fixed." }
+    ]
   }
 ];

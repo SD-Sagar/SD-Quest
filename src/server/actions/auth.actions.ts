@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { PlayerRepository } from "@/server/repositories/player.repository";
 import { WorkoutRepository } from "@/server/repositories/workout.repository";
 import { NutritionRepository } from "@/server/repositories/nutrition.repository";
@@ -162,6 +163,7 @@ export async function initializeCharacterAction(params: {
   hasEzBar?: boolean;
   ezBarWeightKg?: number;
   hasCablePulley?: boolean;
+  hasLegDeveloper?: boolean;
   plate10kgCount?: number;
   plate5kgCount: number;
   plate25kgCount: number;
@@ -206,6 +208,7 @@ export async function initializeCharacterAction(params: {
       has_ez_bar: params.hasEzBar ?? false,
       ez_bar_weight_kg: params.ezBarWeightKg ?? 5.0,
       has_cable_pulley: params.hasCablePulley ?? false,
+      has_leg_developer: params.hasLegDeveloper ?? false,
       plate_10kg_count: params.plate10kgCount ?? 0,
       plate_5kg_count: params.plate5kgCount,
       plate_2_5kg_count: params.plate25kgCount,
@@ -246,6 +249,7 @@ export async function updateHunterSettingsAction(params: {
   hasEzBar?: boolean;
   ezBarWeightKg?: number;
   hasCablePulley?: boolean;
+  hasLegDeveloper?: boolean;
   plate10kgCount?: number;
   plate5kgCount?: number;
   plate25kgCount?: number;
@@ -277,6 +281,7 @@ export async function updateHunterSettingsAction(params: {
       params.hasBarbell !== undefined ||
       params.hasEzBar !== undefined ||
       params.hasCablePulley !== undefined ||
+      params.hasLegDeveloper !== undefined ||
       params.plate10kgCount !== undefined ||
       params.plate5kgCount !== undefined
     ) {
@@ -288,6 +293,7 @@ export async function updateHunterSettingsAction(params: {
         has_ez_bar: params.hasEzBar ?? false,
         ez_bar_weight_kg: params.ezBarWeightKg ?? 5.0,
         has_cable_pulley: params.hasCablePulley ?? false,
+        has_leg_developer: params.hasLegDeveloper ?? false,
         plate_10kg_count: params.plate10kgCount ?? 0,
         plate_5kg_count: params.plate5kgCount ?? 8,
         plate_2_5kg_count: params.plate25kgCount ?? 4,
@@ -302,6 +308,11 @@ export async function updateHunterSettingsAction(params: {
         monthly_budget_inr: params.monthlyBudgetInr,
       });
     }
+
+    revalidatePath("/settings");
+    revalidatePath("/gym");
+    revalidatePath("/quests");
+    revalidatePath("/");
 
     return { success: true };
   } catch (err: any) {

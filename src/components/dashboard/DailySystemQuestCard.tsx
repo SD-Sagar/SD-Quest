@@ -30,6 +30,8 @@ interface DailySystemQuestCardProps {
   streakMessage?: string;
   initialCrateClaimed?: boolean;
   enableGym?: boolean;
+  activeMainQuest?: string;
+  isMainGoalCompleted?: boolean;
 }
 
 export function DailySystemQuestCard({
@@ -48,6 +50,8 @@ export function DailySystemQuestCard({
   streakMessage,
   initialCrateClaimed = false,
   enableGym = true,
+  activeMainQuest = "fitness",
+  isMainGoalCompleted,
 }: DailySystemQuestCardProps) {
   const [crateClaimed, setCrateClaimed] = useState(initialCrateClaimed);
   const [currentStreakDisplay, setCurrentStreakDisplay] = useState(streakDays);
@@ -65,12 +69,32 @@ export function DailySystemQuestCard({
     setCurrentStreakDisplay(streakDays);
   }, [initialCrateClaimed, streakDays]);
 
-  const task1Done = enableGym ? (workoutCompleted || isRestDay) : (completedQuestsCount >= 1);
+  // Dynamic Challenge 1 based on Hunter's Active Main Quest Domain
+  const mainQuestDomain = activeMainQuest || (enableGym ? "fitness" : "career");
+  const isFitnessDomain = mainQuestDomain === "fitness";
+
+  const task1Done = isFitnessDomain
+    ? (workoutCompleted || isRestDay)
+    : (isMainGoalCompleted !== undefined ? isMainGoalCompleted : completedQuestsCount >= 1);
   const task2Done = currentHydrationMl >= targetHydrationMl;
   const task3Done = currentSteps >= targetSteps;
-  const task4Done = enableGym
+  const task4Done = isFitnessDomain
     ? (completedQuestsCount >= 1)
     : (completedQuestsCount >= 2 || (completedQuestsCount >= 1 && totalQuestsCount <= 1));
+
+  let task1Title = "1. Physical Conditioning";
+  let task1Subtitle = isRestDay ? "Recovery Protocol" : "Today's Split or 100 Pushups";
+
+  if (mainQuestDomain === "career") {
+    task1Title = "1. Career & Professional Focus";
+    task1Subtitle = "Conquer Priority Work Sprint or Milestone";
+  } else if (mainQuestDomain === "education") {
+    task1Title = "1. Intellectual Mastery";
+    task1Subtitle = "Complete Deep Study or Academic Sprint";
+  } else if (mainQuestDomain === "finance") {
+    task1Title = "1. Financial Governance";
+    task1Subtitle = "Track Expenses, Revenue or Budget Audit";
+  }
 
   const totalTasks = 4;
   const completedTasks = [task1Done, task2Done, task3Done, task4Done].filter(Boolean).length;
@@ -206,14 +230,10 @@ export function DailySystemQuestCard({
             )}
             <div className="truncate">
               <span className="font-bold block truncate">
-                {enableGym ? "1. Physical Conditioning" : "1. Primary Directive Focus"}
+                {task1Title}
               </span>
               <span className="text-[10px] text-slate-400 truncate block">
-                {enableGym
-                  ? isRestDay
-                    ? "Recovery Protocol"
-                    : "Today's Split or 100 Pushups"
-                  : "Execute Active Main Quest Directives"}
+                {task1Subtitle}
               </span>
             </div>
           </div>

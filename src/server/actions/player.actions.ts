@@ -20,6 +20,24 @@ export async function allocateStatPointAction(attribute: string, points: number 
   return result;
 }
 
+export async function useGraceCoinAction(debuffType: "poison" | "circadian" | "sleep_deprivation" | "fatigue") {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  const result = await PlayerRepository.useGraceCoin(user.id, debuffType);
+  revalidatePath("/");
+  revalidatePath("/quests");
+  revalidatePath("/gym");
+  revalidatePath("/diet");
+  return result;
+}
+
 export async function updateEquipmentPlatesAction(plates: {
   plate_5kg_count: number;
   plate_2_5kg_count: number;
