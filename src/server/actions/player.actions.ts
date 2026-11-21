@@ -247,3 +247,18 @@ export async function applySleepDeprivationAction(minutesSlept: number) {
   return result;
 }
 
+export async function logManualSleepSessionAction(minutesSlept: number) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Unauthorized");
+
+  const result = await PlayerRepository.logManualSleepSession(user.id, minutesSlept);
+  revalidatePath("/");
+  revalidatePath("/quests");
+  revalidatePath("/gym");
+  return result;
+}
+

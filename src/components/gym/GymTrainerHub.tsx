@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useAppDispatch } from "@/store";
 import { startWorkoutSession, restoreWorkoutSession } from "@/store/slices/workoutUiSlice";
 import { triggerHaptic } from "@/lib/utils";
@@ -9,6 +10,7 @@ import {
   getRankVolumeWarning,
   calculateExtraWorkoutXpMultiplier,
 } from "@/lib/calculations/gym";
+import { calculateCircadianAwakeStatus } from "@/lib/calculations/fatigue";
 import {
   MasterExercise,
   getDayExercises,
@@ -52,6 +54,7 @@ import {
   ChevronUp,
   AlertTriangle,
   X,
+  Moon,
 } from "lucide-react";
 
 const SPLIT_SCHEDULE: { day: DayOfWeek; title: string; subtitle: string; isRest: boolean }[] = [
@@ -117,6 +120,16 @@ export function GymTrainerHub({
   const [isMobileCompactView, setIsMobileCompactView] = useState(false);
   const [isPlateCalcExpanded, setIsPlateCalcExpanded] = useState(false);
   const [isProtocolIntelOpen, setIsProtocolIntelOpen] = useState(false);
+
+  const sessionState = ((profile?.active_session_state as any) || {});
+  const circadian = calculateCircadianAwakeStatus({
+    lastSleepStartedAt: profile?.last_sleep_started_at || sessionState.last_sleep_started_at,
+    lastSleepCompletedAt: profile?.last_sleep_completed_at,
+    rollingSleepMinutes: profile?.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes,
+    isCurrentlySleeping: Boolean(sessionState.is_sleeping),
+    createdAt: profile?.created_at,
+  });
+  const isCircadianLocked = !devUnlockOverride && circadian.isPhysicalTrainingLocked;
   const [warningModalData, setWarningModalData] = useState<{
     title: string;
     message: string;
@@ -789,6 +802,38 @@ export function GymTrainerHub({
                     <span className="text-[11px] text-slate-500 font-sans">
                       Inspect biomechanics or launch individual Solo Trials from the codex below.
                     </span>
+                  </div>
+                ) : isCircadianLocked ? (
+                  <div className="space-y-2.5 pt-1">
+                    <div className="w-full py-4 px-4 rounded-2xl bg-red-950/80 border border-red-500/70 text-red-200 font-mono text-xs text-center flex flex-col items-center justify-center gap-2 shadow-[0_0_20px_rgba(239,68,68,0.25)]">
+                      <div className="flex items-center gap-2 font-bold text-red-300 uppercase tracking-wider animate-pulse">
+                        <Lock className="w-4 h-4 text-red-400" />
+                        <span>CIRCADIAN BIOMECHANICAL LOCKOUT</span>
+                      </div>
+                      <p className="text-[11px] text-red-300/90 font-sans max-w-md leading-relaxed">
+                        {circadian.isExhaustionLockout
+                          ? `Awake for ${circadian.hoursAwakeLive.toFixed(1)}h (exceeded 26h limit). High-load resistance training is locked to prevent motor failure and cardiac strain. Enter bed or log sleep to restore biomechanical capacity.`
+                          : `Cumulative sleep is only ${(circadian.cumulativeSleepMinutes / 60).toFixed(1)}h (minimum 4.0h required in 26h window). Complete an afternoon recovery nap or sleep session to unlock training.`}
+                      </p>
+                      <Link
+                        href="/quests"
+                        className="mt-1 px-4 py-2 rounded-xl bg-red-900/90 hover:bg-red-800 text-white font-bold text-xs uppercase tracking-wider border border-red-500/60 transition flex items-center gap-2 shadow"
+                      >
+                        <Moon className="w-3.5 h-3.5" />
+                        <span>ENTER RESTORATIVE STASIS // SLEEP PROTOCOL</span>
+                      </Link>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("heavy");
+                        setDevUnlockOverride(true);
+                      }}
+                      className="w-full solo-btn-secondary py-2 text-[11px]"
+                    >
+                      <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>DEV OVERRIDE // BYPASS CIRCADIAN LOCKOUT FOR TESTING</span>
+                    </button>
                   </div>
                 ) : isTodayCompleted && !devUnlockOverride ? (
                   <div className="space-y-2 pt-1">

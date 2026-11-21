@@ -6,7 +6,7 @@ import { Profile, PlayerAttributes, AttributeType } from "@/types";
 import { calculateAge, triggerHaptic } from "@/lib/utils";
 import { getRemainingPoisonTime } from "@/lib/calculations/nutrition";
 import { StatAllocationModal } from "./StatAllocationModal";
-import { getFatigueStatus } from "@/lib/calculations/fatigue";
+import { getFatigueStatus, calculateCircadianAwakeStatus } from "@/lib/calculations/fatigue";
 import { useLiveFatigue } from "@/lib/hooks/useLiveFatigue";
 import { useAppSelector } from "@/store";
 import {
@@ -20,6 +20,7 @@ import {
   Brain,
   Flame,
   Droplets,
+  Moon,
 } from "lucide-react";
 
 interface CharacterHUDProps {
@@ -56,6 +57,15 @@ export function CharacterHUD({
 
   const activeWorkout = useAppSelector((state) => state.workoutUi);
   const isWorkoutActive = activeWorkout.isActive && activeWorkout.status !== "completed";
+
+  const sessionState = ((profile.active_session_state as any) || {});
+  const circadian = calculateCircadianAwakeStatus({
+    lastSleepStartedAt: profile.last_sleep_started_at || sessionState.last_sleep_started_at,
+    lastSleepCompletedAt: profile.last_sleep_completed_at,
+    rollingSleepMinutes: profile.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes,
+    isCurrentlySleeping: Boolean(sessionState.is_sleeping),
+    createdAt: profile.created_at,
+  });
 
   const recoveryStats = useMemo(
     () => ({
@@ -133,6 +143,30 @@ export function CharacterHUD({
       href?: string;
       onClick?: () => void;
     }[] = [];
+
+    // 0. Circadian Exhaustion Lockout (26h+ Awake Deficit) (RED)
+    if (circadian.isExhaustionLockout) {
+      list.push({
+        id: "circadian-lockout",
+        type: "debuff",
+        title: "CRITICAL EXHAUSTION // 26H+ SLEEP DEFICIT",
+        description: `-50 XP/m Mana leak • 0% XP rate • Awake ${circadian.hoursAwakeLive.toFixed(1)}h`,
+        badge: "LOCKOUT",
+        icon: <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />,
+        href: "/quests",
+      });
+    } else if (!circadian.hasAdequateSleep) {
+      const sleptH = (circadian.cumulativeSleepMinutes / 60).toFixed(1);
+      list.push({
+        id: "inadequate-sleep",
+        type: "debuff",
+        title: `INADEQUATE REST (${sleptH}h / 4.0h MINIMUM)`,
+        description: "Physical conditioning & Gym locked • Afternoon recovery nap needed",
+        badge: "LOCKED",
+        icon: <Moon className="w-3.5 h-3.5 text-red-400 shrink-0" />,
+        href: "/quests",
+      });
+    }
 
     // 1. Alcohol Poison / Intoxication Debuff (RED)
     if (poisonInfo.isPoisoned) {
@@ -233,6 +267,7 @@ export function CharacterHUD({
     return list;
   }, [
     poisonInfo,
+    circadian,
     fatigueStatus,
     displayPhysical,
     displayMental,
@@ -458,20 +493,28 @@ export function CharacterHUD({
           </span>
           <span
             className={`text-[9.5px] font-mono font-bold px-2 py-0.5 rounded border ${
-              fatigueStatus.tier !== "optimal"
+              circadian.isExhaustionLockout
+                ? "bg-red-950/90 text-red-300 border-red-500/70 animate-pulse"
+                : !circadian.hasAdequateSleep
+                ? "bg-red-950/80 text-red-300 border-red-500/60"
+                : fatigueStatus.tier !== "optimal"
                 ? "bg-red-950/80 text-red-300 border-red-500/60 animate-pulse"
                 : "bg-cyan-950/60 text-cyan-300 border-cyan-500/30"
             }`}
           >
-            {fatigueStatus.statusLabel}
+            {circadian.isExhaustionLockout
+              ? "EXHAUSTION LOCKOUT"
+              : !circadian.hasAdequateSleep
+              ? "SLEEP DEFICIT"
+              : fatigueStatus.statusLabel}
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-3 gap-2">
           {/* Mental Fatigue Mini Ring */}
-          <div className="p-2 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center gap-2.5">
-            <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
-              <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+          <div className="p-2 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center gap-2">
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center">
+              <svg className="w-9 h-9 sm:w-10 sm:h-10 -rotate-90" viewBox="0 0 36 36">
                 <circle
                   cx="18"
                   cy="18"
@@ -495,7 +538,7 @@ export function CharacterHUD({
               <Brain className="w-3.5 h-3.5 text-cyan-400 absolute" />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block truncate">
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400 block truncate">
                 MENTAL
               </span>
               <span className="text-xs font-mono font-black text-white">
@@ -505,9 +548,9 @@ export function CharacterHUD({
           </div>
 
           {/* Physical Fatigue Mini Ring */}
-          <div className="p-2 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center gap-2.5">
-            <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
-              <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+          <div className="p-2 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center gap-2">
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center">
+              <svg className="w-9 h-9 sm:w-10 sm:h-10 -rotate-90" viewBox="0 0 36 36">
                 <circle
                   cx="18"
                   cy="18"
@@ -531,7 +574,7 @@ export function CharacterHUD({
               <Flame className="w-3.5 h-3.5 text-amber-400 absolute" />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block truncate">
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400 block truncate">
                 PHYSICAL
               </span>
               <span className="text-xs font-mono font-black text-white">
@@ -539,11 +582,55 @@ export function CharacterHUD({
               </span>
             </div>
           </div>
+
+          {/* Circadian 26h Awake Mini Ring */}
+          <div className="p-2 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center gap-2">
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center">
+              <svg className="w-9 h-9 sm:w-10 sm:h-10 -rotate-90" viewBox="0 0 36 36">
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="15"
+                  className="stroke-slate-800"
+                  strokeWidth="3"
+                  fill="none"
+                />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="15"
+                  className={`${circadian.gaugeColor} transition-all duration-500`}
+                  strokeWidth="3"
+                  strokeDasharray="94.2"
+                  strokeDashoffset={94.2 - (94.2 * circadian.gaugePercentage) / 100}
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </svg>
+              <Moon className={`w-3.5 h-3.5 absolute ${circadian.isExhaustionLockout ? "text-red-400 animate-pulse" : "text-cyan-400"}`} />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400 block truncate">
+                CIRCADIAN
+              </span>
+              <span className={`text-[11px] sm:text-xs font-mono font-black truncate block ${circadian.isExhaustionLockout ? "text-red-400 animate-pulse" : "text-white"}`}>
+                {circadian.hoursAwakeLive.toFixed(1)}h/26h
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Dynamic Telemetry Status / Debuff Note */}
         <p className="text-[10px] font-mono text-slate-400 border-t border-slate-800/60 pt-1.5">
-          {fatigueStatus.isNeuralLockout ? (
+          {circadian.isExhaustionLockout ? (
+            <span className="text-red-400 font-bold animate-pulse">
+              ⚠ CRITICAL EXHAUSTION LOCKOUT ACTIVE: Awake {circadian.hoursAwakeLive.toFixed(1)}h (&ge; 26h limit)! -50 XP/min Mana leak active. Zero XP rate on all tasks. Enter bed or initiate sleep stasis immediately to halt decay!
+            </span>
+          ) : !circadian.hasAdequateSleep ? (
+            <span className="text-red-400 font-bold">
+              ⚠ INADEQUATE SLEEP ({Math.floor(circadian.cumulativeSleepMinutes / 60)}h {circadian.cumulativeSleepMinutes % 60}m / 4.0h): Physical conditioning &amp; gym protocols locked to prevent motor failure. Log an afternoon recovery nap to unlock!
+            </span>
+          ) : fatigueStatus.isNeuralLockout ? (
             <span className="text-red-400 font-bold animate-pulse">
               ⚠ BRAIN FOG LOCKOUT (0% XP ACTIVE): Mental fatigue &ge; 85%! Zero XP can be earned from any task until mental strain drops below 85%. Rest, fun activity, or cold drinks required.
             </span>
@@ -557,7 +644,7 @@ export function CharacterHUD({
             </span>
           ) : (
             <span className="text-cyan-400/80">
-              Optimal conditioning. Full 100% XP &amp; attribute growth active.
+              Optimal biological conditioning. Full 100% XP &amp; attribute growth active.
             </span>
           )}
         </p>

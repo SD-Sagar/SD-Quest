@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store";
 import {
   startQuestSession,
@@ -10,7 +11,8 @@ import {
 } from "@/store/slices/questUiSlice";
 import { completeQuestAction, deleteQuestAction, createQuestAction } from "@/server/actions/quest.actions";
 import { getTodaysWorkoutsAction } from "@/server/actions/workout.actions";
-import { saveActiveSessionAction, clearActiveSessionAction } from "@/server/actions/player.actions";
+import { saveActiveSessionAction, clearActiveSessionAction, logManualSleepSessionAction } from "@/server/actions/player.actions";
+import { calculateCircadianAwakeStatus } from "@/lib/calculations/fatigue";
 import { triggerHaptic } from "@/lib/utils";
 import { playQuestCompleteSound } from "@/lib/audio/soundEffects";
 import confetti from "canvas-confetti";
@@ -31,6 +33,11 @@ import {
   Flame,
   Award,
   Moon,
+  BedDouble,
+  AlertTriangle,
+  X,
+  Check,
+  Zap,
 } from "lucide-react";
 
 interface QuestListProps {
@@ -69,8 +76,10 @@ export function QuestList({
   mainQuestSplit,
 }: QuestListProps) {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const isQuestActive = useAppSelector((state) => state.questUi.isActive);
   const activeQuestInRedux = useAppSelector((state) => state.questUi.quest);
+  const questStartedAt = useAppSelector((state) => state.questUi.startedAtTimestamp);
   const isWorkoutActive = useAppSelector((state) => state.workoutUi.isActive);
 
   const [viewMode, setViewMode] = useState<ViewMode>("today");
@@ -78,6 +87,11 @@ export function QuestList({
   const [isPending, startTransition] = useTransition();
   const [completedWorkouts, setCompletedWorkouts] = useState<any[]>([]);
   const [isSeeding, setIsSeeding] = useState(false);
+
+  // Recovery Nap & Offline Sleep Modal State
+  const [isManualSleepModalOpen, setIsManualSleepModalOpen] = useState(false);
+  const [manualSleepMinutes, setManualSleepMinutes] = useState<number>(90);
+  const [manualSleepLoading, setManualSleepLoading] = useState(false);
 
   // Biological Sleep Directive Cooldown & State
   const lastSleepAt = profile?.last_sleep_completed_at
@@ -92,6 +106,28 @@ export function QuestList({
     (activeQuestInRedux?.category === "sleep" ||
       (activeQuestInRedux as any)?.is_sleep ||
       activeQuestInRedux?.id === "system-compulsory-sleep-stasis");
+
+  // Circadian Awake & Sleep Status Telemetry
+  const activeSleepDurationMinutes =
+    isSleepActive && questStartedAt
+      ? Math.max(0, (Date.now() - questStartedAt) / (1000 * 60))
+      : 0;
+
+  const circadian = useMemo(() => {
+    return calculateCircadianAwakeStatus({
+      lastSleepStartedAt: profile?.last_sleep_started_at,
+      lastSleepCompletedAt: profile?.last_sleep_completed_at,
+      rollingSleepMinutes: profile?.rolling_sleep_minutes || 0,
+      isCurrentlySleeping: isSleepActive,
+      currentSleepDurationMinutes: activeSleepDurationMinutes,
+    });
+  }, [
+    profile?.last_sleep_started_at,
+    profile?.last_sleep_completed_at,
+    profile?.rolling_sleep_minutes,
+    isSleepActive,
+    activeSleepDurationMinutes,
+  ]);
 
   useEffect(() => {
     getTodaysWorkoutsAction()
@@ -275,6 +311,25 @@ export function QuestList({
     // 12-Hour Lockout Guard for Main Sleep Directive
     if (q.id === "system-compulsory-sleep-stasis" && isSleepCooldown) {
       alert(`Main Sleep Protocol is locked for 12 hours (${cooldownHoursRemaining}h remaining). Only after 12 hours have passed can this main sleep directive be started again. You may forge a custom Sleep/Nap quest under Routine if you wish to sleep now.`);
+      return;
+    }
+
+    // Circadian Biomechanical Lockout for Physical/Fitness Directives
+    const isPhysicalQuest =
+      q.category === "fitness" ||
+      Boolean(
+        q.attribute_rewards?.strength ||
+        q.attribute_rewards?.agility ||
+        q.attribute_rewards?.endurance
+      );
+
+    if (isPhysicalQuest && circadian.isPhysicalTrainingLocked) {
+      alert(
+        `CIRCADIAN BIOMECHANICAL LOCKOUT\n\n` +
+        `Current sleep: ${(circadian.cumulativeSleepMinutes / 60).toFixed(1)}h / 4.0h required in this 26h circadian cycle (Awake: ${circadian.hoursAwakeLive.toFixed(1)}h).\n\n` +
+        `Physical training and conditioning quests are locked to prevent neuromuscular exhaustion and cardiac strain.\n\n` +
+        `Please initiate sleep or tap "LOG RECOVERY NAP / OFFLINE SLEEP" to reach at least 4.0 hours of cumulative sleep and lift this lockout.`
+      );
       return;
     }
 
@@ -652,10 +707,32 @@ export function QuestList({
                   <span className="text-[10px] font-mono font-semibold text-cyan-300/80 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
                     -35% MNT • -45% PHY
                   </span>
+                  <span
+                    className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+                      circadian.hasAdequateSleep
+                        ? "bg-cyan-950/60 text-cyan-300 border-cyan-500/30"
+                        : "bg-red-950/80 text-red-300 border-red-500/50 animate-pulse"
+                    }`}
+                  >
+                    {(circadian.cumulativeSleepMinutes / 60).toFixed(1)}h / 4.0h CYCLE SLEEP
+                  </span>
                 </div>
               </div>
 
-              <div className="shrink-0 sm:self-center">
+              <div className="shrink-0 sm:self-center flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("medium");
+                    setIsManualSleepModalOpen(true);
+                  }}
+                  className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl font-mono text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 bg-slate-900/90 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40 hover:border-cyan-400 shadow-sm"
+                  title="Log an offline sleep session or afternoon recovery nap to accumulate towards the 4.0h quota and lift physical training lockouts."
+                >
+                  <BedDouble className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>LOG NAP / OFFLINE SLEEP</span>
+                </button>
+
                 {isSleepActive ? (
                   <button
                     type="button"
@@ -968,6 +1045,20 @@ export function QuestList({
                         {quest.category}
                       </span>
 
+                      {/* Physical Training Circadian Lockout Indicator */}
+                      {(quest.category === "fitness" ||
+                        Boolean(
+                          quest.attribute_rewards?.strength ||
+                          quest.attribute_rewards?.agility ||
+                          quest.attribute_rewards?.endurance
+                        )) &&
+                        circadian.isPhysicalTrainingLocked && (
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-red-950/90 text-red-300 border border-red-500/60 animate-pulse flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 text-red-400" />
+                            LOCKED (SLEEP REQ)
+                          </span>
+                        )}
+
                       {isCurrentQuestActive && (
                         <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-950/90 text-cyan-300 border border-cyan-400 shadow-[0_0_8px_rgba(0,229,255,0.3)] animate-pulse flex items-center gap-1">
                           <Clock className="w-3 h-3 text-cyan-400 animate-spin" />
@@ -1074,6 +1165,129 @@ export function QuestList({
             );
           })}
       </div>
+
+      {/* MANUAL SLEEP & RECOVERY NAP MODAL */}
+      {isManualSleepModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-[#090d18] border border-cyan-500/50 rounded-2xl p-5 shadow-[0_0_30px_rgba(0,229,255,0.25)] space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-cyan-950 border border-cyan-500/40 text-cyan-400">
+                  <BedDouble className="w-5 h-5 text-cyan-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white font-solo tracking-wide">
+                    LOG OFFLINE SLEEP // RECOVERY NAP
+                  </h3>
+                  <span className="text-[10px] font-mono text-cyan-400">
+                    Circadian Quota Accumulator
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsManualSleepModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed font-hud">
+              Log offline rest or an afternoon recovery nap. Sleep duration accumulates towards your <strong>4.0-hour circadian quota</strong>, purges biological fatigue, and lifts physical training and gym lockouts.
+            </p>
+
+            {/* Quick Duration Presets */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                Quick Recovery Presets
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { label: "1.5h Power Nap", minutes: 90, desc: "Quick Flush" },
+                  { label: "2.0h Deep Nap", minutes: 120, desc: "REM Restoration" },
+                  { label: "3.0h Core Rest", minutes: 180, desc: "Deep Repair" },
+                  { label: "4.0h Safe Floor", minutes: 240, desc: "Clears Lockout" },
+                  { label: "6.0h Moderate", minutes: 360, desc: "Solid Rest" },
+                  { label: "8.0h Full Sleep", minutes: 480, desc: "Complete Cycle" },
+                ].map((preset) => (
+                  <button
+                    key={preset.minutes}
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setManualSleepMinutes(preset.minutes);
+                    }}
+                    className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                      manualSleepMinutes === preset.minutes
+                        ? "bg-cyan-950/80 border-cyan-400 shadow-[0_0_12px_rgba(0,229,255,0.3)] text-cyan-300"
+                        : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    }`}
+                  >
+                    <span className="text-xs font-mono font-bold">{preset.label}</span>
+                    <span className="text-[9.5px] text-slate-500 mt-0.5">{preset.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Minutes Input */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono text-slate-400 block uppercase">
+                Custom Duration (Minutes)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={15}
+                  max={720}
+                  step={15}
+                  value={manualSleepMinutes}
+                  onChange={(e) => setManualSleepMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-cyan-400"
+                />
+                <span className="text-xs font-mono text-slate-400 shrink-0">
+                  = {(manualSleepMinutes / 60).toFixed(1)} Hours
+                </span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsManualSleepModalOpen(false)}
+                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 font-mono text-xs font-bold transition"
+              >
+                CANCEL
+              </button>
+              <button
+                type="button"
+                disabled={manualSleepLoading || manualSleepMinutes <= 0}
+                onClick={async () => {
+                  if (manualSleepMinutes <= 0) return;
+                  setManualSleepLoading(true);
+                  try {
+                    await logManualSleepSessionAction(manualSleepMinutes);
+                    triggerHaptic("success");
+                    confetti({ particleCount: 70, spread: 70 });
+                    setIsManualSleepModalOpen(false);
+                    router.refresh();
+                  } catch (err: any) {
+                    alert(err?.message || "Failed to log sleep session");
+                  } finally {
+                    setManualSleepLoading(false);
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-mono text-xs font-black uppercase tracking-wider transition flex items-center gap-1.5 shadow-md shadow-cyan-950 disabled:opacity-50"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{manualSleepLoading ? "LOGGING REST..." : `CONFIRM ${(manualSleepMinutes / 60).toFixed(1)}H SLEEP`}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

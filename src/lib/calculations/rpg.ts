@@ -39,6 +39,70 @@ export function getRankForLevel(level: number): HunterRank {
 }
 
 /**
+ * Universal RPG Level & Rank Transition Engine:
+ * - Handles leveling up (newXp >= xpToNext) and de-leveling (newXp < 0).
+ * - On de-leveling: drops to previous level, sets XP to max - deficit, demotes class/rank.
+ * - Stops strictly at Level 1, 0 XP floor.
+ * - Hunter attributes and unlocks are permanently preserved.
+ */
+export function calculateLevelTransition(params: {
+  currentLevel: number;
+  currentXp: number;
+  xpDelta: number;
+}): {
+  newLevel: number;
+  newXp: number;
+  xpToNext: number;
+  levelsDelta: number;
+  newRank: HunterRank;
+  isDemoted: boolean;
+  isPromoted: boolean;
+} {
+  let newLevel = Math.max(1, params.currentLevel);
+  let newXp = params.currentXp + params.xpDelta;
+  let levelsDelta = 0;
+  let xpToNext = calculateXpForNextLevel(newLevel);
+
+  // 1. Level UP Loop
+  while (newXp >= xpToNext) {
+    newXp -= xpToNext;
+    newLevel += 1;
+    levelsDelta += 1;
+    xpToNext = calculateXpForNextLevel(newLevel);
+  }
+
+  // 2. De-Level Demotion Loop (Mana deficit drops below 0)
+  while (newXp < 0 && newLevel > 1) {
+    newLevel -= 1;
+    levelsDelta -= 1;
+    const prevRequiredXp = calculateXpForNextLevel(newLevel);
+    newXp = prevRequiredXp + newXp;
+    xpToNext = prevRequiredXp;
+  }
+
+  // 3. Absolute Floor at Level 1, 0 XP
+  if (newLevel <= 1 && newXp < 0) {
+    newLevel = 1;
+    newXp = 0;
+    xpToNext = calculateXpForNextLevel(1);
+  }
+
+  const newRank = getRankForLevel(newLevel);
+  const isDemoted = levelsDelta < 0;
+  const isPromoted = levelsDelta > 0;
+
+  return {
+    newLevel,
+    newXp,
+    xpToNext,
+    levelsDelta,
+    newRank,
+    isDemoted,
+    isPromoted,
+  };
+}
+
+/**
  * Computes fair, grounded attribute yield based on duration and difficulty.
  * Avoids hyper-inflation.
  */

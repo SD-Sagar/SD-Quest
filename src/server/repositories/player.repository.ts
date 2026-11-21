@@ -1,7 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { Profile, PlayerAttributes, AttributeTransaction, XpTransaction, HunterRank } from "@/types";
 import { calculateDailyCrateHarvest } from "@/lib/calculations/streak";
-import { calculatePassiveFatigueDecay, getFatigueStatus, calculateSleepProtocolRecovery, SleepProtocolResult } from "@/lib/calculations/fatigue";
+import {
+  calculatePassiveFatigueDecay,
+  getFatigueStatus,
+  calculateSleepProtocolRecovery,
+  calculateCircadianAwakeStatus,
+  SleepProtocolResult,
+} from "@/lib/calculations/fatigue";
+import { calculateLevelTransition, calculateXpForNextLevel, getRankForLevel } from "@/lib/calculations/rpg";
 
 export class PlayerRepository {
   static async getProfile(userId: string): Promise<Profile | null> {
@@ -18,10 +25,65 @@ export class PlayerRepository {
     }
 
     const profile = data as Profile;
+    const sessionState = ((profile.active_session_state as any) || {});
 
     // Resilient fallback for poison debuff expiry from active_session_state if dedicated column is not yet migrated
-    if (!profile.poison_expires_at && (profile.active_session_state as any)?.poison_expires_at) {
-      profile.poison_expires_at = (profile.active_session_state as any).poison_expires_at;
+    if (!profile.poison_expires_at && sessionState.poison_expires_at) {
+      profile.poison_expires_at = sessionState.poison_expires_at;
+    }
+
+    // Resilient fallback for circadian sleep telemetry
+    if (!profile.last_sleep_started_at && sessionState.last_sleep_started_at) {
+      profile.last_sleep_started_at = sessionState.last_sleep_started_at;
+    }
+    if (profile.rolling_sleep_minutes === undefined && sessionState.rolling_sleep_minutes !== undefined) {
+      profile.rolling_sleep_minutes = sessionState.rolling_sleep_minutes;
+    }
+
+    // Continuous Circadian 26h+ Exhaustion Mana Drain (-50 XP/min)
+    const lastSleepStarted =
+      profile.last_sleep_started_at ||
+      profile.last_sleep_completed_at ||
+      profile.created_at;
+    const isCurrentlySleeping = Boolean(sessionState.is_sleeping);
+
+    if (lastSleepStarted && !isCurrentlySleeping) {
+      const msSinceSleepStart = Date.now() - new Date(lastSleepStarted).getTime();
+      const hoursSinceSleepStart = msSinceSleepStart / 3600000;
+
+      if (hoursSinceSleepStart >= 26.0) {
+        const overdueMs = msSinceSleepStart - 26.0 * 3600000;
+        const totalOverdueMins = Math.floor(overdueMs / 60000);
+
+        const lastDrainAt = sessionState.last_circadian_drain_at;
+        let minsToDrain = totalOverdueMins;
+
+        if (lastDrainAt) {
+          const msSinceLastDrain = Date.now() - new Date(lastDrainAt).getTime();
+          minsToDrain = Math.floor(msSinceLastDrain / 60000);
+        }
+
+        if (minsToDrain > 0) {
+          const drainXp = minsToDrain * 50;
+          sessionState.last_circadian_drain_at = new Date().toISOString();
+
+          // Sync drain state to profile
+          supabase
+            .from("profiles")
+            .update({ active_session_state: sessionState })
+            .eq("id", userId)
+            .then();
+
+          // Apply negative XP delta with universal de-leveling
+          await this.grantXpAndAttributes({
+            userId,
+            xpDelta: -drainXp,
+            attrDeltas: {},
+            sourceType: "circadian_exhaustion_drain",
+            notes: `[CRITICAL EXHAUSTION LOCKOUT: 26H+ SLEEP DEFICIT (-50 XP/m for ${minsToDrain}m)]`,
+          });
+        }
+      }
     }
 
     // Continuous Passive Fatigue Decay:
@@ -258,20 +320,22 @@ export class PlayerRepository {
       }
     }
 
-    const { data, error } = await supabase.rpc("grant_xp_and_attributes", {
-      p_user_id: params.userId,
-      p_xp_delta: finalXpDelta,
-      p_attr_deltas: params.attrDeltas,
-      p_source_type: params.sourceType,
-      p_source_id: params.sourceId || null,
-      p_notes: finalNotes || null,
-    });
+    // If delta is negative (penalty/drain), always run through direct TypeScript transition engine
+    // to guarantee universal de-leveling and demotion without relying on Postgres RPC!
+    if (finalXpDelta >= 0) {
+      const { data, error } = await supabase.rpc("grant_xp_and_attributes", {
+        p_user_id: params.userId,
+        p_xp_delta: finalXpDelta,
+        p_attr_deltas: params.attrDeltas,
+        p_source_type: params.sourceType,
+        p_source_id: params.sourceId || null,
+        p_notes: finalNotes || null,
+      });
 
-    if (!error && data) {
-      return data;
+      if (!error && data) {
+        return data;
+      }
     }
-
-    console.warn(`[PlayerRepository] grant_xp_and_attributes RPC fallback engaged: ${error?.message}`);
 
     // Resilient fallback engine: Direct transaction in case RPC columns are undergoing migration
     const { data: currentProfile, error: profileErr } = await supabase
@@ -281,7 +345,7 @@ export class PlayerRepository {
       .single();
 
     if (profileErr || !currentProfile) {
-      throw new Error(`Failed to fetch hunter profile for RPG transaction: ${error?.message || profileErr?.message}`);
+      throw new Error(`Failed to fetch hunter profile for RPG transaction: ${profileErr?.message}`);
     }
 
     const { data: currentAttrs, error: attrErr } = await supabase
@@ -291,7 +355,7 @@ export class PlayerRepository {
       .single();
 
     if (attrErr || !currentAttrs) {
-      throw new Error(`Failed to fetch player attributes for RPG transaction: ${error?.message || attrErr?.message}`);
+      throw new Error(`Failed to fetch player attributes for RPG transaction: ${attrErr?.message}`);
     }
 
     const updatedAttrs: Record<string, any> = { ...currentAttrs };
@@ -349,40 +413,30 @@ export class PlayerRepository {
       }
     }
 
-    // 10-Class Quadratic Level Progression: XP(L) = 500 + 25 * (L^2 - 1)
-    let newLevel = currentProfile.current_level || 1;
-    let newXp = (currentProfile.current_xp || 0) + finalXpDelta;
-    const totalXp = (currentProfile.lifetime_total_xp || 0) + Math.max(0, finalXpDelta);
-    let highestLevel = currentProfile.lifetime_highest_level || newLevel;
-    let xpToNext = Math.max(500, 500 + 25 * (newLevel * newLevel - 1));
-    let levelsGained = 0;
+    // Universal 10-Class Quadratic Level & De-Leveling Progression
+    const transition = calculateLevelTransition({
+      currentLevel: currentProfile.current_level || 1,
+      currentXp: currentProfile.current_xp || 0,
+      xpDelta: finalXpDelta,
+    });
+
+    const newLevel = transition.newLevel;
+    const newXp = transition.newXp;
+    const xpToNext = transition.xpToNext;
+    const newRank = transition.newRank;
+    const totalXp = Math.max(0, (currentProfile.lifetime_total_xp || 0) + finalXpDelta);
+    const highestLevel = Math.max(currentProfile.lifetime_highest_level || 1, newLevel);
     let newStatPoints = currentProfile.unallocated_stat_points || 0;
 
-    while (newXp >= xpToNext) {
-      newXp -= xpToNext;
-      newLevel += 1;
-      levelsGained += 1;
-      xpToNext = 500 + 25 * (newLevel * newLevel - 1);
-      if (newLevel > highestLevel) {
-        highestLevel = newLevel;
-      }
+    if (transition.isPromoted && transition.levelsDelta > 0) {
+      newStatPoints += transition.levelsDelta * 3;
     }
 
-    if (levelsGained > 0) {
-      newStatPoints += levelsGained * 3;
+    if (transition.isDemoted) {
+      finalNotes = finalNotes
+        ? `${finalNotes} [DEMOTED TO LVL ${newLevel} (${newRank})]`
+        : `[DEMOTED TO LVL ${newLevel} (${newRank})]`;
     }
-
-    let newRank: HunterRank = "Recruit";
-    if (newLevel >= 100) newRank = "Spartan";
-    else if (newLevel >= 90) newRank = "Ascendant";
-    else if (newLevel >= 80) newRank = "Sovereign";
-    else if (newLevel >= 70) newRank = "Juggernaut";
-    else if (newLevel >= 60) newRank = "Warlord";
-    else if (newLevel >= 50) newRank = "Gladiator";
-    else if (newLevel >= 40) newRank = "Knight";
-    else if (newLevel >= 30) newRank = "Vanguard";
-    else if (newLevel >= 20) newRank = "Warrior";
-    else if (newLevel >= 10) newRank = "Initiate";
 
     await supabase
       .from("profiles")
@@ -649,11 +703,18 @@ export class PlayerRepository {
     const newPhysical = Math.max(0, Number((currentPhysical + result.physicalDelta).toFixed(2)));
 
     const now = new Date();
+    const sessionStartIso = new Date(now.getTime() - minutesSlept * 60 * 1000).toISOString();
+    const sessionState = ((profile?.active_session_state as any) || {});
+    const currentRolling = Number(profile?.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes ?? 0);
+    const newRolling = currentRolling + minutesSlept;
+
     const updatePayload: Record<string, any> = {
       mental_fatigue: newMental,
       physical_fatigue: newPhysical,
       last_fatigue_update_at: now.toISOString(),
       last_sleep_completed_at: now.toISOString(),
+      last_sleep_started_at: sessionStartIso,
+      rolling_sleep_minutes: newRolling,
       updated_at: now.toISOString(),
     };
 
@@ -661,6 +722,20 @@ export class PlayerRepository {
       updatePayload.exp_booster_multiplier = 2.0;
       updatePayload.exp_booster_expires_at = new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString();
     }
+
+    // Cumulative 4.0h sleep threshold clears sleep deprivation debuff
+    if (newRolling >= 240) {
+      updatePayload.sleep_deprived_expires_at = null;
+    }
+
+    sessionState.is_sleeping = false;
+    sessionState.last_sleep_started_at = sessionStartIso;
+    sessionState.rolling_sleep_minutes = newRolling;
+    if (newRolling >= 240) {
+      sessionState.sleep_deprived_expires_at = null;
+    }
+    delete sessionState.last_circadian_drain_at;
+    updatePayload.active_session_state = sessionState;
 
     await supabase.from("profiles").update(updatePayload).eq("id", userId);
 
@@ -680,17 +755,30 @@ export class PlayerRepository {
   static async applySleepDeprivationPenalty(userId: string, minutesSlept: number): Promise<SleepProtocolResult> {
     const supabase = await createClient();
     const result = calculateSleepProtocolRecovery(minutesSlept);
+    const profile = await this.getProfile(userId);
     const now = new Date();
+    const sessionStartIso = new Date(now.getTime() - minutesSlept * 60 * 1000).toISOString();
+
+    const sessionState = ((profile?.active_session_state as any) || {});
+    const currentRolling = Number(profile?.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes ?? 0);
+    const newRolling = currentRolling + minutesSlept;
 
     const updatePayload: Record<string, any> = {
       sleep_deprived_expires_at: new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString(),
       last_sleep_completed_at: now.toISOString(),
+      last_sleep_started_at: sessionStartIso,
+      rolling_sleep_minutes: newRolling,
       updated_at: now.toISOString(),
     };
 
+    sessionState.is_sleeping = false;
+    sessionState.last_sleep_started_at = sessionStartIso;
+    sessionState.rolling_sleep_minutes = newRolling;
+    updatePayload.active_session_state = sessionState;
+
     await supabase.from("profiles").update(updatePayload).eq("id", userId);
 
-    // Apply -100 XP / Mana penalty
+    // Apply -100 XP / Mana penalty (stays deducted, universal de-leveling triggers if XP drops below 0)
     await this.grantXpAndAttributes({
       userId,
       xpDelta: -100,
@@ -700,6 +788,67 @@ export class PlayerRepository {
     });
 
     return result;
+  }
+
+  static async logManualSleepSession(
+    userId: string,
+    minutesSlept: number
+  ): Promise<{
+    cumulativeMinutes: number;
+    hasAdequateSleep: boolean;
+    clearedDebuff: boolean;
+    result: SleepProtocolResult;
+  }> {
+    const supabase = await createClient();
+    const profile = await this.getProfile(userId);
+    const result = calculateSleepProtocolRecovery(minutesSlept);
+    const now = new Date();
+    const sessionStartIso = new Date(now.getTime() - minutesSlept * 60 * 1000).toISOString();
+
+    const currentMental = Number(profile?.mental_fatigue) || 0;
+    const currentPhysical = Number(profile?.physical_fatigue) || 0;
+
+    const newMental = Math.max(0, Number((currentMental + result.mentalDelta).toFixed(2)));
+    const newPhysical = Math.max(0, Number((currentPhysical + result.physicalDelta).toFixed(2)));
+
+    const sessionState = ((profile?.active_session_state as any) || {});
+    const currentRolling = Number(profile?.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes ?? 0);
+    const newRolling = currentRolling + minutesSlept;
+    const hasAdequateSleep = newRolling >= 240;
+
+    const updatePayload: Record<string, any> = {
+      mental_fatigue: newMental,
+      physical_fatigue: newPhysical,
+      last_fatigue_update_at: now.toISOString(),
+      last_sleep_completed_at: now.toISOString(),
+      last_sleep_started_at: sessionStartIso,
+      rolling_sleep_minutes: newRolling,
+      updated_at: now.toISOString(),
+    };
+
+    let clearedDebuff = false;
+    if (hasAdequateSleep) {
+      updatePayload.sleep_deprived_expires_at = null;
+      clearedDebuff = true;
+    }
+
+    sessionState.is_sleeping = false;
+    sessionState.last_sleep_started_at = sessionStartIso;
+    sessionState.rolling_sleep_minutes = newRolling;
+    if (hasAdequateSleep) {
+      sessionState.sleep_deprived_expires_at = null;
+    }
+    delete sessionState.last_circadian_drain_at;
+    updatePayload.active_session_state = sessionState;
+
+    await supabase.from("profiles").update(updatePayload).eq("id", userId);
+
+    return {
+      cumulativeMinutes: newRolling,
+      hasAdequateSleep,
+      clearedDebuff,
+      result,
+    };
   }
 
   static async saveCustomPlan(userId: string, dayRoutines: any): Promise<void> {

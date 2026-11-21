@@ -71,6 +71,9 @@ export interface Profile {
   exp_booster_multiplier?: number;
   exp_booster_expires_at?: string | null;
   last_sleep_completed_at?: string | null;
+  last_sleep_started_at?: string | null;
+  rolling_sleep_minutes?: number;
+  last_circadian_drain_at?: string | null;
   sleep_deprived_expires_at?: string | null;
   last_hydration_surge_at?: string | null;
   lifetime_highest_level: number;

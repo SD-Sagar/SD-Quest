@@ -704,3 +704,100 @@ export function calculateSleepProtocolRecovery(minutesSlept: number): SleepProto
     summaryMessage: `Circadian Rest (${hoursSlept}h): Restorative recovery applied. (12-hour cooldown started).`,
   };
 }
+
+export interface CircadianAwakeStatus {
+  lastSleepStartedAt: string | null;
+  hoursElapsedSinceSleepStart: number;
+  hoursAwakeLive: number; // Decays live in real time while sleeping
+  isCurrentlySleeping: boolean;
+  cumulativeSleepMinutes: number;
+  hasAdequateSleep: boolean; // >= 240 mins (4.0h)
+  isExhaustionLockout: boolean; // hoursAwakeLive >= 26.0 && !isCurrentlySleeping
+  isPhysicalTrainingLocked: boolean; // !hasAdequateSleep || isExhaustionLockout
+  overdueMinutes: number; // minutes awake past 26.0h mark
+  drainRatePerMinute: number; // 50 XP/min
+  gaugePercentage: number; // 0 to 100% of 26h
+  gaugeTier: "optimal" | "warning" | "critical" | "lockout";
+  gaugeColor: string;
+}
+
+/**
+ * Calculates live 26-hour Circadian Exhaustion status:
+ * - Anchored at last_sleep_started_at (the moment user went to bed).
+ * - Decays live in real time as the player sleeps (even if < 4h).
+ * - If >= 26h and player has not entered bed: Critical Exhaustion Lockout (-50 XP/min drain, 0% XP rate).
+ * - If cumulative sleep in current cycle < 4.0h: Physical conditioning quests & Gym Hub locked.
+ */
+export function calculateCircadianAwakeStatus(params: {
+  lastSleepStartedAt?: string | null;
+  lastSleepCompletedAt?: string | null;
+  rollingSleepMinutes?: number;
+  isCurrentlySleeping?: boolean;
+  currentSleepDurationMinutes?: number;
+  createdAt?: string;
+  nowMs?: number;
+}): CircadianAwakeStatus {
+  const now = params.nowMs || Date.now();
+  const isCurrentlySleeping = Boolean(params.isCurrentlySleeping);
+  const currentSleepMins = params.currentSleepDurationMinutes || 0;
+  const cumulativeSleepMinutes = (params.rollingSleepMinutes || 0) + (isCurrentlySleeping ? currentSleepMins : 0);
+  const hasAdequateSleep = cumulativeSleepMinutes >= 240; // 4.0h
+
+  // Anchor: when last sleep started
+  let anchorTimestamp = now;
+  if (params.lastSleepStartedAt) {
+    anchorTimestamp = new Date(params.lastSleepStartedAt).getTime();
+  } else if (params.lastSleepCompletedAt) {
+    anchorTimestamp = new Date(params.lastSleepCompletedAt).getTime() - 8 * 3600 * 1000;
+  } else if (params.createdAt) {
+    anchorTimestamp = new Date(params.createdAt).getTime();
+  }
+
+  const elapsedMs = Math.max(0, now - anchorTimestamp);
+  let hoursAwakeLive = Number((elapsedMs / (1000 * 3600)).toFixed(2));
+
+  // Live decay while sleeping: each minute of sleep relieves awake strain
+  if (isCurrentlySleeping && currentSleepMins > 0) {
+    const sleepHours = currentSleepMins / 60;
+    // Each 1 hour of restorative sleep relieves 2.5 hours of circadian awake strain
+    hoursAwakeLive = Math.max(0, Number((hoursAwakeLive - sleepHours * 2.5).toFixed(2)));
+  }
+
+  const isExhaustionLockout = hoursAwakeLive >= 26.0 && !isCurrentlySleeping;
+  const isPhysicalTrainingLocked = !hasAdequateSleep || isExhaustionLockout;
+
+  const overdueMinutes = Math.max(0, Math.floor((hoursAwakeLive - 26.0) * 60));
+  const drainRatePerMinute = 50;
+
+  const gaugePercentage = Math.min(100, Math.round((hoursAwakeLive / 26.0) * 100));
+
+  let gaugeTier: "optimal" | "warning" | "critical" | "lockout" = "optimal";
+  let gaugeColor = "stroke-cyan-400 text-cyan-300";
+
+  if (hoursAwakeLive >= 26.0) {
+    gaugeTier = "lockout";
+    gaugeColor = "stroke-red-500 text-red-400";
+  } else if (hoursAwakeLive >= 22.0) {
+    gaugeTier = "critical";
+    gaugeColor = "stroke-red-500 text-red-400";
+  } else if (hoursAwakeLive >= 16.0) {
+    gaugeTier = "warning";
+    gaugeColor = "stroke-amber-400 text-amber-300";
+  }
+
+  return {
+    lastSleepStartedAt: params.lastSleepStartedAt || null,
+    hoursElapsedSinceSleepStart: Number((elapsedMs / (1000 * 3600)).toFixed(2)),
+    hoursAwakeLive,
+    isCurrentlySleeping,
+    cumulativeSleepMinutes,
+    hasAdequateSleep,
+    isExhaustionLockout,
+    isPhysicalTrainingLocked,
+    overdueMinutes,
+    drainRatePerMinute,
+    gaugePercentage,
+    gaugeTier,
+    gaugeColor,
+  };
+}
