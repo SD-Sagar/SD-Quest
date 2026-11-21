@@ -170,7 +170,7 @@ export function GymTrainerHub({
   }, []);
 
   const currentSplit = SPLIT_SCHEDULE.find((s) => s.day === selectedDay) || SPLIT_SCHEDULE[1];
-  const dayExercises = getDayExercises(selectedDay);
+  const dayExercises = getDayExercises(selectedDay, equipment);
   const bellyExercises = getDailyBellyProtocol(selectedDay);
   const isSunday = selectedDay === "Sunday";
 
@@ -218,7 +218,7 @@ export function GymTrainerHub({
   // Dynamic Bi-Weekly Rotation (Week A vs Week B) & Level-Scaled Sets/Reps
   const weekRotation = getCurrentWeekRotationIndex(); // 0 = Week A, 1 = Week B
   const dynamicSkippingTarget = 100 + (playerLevel - 1) * 10;
-  const rotatedCoreExercises = getRotatedSplitExercises(selectedDay, playerLevel, playerRank, 5);
+  const rotatedCoreExercises = getRotatedSplitExercises(selectedDay, playerLevel, playerRank, 5, equipment);
 
   const curatedSessionList: (MasterExercise & { phase: "core" | "belly" })[] = [
     ...rotatedCoreExercises.map((ex) => ({ ...ex, phase: "core" as const })),
@@ -958,7 +958,7 @@ export function GymTrainerHub({
                 >
                   <div className="flex items-center gap-2">
                     <Dumbbell className="w-4 h-4 text-cyan-400" />
-                    <span>EXPLORE COMPLETE {currentSplit.day.toUpperCase()} CODEX (20 MOVEMENTS)</span>
+                    <span>EXPLORE COMPLETE {currentSplit.day.toUpperCase()} CODEX ({dayExercises.length} MOVEMENTS)</span>
                   </div>
                   {showFullLibrary ? (
                     <ChevronUp className="w-4 h-4 text-slate-400" />
@@ -970,7 +970,7 @@ export function GymTrainerHub({
                 {showFullLibrary && (
                   <div className="pt-3 border-t border-slate-800 space-y-2">
                     <p className="text-[11px] text-slate-400">
-                      These are the 20 verified dumbbell &amp; bodyweight movements for this training day. Tap any movement to inspect biomechanics, bench angle, and unlock criteria.
+                      These are the verified equipment &amp; bodyweight movements for this training day. Tap any movement to inspect biomechanics, bench angle, and unlock criteria.
                     </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-96 overflow-y-auto pr-1">

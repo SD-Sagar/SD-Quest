@@ -65,33 +65,47 @@ export class PlayerRepository {
 
   static async createProfile(profileData: Partial<Profile> & { id: string; name: string; dob: string }): Promise<Profile> {
     const supabase = await createClient();
-    const { data, error } = await supabase
+    const insertPayload: Record<string, any> = {
+      id: profileData.id,
+      name: profileData.name,
+      dob: profileData.dob,
+      height_cm: profileData.height_cm || 175,
+      weight_kg: profileData.weight_kg || 70,
+      sex: profileData.sex || "male",
+      fitness_experience: profileData.fitness_experience || "beginner",
+      fitness_objective: profileData.fitness_objective || "Hypertrophy & Lifelong Physical Conditioning",
+      current_level: 1,
+      current_xp: 0,
+      xp_to_next_level: 500,
+      unallocated_stat_points: 0,
+      current_streak: 0,
+      longest_streak: 0,
+      last_streak_date: null,
+      lifetime_highest_level: 1,
+      lifetime_total_xp: 0,
+      rank: "Recruit",
+      title: "Awakened Recruit",
+      condition: "normal",
+      active_main_quest: profileData.active_main_quest || "fitness",
+      enable_gym: profileData.enable_gym !== undefined ? profileData.enable_gym : true,
+    };
+
+    let { data, error } = await supabase
       .from("profiles")
-      .insert({
-        id: profileData.id,
-        name: profileData.name,
-        dob: profileData.dob,
-        height_cm: profileData.height_cm || 175,
-        weight_kg: profileData.weight_kg || 70,
-        sex: profileData.sex || "male",
-        fitness_experience: profileData.fitness_experience || "beginner",
-        fitness_objective: profileData.fitness_objective || "Hypertrophy & Lifelong Physical Conditioning",
-        current_level: 1,
-        current_xp: 0,
-        xp_to_next_level: 500,
-        unallocated_stat_points: 0,
-        current_streak: 0,
-        longest_streak: 0,
-        last_streak_date: null,
-        lifetime_highest_level: 1,
-        lifetime_total_xp: 0,
-        rank: "Recruit",
-        title: "Awakened Recruit",
-        condition: "normal",
-        active_main_quest: profileData.active_main_quest || "fitness",
-      })
+      .insert(insertPayload)
       .select()
       .single();
+
+    if (error && error.message.toLowerCase().includes("column")) {
+      delete insertPayload.enable_gym;
+      const retry = await supabase
+        .from("profiles")
+        .insert(insertPayload)
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       throw new Error(`Failed to create hunter profile: ${error.message}`);
@@ -125,12 +139,25 @@ export class PlayerRepository {
 
   static async updateProfile(userId: string, data: Partial<Profile>): Promise<Profile> {
     const supabase = await createClient();
-    const { data: updated, error } = await supabase
+    const updatePayload: Record<string, any> = { ...data };
+    let { data: updated, error } = await supabase
       .from("profiles")
-      .update(data)
+      .update(updatePayload)
       .eq("id", userId)
       .select()
       .single();
+
+    if (error && error.message.toLowerCase().includes("column") && "enable_gym" in updatePayload) {
+      delete updatePayload.enable_gym;
+      const retry = await supabase
+        .from("profiles")
+        .update(updatePayload)
+        .eq("id", userId)
+        .select()
+        .single();
+      updated = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       throw new Error(`Failed to update hunter profile: ${error.message}`);

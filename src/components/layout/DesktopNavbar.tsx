@@ -17,15 +17,16 @@ import {
 
 interface DesktopNavbarProps {
   onOpenSanctuary?: () => void;
+  enableGym?: boolean;
 }
 
-export function DesktopNavbar({ onOpenSanctuary }: DesktopNavbarProps) {
+export function DesktopNavbar({ onOpenSanctuary, enableGym = true }: DesktopNavbarProps) {
   const pathname = usePathname();
 
   const NAV_LINKS = [
     { label: "Today", href: "/", icon: LayoutDashboard },
     { label: "Quests", href: "/quests", icon: CheckSquare },
-    { label: "Gym Trainer", href: "/gym", icon: Dumbbell },
+    ...(enableGym ? [{ label: "Gym Trainer", href: "/gym", icon: Dumbbell }] : []),
     { label: "Body Progression", href: "/body", icon: Activity },
     { label: "Nutrition & Fuel", href: "/diet", icon: Utensils },
     { label: "Calendar", href: "/calendar", icon: CalendarDays },

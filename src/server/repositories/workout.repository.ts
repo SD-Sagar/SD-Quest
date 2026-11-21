@@ -23,32 +23,56 @@ export class WorkoutRepository {
 
   static async upsertEquipment(userId: string, equipment: Partial<EquipmentInventory>): Promise<EquipmentInventory> {
     const supabase = await createClient();
-    const { data, error } = await supabase
+    const payload: Record<string, any> = {
+      user_id: userId,
+      has_bench: equipment.has_bench ?? true,
+      bench_positions: equipment.bench_positions || [
+        "Flat",
+        "Incline 15°",
+        "Incline 30°",
+        "Incline 45°",
+        "Incline 60°",
+        "Incline 75°",
+        "Seated 90°",
+        "Decline",
+      ],
+      dumbbell_handle_weight_kg: equipment.dumbbell_handle_weight_kg ?? 2.0,
+      plate_10kg_count: equipment.plate_10kg_count ?? 0,
+      has_barbell: equipment.has_barbell ?? false,
+      barbell_weight_kg: equipment.barbell_weight_kg ?? 7.0,
+      has_ez_bar: equipment.has_ez_bar ?? false,
+      ez_bar_weight_kg: equipment.ez_bar_weight_kg ?? 5.0,
+      has_cable_pulley: equipment.has_cable_pulley ?? false,
+      plate_5kg_count: equipment.plate_5kg_count ?? 8,
+      plate_2_5kg_count: equipment.plate_2_5kg_count ?? 4,
+      plate_2kg_count: equipment.plate_2kg_count ?? 4,
+      plate_1_25kg_count: equipment.plate_1_25kg_count ?? 8,
+      plate_1kg_count: equipment.plate_1kg_count ?? 4,
+      custom_plates: equipment.custom_plates || [],
+      updated_at: new Date().toISOString(),
+    };
+
+    let { data, error } = await supabase
       .from("equipment_inventory")
-      .upsert({
-        user_id: userId,
-        has_bench: equipment.has_bench ?? true,
-        bench_positions: equipment.bench_positions || [
-          "Flat",
-          "Incline 15°",
-          "Incline 30°",
-          "Incline 45°",
-          "Incline 60°",
-          "Incline 75°",
-          "Seated 90°",
-          "Decline",
-        ],
-        dumbbell_handle_weight_kg: equipment.dumbbell_handle_weight_kg ?? 2.0,
-        plate_5kg_count: equipment.plate_5kg_count ?? 8,
-        plate_2_5kg_count: equipment.plate_2_5kg_count ?? 4,
-        plate_2kg_count: equipment.plate_2kg_count ?? 4,
-        plate_1_25kg_count: equipment.plate_1_25kg_count ?? 8,
-        plate_1kg_count: equipment.plate_1kg_count ?? 4,
-        custom_plates: equipment.custom_plates || [],
-        updated_at: new Date().toISOString(),
-      })
+      .upsert(payload)
       .select()
       .single();
+
+    if (error && error.message.toLowerCase().includes("column")) {
+      delete payload.plate_10kg_count;
+      delete payload.has_barbell;
+      delete payload.barbell_weight_kg;
+      delete payload.has_ez_bar;
+      delete payload.ez_bar_weight_kg;
+      delete payload.has_cable_pulley;
+      const retry = await supabase
+        .from("equipment_inventory")
+        .upsert(payload)
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       throw new Error(`Failed to update equipment inventory: ${error.message}`);

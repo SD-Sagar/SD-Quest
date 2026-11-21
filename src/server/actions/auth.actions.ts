@@ -157,14 +157,20 @@ export async function initializeCharacterAction(params: {
   // Home Gym Arsenal
   hasBench: boolean;
   dumbbellHandleWeightKg: number;
+  hasBarbell?: boolean;
+  barbellWeightKg?: number;
+  hasEzBar?: boolean;
+  ezBarWeightKg?: number;
+  hasCablePulley?: boolean;
+  plate10kgCount?: number;
   plate5kgCount: number;
   plate25kgCount: number;
   plate2kgCount?: number;
   plate125kgCount: number;
   plate1kgCount?: number;
   // Daily Fuel & Budget
-  sattuDailyGrams: number;
-  boiledEggsWeeklyDays: number;
+  sattuDailyGrams?: number;
+  boiledEggsWeeklyDays?: number;
   monthlyBudgetInr: number;
 }): Promise<AuthActionResult> {
   const supabase = await createClient();
@@ -188,12 +194,19 @@ export async function initializeCharacterAction(params: {
       fitness_experience: params.fitnessExperience,
       fitness_objective: params.fitnessObjective,
       active_main_quest: params.activeMainQuest || "fitness",
+      enable_gym: params.enableGym !== undefined ? params.enableGym : true,
     });
 
     // 2. Initialize Equipment Inventory
     await WorkoutRepository.upsertEquipment(user.id, {
       has_bench: params.hasBench,
       dumbbell_handle_weight_kg: params.dumbbellHandleWeightKg,
+      has_barbell: params.hasBarbell ?? false,
+      barbell_weight_kg: params.barbellWeightKg ?? 7.0,
+      has_ez_bar: params.hasEzBar ?? false,
+      ez_bar_weight_kg: params.ezBarWeightKg ?? 5.0,
+      has_cable_pulley: params.hasCablePulley ?? false,
+      plate_10kg_count: params.plate10kgCount ?? 0,
       plate_5kg_count: params.plate5kgCount,
       plate_2_5kg_count: params.plate25kgCount,
       plate_2kg_count: params.plate2kgCount ?? 4,
@@ -209,8 +222,8 @@ export async function initializeCharacterAction(params: {
       target_carbs_g: 250,
       target_fat_g: 60,
       monthly_budget_inr: params.monthlyBudgetInr,
-      sattu_daily_grams: params.sattuDailyGrams,
-      boiled_eggs_weekly_days: params.boiledEggsWeeklyDays,
+      sattu_daily_grams: params.sattuDailyGrams ?? 0,
+      boiled_eggs_weekly_days: params.boiledEggsWeeklyDays ?? 4,
     });
 
     return { success: true };
@@ -222,11 +235,18 @@ export async function initializeCharacterAction(params: {
 
 export async function updateHunterSettingsAction(params: {
   activeMainQuest?: string;
+  enableGym?: boolean;
   name?: string;
   fitnessObjective?: string;
   monthlyBudgetInr?: number;
   hasBench?: boolean;
   dumbbellHandleWeightKg?: number;
+  hasBarbell?: boolean;
+  barbellWeightKg?: number;
+  hasEzBar?: boolean;
+  ezBarWeightKg?: number;
+  hasCablePulley?: boolean;
+  plate10kgCount?: number;
   plate5kgCount?: number;
   plate25kgCount?: number;
   plate2kgCount?: number;
@@ -243,18 +263,32 @@ export async function updateHunterSettingsAction(params: {
   }
 
   try {
-    if (params.activeMainQuest || params.name || params.fitnessObjective) {
+    if (params.activeMainQuest || params.name || params.fitnessObjective || params.enableGym !== undefined) {
       await PlayerRepository.updateProfile(user.id, {
         ...(params.activeMainQuest ? { active_main_quest: params.activeMainQuest } : {}),
+        ...(params.enableGym !== undefined ? { enable_gym: params.enableGym } : {}),
         ...(params.name ? { name: params.name } : {}),
         ...(params.fitnessObjective ? { fitness_objective: params.fitnessObjective } : {}),
       });
     }
 
-    if (params.hasBench !== undefined) {
+    if (
+      params.hasBench !== undefined ||
+      params.hasBarbell !== undefined ||
+      params.hasEzBar !== undefined ||
+      params.hasCablePulley !== undefined ||
+      params.plate10kgCount !== undefined ||
+      params.plate5kgCount !== undefined
+    ) {
       await WorkoutRepository.upsertEquipment(user.id, {
-        has_bench: params.hasBench,
+        has_bench: params.hasBench ?? true,
         dumbbell_handle_weight_kg: params.dumbbellHandleWeightKg ?? 2.0,
+        has_barbell: params.hasBarbell ?? false,
+        barbell_weight_kg: params.barbellWeightKg ?? 7.0,
+        has_ez_bar: params.hasEzBar ?? false,
+        ez_bar_weight_kg: params.ezBarWeightKg ?? 5.0,
+        has_cable_pulley: params.hasCablePulley ?? false,
+        plate_10kg_count: params.plate10kgCount ?? 0,
         plate_5kg_count: params.plate5kgCount ?? 8,
         plate_2_5kg_count: params.plate25kgCount ?? 4,
         plate_2kg_count: params.plate2kgCount ?? 4,

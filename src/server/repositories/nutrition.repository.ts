@@ -49,6 +49,7 @@ export class NutritionRepository {
       .from("food_catalog")
       .select("*")
       .or(`user_id.is.null,user_id.eq.${userId}`)
+      .neq("category", "__hidden_preset__")
       .order("name", { ascending: true });
 
     if (error) {
@@ -56,6 +57,135 @@ export class NutritionRepository {
     }
 
     return (data || []) as FoodItem[];
+  }
+
+  static async getHiddenPresetFoodIds(userId: string): Promise<string[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("food_catalog")
+      .select("name")
+      .eq("user_id", userId)
+      .eq("category", "__hidden_preset__");
+
+    if (error) {
+      console.error("Failed to fetch hidden presets:", error);
+      return [];
+    }
+
+    return (data || []).map((row) => row.name);
+  }
+
+  static async addCustomFood(
+    userId: string,
+    item: {
+      name: string;
+      default_serving: string;
+      calories: number;
+      protein_g: number;
+      carbs_g: number;
+      fat_g: number;
+      approx_cost_inr?: number;
+      category: string;
+      description?: string;
+      is_poisonous?: boolean;
+    }
+  ): Promise<FoodItem> {
+    const supabase = await createClient();
+    const cat = item.is_poisonous ? "beverage_poison" : item.category;
+
+    const basePayload: any = {
+      user_id: userId,
+      name: item.name.trim(),
+      default_serving: item.default_serving.trim(),
+      calories: Math.round(Number(item.calories) || 0),
+      protein_g: Number(Number(item.protein_g || 0).toFixed(1)),
+      carbs_g: Number(Number(item.carbs_g || 0).toFixed(1)),
+      fat_g: Number(Number(item.fat_g || 0).toFixed(1)),
+      approx_cost_inr: Math.round(Number(item.approx_cost_inr) || 0),
+      category: cat,
+      is_verified: false,
+    };
+
+    let result = await supabase
+      .from("food_catalog")
+      .insert({
+        ...basePayload,
+        description: item.description?.trim() || null,
+        is_poisonous: item.is_poisonous ?? false,
+      })
+      .select()
+      .single();
+
+    if (result.error && result.error.message.includes("column")) {
+      result = await supabase.from("food_catalog").insert(basePayload).select().single();
+    }
+
+    if (result.error) {
+      throw new Error(`Failed to add custom food: ${result.error.message}`);
+    }
+
+    return result.data as FoodItem;
+  }
+
+  static async deleteCustomFood(userId: string, foodId: string): Promise<boolean> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("food_catalog")
+      .delete()
+      .eq("id", foodId)
+      .eq("user_id", userId);
+
+    if (error) {
+      throw new Error(`Failed to delete custom food: ${error.message}`);
+    }
+
+    return true;
+  }
+
+  static async hidePresetFood(userId: string, presetId: string): Promise<boolean> {
+    const supabase = await createClient();
+    const { data: existing } = await supabase
+      .from("food_catalog")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("category", "__hidden_preset__")
+      .eq("name", presetId)
+      .maybeSingle();
+
+    if (existing) return true;
+
+    const { error } = await supabase.from("food_catalog").insert({
+      user_id: userId,
+      name: presetId,
+      category: "__hidden_preset__",
+      default_serving: "hidden",
+      calories: 0,
+      protein_g: 0,
+      carbs_g: 0,
+      fat_g: 0,
+      approx_cost_inr: 0,
+      is_verified: false,
+    });
+
+    if (error) {
+      throw new Error(`Failed to hide preset food: ${error.message}`);
+    }
+    return true;
+  }
+
+  static async unhidePresetFood(userId: string, presetId: string): Promise<boolean> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("food_catalog")
+      .delete()
+      .eq("user_id", userId)
+      .eq("category", "__hidden_preset__")
+      .eq("name", presetId);
+
+    if (error) {
+      throw new Error(`Failed to restore food: ${error.message}`);
+    }
+    return true;
   }
 
   static async getLogsForDate(userId: string, date: string): Promise<NutritionLog[]> {

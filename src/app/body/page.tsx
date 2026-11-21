@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { BodyRepository } from "@/server/repositories/body.repository";
+import { PlayerRepository } from "@/server/repositories/player.repository";
 import { DesktopNavbar } from "@/components/layout/DesktopNavbar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { BodyHeatmap } from "@/components/body/BodyHeatmap";
@@ -16,7 +17,12 @@ export default async function BodyPage() {
 
   if (!user) redirect("/login");
 
-  const measurements = await BodyRepository.getMeasurements(user.id);
+  const [measurements, profile] = await Promise.all([
+    BodyRepository.getMeasurements(user.id),
+    PlayerRepository.getProfile(user.id),
+  ]);
+
+  const isGymEnabled = profile?.enable_gym !== false;
 
   async function handleAddMeasurement(m: any) {
     "use server";
@@ -30,7 +36,7 @@ export default async function BodyPage() {
 
   return (
     <div className="min-h-screen bg-[#07080b] text-slate-100 selection:bg-cyan-500 selection:text-black">
-      <DesktopNavbar />
+      <DesktopNavbar enableGym={isGymEnabled} />
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-12 space-y-6">
         <div>
           <h1 className="text-2xl font-black text-white tracking-tight mana-text-glow font-mono">
@@ -48,7 +54,7 @@ export default async function BodyPage() {
         />
       </main>
       <div className="md:hidden">
-        <BottomNav />
+        <BottomNav enableGym={isGymEnabled} />
       </div>
     </div>
   );

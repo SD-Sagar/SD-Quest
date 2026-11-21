@@ -29,6 +29,7 @@ interface DailySystemQuestCardProps {
   streakTier?: "baseline" | "ignition" | "surge" | "overdrive";
   streakMessage?: string;
   initialCrateClaimed?: boolean;
+  enableGym?: boolean;
 }
 
 export function DailySystemQuestCard({
@@ -46,6 +47,7 @@ export function DailySystemQuestCard({
   streakTier = "baseline",
   streakMessage,
   initialCrateClaimed = false,
+  enableGym = true,
 }: DailySystemQuestCardProps) {
   const [crateClaimed, setCrateClaimed] = useState(initialCrateClaimed);
   const [currentStreakDisplay, setCurrentStreakDisplay] = useState(streakDays);
@@ -63,10 +65,12 @@ export function DailySystemQuestCard({
     setCurrentStreakDisplay(streakDays);
   }, [initialCrateClaimed, streakDays]);
 
-  const task1Done = workoutCompleted || isRestDay;
+  const task1Done = enableGym ? (workoutCompleted || isRestDay) : (completedQuestsCount >= 1);
   const task2Done = currentHydrationMl >= targetHydrationMl;
   const task3Done = currentSteps >= targetSteps;
-  const task4Done = completedQuestsCount >= 1;
+  const task4Done = enableGym
+    ? (completedQuestsCount >= 1)
+    : (completedQuestsCount >= 2 || (completedQuestsCount >= 1 && totalQuestsCount <= 1));
 
   const totalTasks = 4;
   const completedTasks = [task1Done, task2Done, task3Done, task4Done].filter(Boolean).length;
@@ -201,9 +205,15 @@ export function DailySystemQuestCard({
               <Circle className="w-4 h-4 text-slate-500 shrink-0" />
             )}
             <div className="truncate">
-              <span className="font-bold block truncate">1. Physical Conditioning</span>
+              <span className="font-bold block truncate">
+                {enableGym ? "1. Physical Conditioning" : "1. Primary Directive Focus"}
+              </span>
               <span className="text-[10px] text-slate-400 truncate block">
-                {isRestDay ? "Recovery Protocol" : "Today's Split or 100 Pushups"}
+                {enableGym
+                  ? isRestDay
+                    ? "Recovery Protocol"
+                    : "Today's Split or 100 Pushups"
+                  : "Execute Active Main Quest Directives"}
               </span>
             </div>
           </div>

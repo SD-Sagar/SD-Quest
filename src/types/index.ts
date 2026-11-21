@@ -81,6 +81,7 @@ export interface Profile {
   chicken_status_expires_at: string | null;
   medical_sanctuary_expires_at: string | null;
   active_main_quest: string;
+  enable_gym?: boolean;
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
@@ -141,6 +142,12 @@ export interface EquipmentInventory {
   has_bench: boolean;
   bench_positions: string[];
   dumbbell_handle_weight_kg: number;
+  has_barbell?: boolean;
+  barbell_weight_kg?: number;
+  has_ez_bar?: boolean;
+  ez_bar_weight_kg?: number;
+  has_cable_pulley?: boolean;
+  plate_10kg_count?: number;
   plate_5kg_count: number;
   plate_2_5kg_count: number;
   plate_2kg_count?: number;
@@ -149,6 +156,16 @@ export interface EquipmentInventory {
   custom_plates: EquipmentPlate[];
   updated_at: string;
 }
+
+export type ExerciseRequiredEquipment =
+  | "dumbbells"
+  | "bench_and_dumbbells"
+  | "bodyweight"
+  | "skipping_rope"
+  | "barbell"
+  | "bench_and_barbell"
+  | "ez_bar"
+  | "cable_pulley";
 
 export type MetCategory =
   | "general_resistance"
@@ -166,7 +183,7 @@ export interface ExerciseDefinition {
   target_muscle: string;
   secondary_muscles: string[];
   bench_angle?: string | null;
-  required_equipment: "dumbbells" | "bench_and_dumbbells" | "bodyweight" | "skipping_rope";
+  required_equipment: ExerciseRequiredEquipment;
   met_category?: MetCategory;
   instructions: string[];
   form_cues: string[];
@@ -347,6 +364,8 @@ export interface FoodItem {
   approx_cost_inr: number;
   category: string;
   is_verified: boolean;
+  description?: string | null;
+  is_poisonous?: boolean;
 }
 
 export interface NutritionLog {

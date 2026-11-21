@@ -87,9 +87,11 @@ export default async function QuestsPage() {
     (w) => w.split_day === dayName && isFullSplitSession(w)
   );
 
+  const isGymEnabled = profile?.enable_gym !== false;
+
   return (
     <div className="min-h-screen bg-[#07080b] text-slate-100 selection:bg-cyan-500 selection:text-black">
-      <DesktopNavbar />
+      <DesktopNavbar enableGym={isGymEnabled} />
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-12 space-y-6">
         <div>
           <h1 className="text-2xl font-black text-white tracking-tight mana-text-glow font-mono">
@@ -103,18 +105,22 @@ export default async function QuestsPage() {
         <QuestsPageClient
           initialQuests={quests}
           profile={profile || undefined}
-          mainQuestSplit={{
-            dayName,
-            title: todaySplitInfo.title,
-            subtitle: todaySplitInfo.subtitle,
-            isRest: todaySplitInfo.isRest,
-            isCompleted: isTodayWorkoutCompleted,
-            sessionData: todaySession,
-          }}
+          mainQuestSplit={
+            isGymEnabled
+              ? {
+                  dayName,
+                  title: todaySplitInfo.title,
+                  subtitle: todaySplitInfo.subtitle,
+                  isRest: todaySplitInfo.isRest,
+                  isCompleted: isTodayWorkoutCompleted,
+                  sessionData: todaySession,
+                }
+              : undefined
+          }
         />
       </main>
       <div className="md:hidden">
-        <BottomNav />
+        <BottomNav enableGym={isGymEnabled} />
       </div>
     </div>
   );
