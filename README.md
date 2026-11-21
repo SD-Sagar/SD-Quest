@@ -104,24 +104,27 @@ sd-quest/
 
 ## 🗄 SUPABASE DATABASE SETUP & MIGRATIONS
 
-To set up a fresh Supabase database for SD-Quest, navigate to **Supabase Dashboard → SQL Editor** and execute the migration files in the exact sequence below:
+To set up a fresh Supabase database for SD-Quest, choose **Option 1 (Recommended)** for instant 1-click setup, or **Option 2** to run individual migrations:
 
-### Step 1: Master Schema Migration
-Copy the contents of [`supabase/migrations/20261115000000_master_schema.sql`](file:///c:/Users/RIZA/Desktop/SD-Quest/sd-quest/supabase/migrations/20261115000000_master_schema.sql) and run it in the SQL Editor.
-- Installs `uuid-ossp` extension.
-- Creates custom PostgreSQL ENUMs (`hunter_rank`, `quest_category`, `day_of_week`, etc.).
-- Creates core tables: `profiles`, `player_attributes`, `attribute_transactions`, `xp_transactions`, `equipment_inventory`, `training_splits`, `workout_sessions`, `workout_set_logs`, `quests`, `hydration_logs`, `activity_logs`, `nutrition_logs`, etc.
-- Configures Row Level Security (RLS) policies ensuring players only access their own data.
+### Option 1: Instant 1-Click Master Setup (Recommended)
+Copy the full contents of [`supabase/full_schema_setup.sql`](file:///c:/Users/sagar/Desktop/New%20folder%20(2)/SD-Quest/supabase/full_schema_setup.sql) and run it in the Supabase **SQL Editor**.
+- Automatically creates all tables, enums, triggers, RLS policies, and database functions.
+- Grants full access to standard Supabase API roles (`anon`, `authenticated`, `service_role`).
+- Populates food and exercise catalogs, 10-class ranks, attribute engines, streaks, sleep protocols, and debuffs in one execution.
 
-### Step 2: Exercise Catalog Seed
-Copy the contents of [`supabase/migrations/20261115000001_exercise_catalog_seed.sql`](file:///c:/Users/RIZA/Desktop/SD-Quest/sd-quest/supabase/migrations/20261115000001_exercise_catalog_seed.sql) and run it in the SQL Editor.
-- Populates 40+ professional dumbbell, bench, bodyweight, and skipping movements with biomechanical cues, bench angles, and target muscle groups.
-
-### Step 3: Enhancements & Session Persistence
-Copy the contents of [`supabase/migrations/20261115000002_reset_and_enhancements.sql`](file:///c:/Users/RIZA/Desktop/SD-Quest/sd-quest/supabase/migrations/20261115000002_reset_and_enhancements.sql) and run it in the SQL Editor.
-- Adds `active_session_state` JSONB column for cross-device real-time workout resumption.
-- Creates `custom_workout_plans` table for hunter-forged training routines.
-- Adds `calories_burned` column to `workout_sessions`.
+### Option 2: Step-by-Step Migrations
+Execute the migration files in [`supabase/migrations/`](file:///c:/Users/sagar/Desktop/New%20folder%20(2)/SD-Quest/supabase/migrations/) sequentially in numerical order:
+1. `20261115000000_master_schema.sql` (Master schema, enums, RLS, base grants)
+2. `20261115000001_leveling_and_plates.sql` (Stat points allocation & plate solvers)
+3. `20261115000002_reset_and_enhancements.sql` (Session persistence & custom plans)
+4. `20261118000000_ten_classes_leveling_and_attribute_baseline.sql` (10-class rank expansion)
+5. `20261118000001_smart_dynamic_streak_system.sql` (Dynamic streaks)
+6. `20261119000000_fatigue_and_universal_sessions.sql` (Dual fatigue & recreational quests)
+7. `20261119000001_fix_attribute_transactions_columns_and_rpc.sql` (Ledger column compatibility)
+8. `20261120000000_sleep_protocol_and_exp_booster.sql` (Sleep stasis & 2X EXP booster)
+9. `20261120000001_cellular_hydration_surge.sql` (Hydration fatigue recovery)
+10. `20261120000002_alcohol_poison_debuff.sql` (Alcohol debuff tracking)
+11. `20261120000003_grant_permissions_and_schema_sync.sql` (Permissions & safety synchronization)
 
 ---
 
