@@ -1,5 +1,6 @@
-import { DayOfWeek, HunterRank, AttributeType, MetCategory } from "@/types";
+import { DayOfWeek, HunterRank, AttributeType, MetCategory, ExerciseRequiredEquipment, EquipmentInventory } from "@/types";
 import { resolveExerciseMetCategory } from "@/lib/calculations/calorieEngine";
+import { NEW_GYM_AND_CALISTHENICS_EXERCISES } from "./newGymAndCalisthenicsCatalog";
 
 export interface MasterExercise {
   id: string;
@@ -9,7 +10,7 @@ export interface MasterExercise {
   target_muscle: string;
   secondary_muscles: string[];
   bench_angle: "Flat" | "Incline 15°" | "Incline 30°" | "Incline 45°" | "Incline 60°" | "Incline 75°" | "Seated 90°" | "Decline" | "Floor / Standing";
-  required_equipment: "dumbbells" | "bench_and_dumbbells" | "bodyweight" | "skipping_rope";
+  required_equipment: ExerciseRequiredEquipment;
   unlock_tier: HunterRank;
   unlock_level: number;
   unlock_criteria: string;
@@ -32,7 +33,7 @@ export interface MasterExercise {
   }[];
 }
 
-export const MASTER_EXERCISE_CATALOG: MasterExercise[] = [
+const BASE_EXERCISE_CATALOG: MasterExercise[] = [
   {
     "id": "ex-goblet-squat",
     "name": "Goblet Dumbbell Squat",
@@ -7646,6 +7647,11 @@ export const MASTER_EXERCISE_CATALOG: MasterExercise[] = [
   }
 ];
 
+export const MASTER_EXERCISE_CATALOG: MasterExercise[] = [
+  ...BASE_EXERCISE_CATALOG,
+  ...NEW_GYM_AND_CALISTHENICS_EXERCISES,
+];
+
 export const UPPER_BELLY_PROTOCOL: MasterExercise[] = MASTER_EXERCISE_CATALOG.filter(
   (ex) => ex.unlock_criteria.includes("Day A")
 );
@@ -7658,11 +7664,72 @@ export const SUNDAY_MOBILITY_PROTOCOL: MasterExercise[] = MASTER_EXERCISE_CATALO
   (ex) => ex.split_day === "Sunday"
 );
 
-export function getDayExercises(day: DayOfWeek): MasterExercise[] {
+export function isExerciseCompatibleWithEquipment(
+  exercise: MasterExercise,
+  equipment?: EquipmentInventory | null
+): boolean {
+  if (!equipment) return true;
+
+  // Bodyweight calisthenics & skipping rope are ALWAYS available to any hunter
+  if (exercise.required_equipment === "bodyweight" || exercise.required_equipment === "skipping_rope") {
+    return true;
+  }
+
+  // Barbell requirements
+  if (exercise.required_equipment === "barbell") {
+    return !!equipment.has_barbell;
+  }
+
+  // Bench and barbell requirements
+  if (exercise.required_equipment === "bench_and_barbell") {
+    return !!(equipment.has_barbell && equipment.has_bench);
+  }
+
+  // EZ Bar requirements
+  if (exercise.required_equipment === "ez_bar") {
+    return !!equipment.has_ez_bar;
+  }
+
+  // Cable pulley requirements
+  if (exercise.required_equipment === "cable_pulley") {
+    return !!equipment.has_cable_pulley;
+  }
+
+  // Dumbbell requirements (has total plates > 0 or handle weight > 0)
+  const totalDumbbellPlates =
+    (equipment.plate_10kg_count || 0) +
+    (equipment.plate_5kg_count || 0) +
+    (equipment.plate_2_5kg_count || 0) +
+    (equipment.plate_2kg_count || 0) +
+    (equipment.plate_1_25kg_count || 0) +
+    (equipment.plate_1kg_count || 0) +
+    (equipment.custom_plates?.length || 0);
+  const hasDumbbells = totalDumbbellPlates > 0 || equipment.dumbbell_handle_weight_kg > 0;
+
+  if (exercise.required_equipment === "dumbbells") {
+    return hasDumbbells;
+  }
+
+  if (exercise.required_equipment === "bench_and_dumbbells") {
+    return !!(hasDumbbells && equipment.has_bench);
+  }
+
+  // If exercise explicitly requires a bench angle (other than Floor / Standing)
+  if (exercise.bench_angle !== "Floor / Standing" && !equipment.has_bench) {
+    return false;
+  }
+
+  return true;
+}
+
+export function getDayExercises(day: DayOfWeek, equipment?: EquipmentInventory | null): MasterExercise[] {
   // Sunday has zero lifting exercises
   if (day === "Sunday") return [];
   return MASTER_EXERCISE_CATALOG.filter(
-    (ex) => ex.split_day === day && !ex.unlock_criteria.includes("Daily Belly")
+    (ex) =>
+      ex.split_day === day &&
+      !ex.unlock_criteria.includes("Daily Belly") &&
+      isExerciseCompatibleWithEquipment(ex, equipment)
   );
 }
 
@@ -7758,11 +7825,12 @@ export function getRotatedSplitExercises(
   day: DayOfWeek,
   playerLevel: number = 1,
   playerRank: HunterRank = "Recruit",
-  targetCount: number = 5
+  targetCount: number = 5,
+  equipment?: EquipmentInventory | null
 ): MasterExercise[] {
   if (day === "Sunday") return [];
 
-  const allDay = getDayExercises(day);
+  const allDay = getDayExercises(day, equipment);
   const unlocked = allDay.filter((ex) => isExerciseUnlocked(ex, playerLevel, playerRank));
   if (unlocked.length === 0) return allDay.slice(0, targetCount);
 
@@ -7772,6 +7840,9 @@ export function getRotatedSplitExercises(
   const primaryCluster = unlocked.filter((_, idx) => idx % 2 === weekRot);
   const secondaryCluster = unlocked.filter((_, idx) => idx % 2 !== weekRot);
   const combined = [...primaryCluster, ...secondaryCluster].slice(0, targetCount);
+
+  // Maintain physiological sequence: Compound -> Secondary Angle -> Accessory -> Finisher
+  combined.sort((a, b) => a.order_index - b.order_index);
 
   // Calibrate sets and reps dynamically to player level
   return combined.map((ex) => {

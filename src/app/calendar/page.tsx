@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { WorkoutRepository } from "@/server/repositories/workout.repository";
 import { QuestRepository } from "@/server/repositories/quest.repository";
+import { PlayerRepository } from "@/server/repositories/player.repository";
 import { DesktopNavbar } from "@/components/layout/DesktopNavbar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { MonthlyTileCalendar } from "@/components/calendar/MonthlyTileCalendar";
@@ -16,14 +17,17 @@ export default async function CalendarPage() {
 
   if (!user) redirect("/login");
 
-  const [sessions, quests] = await Promise.all([
+  const [sessions, quests, profile] = await Promise.all([
     WorkoutRepository.getWorkoutSessions(user.id, 100),
     QuestRepository.getQuests(user.id),
+    PlayerRepository.getProfile(user.id),
   ]);
+
+  const isGymEnabled = profile?.enable_gym !== false;
 
   return (
     <div className="min-h-screen bg-[#07080b] text-slate-100 selection:bg-cyan-500 selection:text-black">
-      <DesktopNavbar />
+      <DesktopNavbar enableGym={isGymEnabled} />
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-12 space-y-6">
         <div>
           <h1 className="text-2xl font-black text-white tracking-tight mana-text-glow font-mono">
@@ -37,7 +41,7 @@ export default async function CalendarPage() {
         <MonthlyTileCalendar sessions={sessions} quests={quests} />
       </main>
       <div className="md:hidden">
-        <BottomNav />
+        <BottomNav enableGym={isGymEnabled} />
       </div>
     </div>
   );

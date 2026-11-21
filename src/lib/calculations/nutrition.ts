@@ -20,6 +20,8 @@ export interface PresetFoodItem {
   isPoisonous?: boolean;
   isHighSugarSurplus?: boolean;
   description: string;
+  isCustom?: boolean;
+  customFoodId?: string;
 }
 
 /**

@@ -17,9 +17,10 @@ import {
 
 interface BottomNavProps {
   onStartWorkout?: () => void;
+  enableGym?: boolean;
 }
 
-export function BottomNav({ onStartWorkout }: BottomNavProps) {
+export function BottomNav({ onStartWorkout, enableGym = true }: BottomNavProps) {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
   const isWorkoutMinimized = useAppSelector(
@@ -29,7 +30,7 @@ export function BottomNav({ onStartWorkout }: BottomNavProps) {
   const NAV_ITEMS = [
     { label: "Today", href: "/", icon: LayoutDashboard },
     { label: "Quests", href: "/quests", icon: CheckSquare },
-    { label: "Gym", href: "/gym", icon: Dumbbell, isCenter: true },
+    ...(enableGym ? [{ label: "Gym", href: "/gym", icon: Dumbbell, isCenter: true }] : []),
     { label: "Body", href: "/body", icon: Activity },
     { label: "Diet", href: "/diet", icon: Utensils },
     { label: "Calendar", href: "/calendar", icon: CalendarDays },

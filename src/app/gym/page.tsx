@@ -23,9 +23,11 @@ export default async function GymPage() {
     WorkoutRepository.getTodaysCompletedWorkouts(user.id),
   ]);
 
+  const isGymEnabled = profile?.enable_gym !== false;
+
   return (
     <div className="min-h-screen bg-[#07080b] text-slate-100 selection:bg-cyan-500 selection:text-black">
-      <DesktopNavbar />
+      <DesktopNavbar enableGym={isGymEnabled} />
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-12 space-y-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -53,7 +55,7 @@ export default async function GymPage() {
         />
       </main>
       <div className="md:hidden">
-        <BottomNav />
+        <BottomNav enableGym={isGymEnabled} />
       </div>
     </div>
   );

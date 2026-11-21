@@ -35,6 +35,7 @@ export function calculateDumbbellPlates(
 
   // Build full inventory of available plates
   const availablePlates: EquipmentPlate[] = [
+    { weightKg: 10.0, count: inventory.plate_10kg_count || 0 },
     { weightKg: 5.0, count: inventory.plate_5kg_count || 0 },
     { weightKg: 2.5, count: inventory.plate_2_5kg_count || 0 },
     { weightKg: 2.0, count: inventory.plate_2kg_count || 0 },
@@ -88,6 +89,72 @@ export function calculateDumbbellPlates(
 }
 
 /**
+ * Calculates the exact plates required per side of a barbell or EZ curl rod.
+ * Barbell has 2 ends (sides). Available plate inventory is divided by 2 (one per side).
+ */
+export function calculateBarbellPlates(
+  targetTotalWeightKg: number,
+  inventory: EquipmentInventory,
+  barType: "straight" | "ez" = "straight"
+): PlateCombinationResult {
+  const barWeight =
+    barType === "ez"
+      ? Number(inventory.ez_bar_weight_kg) || 5.0
+      : Number(inventory.barbell_weight_kg) || 7.0;
+
+  const barLabel = barType === "ez" ? "EZ Bar" : "Barbell";
+  const targetPlatesWeight = Math.max(0, targetTotalWeightKg - barWeight);
+  const targetPerSide = targetPlatesWeight / 2;
+  const divisor = 2; // 2 sides on a barbell
+
+  const availablePlates: EquipmentPlate[] = [
+    { weightKg: 10.0, count: inventory.plate_10kg_count || 0 },
+    { weightKg: 5.0, count: inventory.plate_5kg_count || 0 },
+    { weightKg: 2.5, count: inventory.plate_2_5kg_count || 0 },
+    { weightKg: 2.0, count: inventory.plate_2kg_count || 0 },
+    { weightKg: 1.25, count: inventory.plate_1_25kg_count || 0 },
+    { weightKg: 1.0, count: inventory.plate_1kg_count || 0 },
+    ...(inventory.custom_plates || []),
+  ];
+
+  const sortedPlates = availablePlates
+    .filter((p) => p.count >= divisor && p.weightKg > 0)
+    .sort((a, b) => b.weightKg - a.weightKg);
+
+  let currentPerSide = 0;
+  const platesPerSide: { weightKg: number; count: number }[] = [];
+
+  for (const plate of sortedPlates) {
+    const maxUsablePerSide = Math.floor(plate.count / divisor);
+    const neededPerSide = Math.floor(
+      (targetPerSide - currentPerSide + 0.001) / plate.weightKg
+    );
+    const take = Math.min(maxUsablePerSide, neededPerSide);
+
+    if (take > 0) {
+      platesPerSide.push({ weightKg: plate.weightKg, count: take });
+      currentPerSide += take * plate.weightKg;
+    }
+  }
+
+  const achievableTotal = Number((barWeight + currentPerSide * 2).toFixed(2));
+  const isExact = Math.abs(achievableTotal - targetTotalWeightKg) < 0.1;
+
+  const breakdownParts = platesPerSide.map((p) => `${p.count}×${p.weightKg}kg`);
+  const summaryString =
+    breakdownParts.length > 0
+      ? `${barLabel} (${barWeight}kg) + [${breakdownParts.join(" + ")}] per side`
+      : `Bare ${barLabel} (${barWeight}kg)`;
+
+  return {
+    achievableWeightKg: achievableTotal,
+    isExact,
+    platesPerSide,
+    summaryString,
+  };
+}
+
+/**
  * Double Progression Rule (Section 7.3 of gym.txt)
  */
 export function checkDoubleProgression(
@@ -132,8 +199,19 @@ export function checkDoubleProgression(
 export function getExerciseDumbbellMultiplier(exerciseName: string = ""): number {
   const name = exerciseName.toLowerCase();
 
-  // Pure bodyweight / core calisthenics (external load is 0 or 1 plate held)
+  // Barbell, EZ bar, cable pulley, and pure bodyweight movements use the total entered load directly (multiplier = 1)
   if (
+    name.includes("barbell") ||
+    name.includes("ez-bar") ||
+    name.includes("ez bar") ||
+    name.includes("cable") ||
+    name.includes("pulley") ||
+    name.includes("chain") ||
+    name.includes("pull-up") ||
+    name.includes("pullup") ||
+    name.includes("chin-up") ||
+    name.includes("chinup") ||
+    name.includes("dip") ||
     name.includes("hollow body") ||
     name.includes("accordion crunch") ||
     name.includes("hanging knee") ||

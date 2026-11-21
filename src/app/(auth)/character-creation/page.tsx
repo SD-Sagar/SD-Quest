@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { initializeCharacterAction } from "@/server/actions/auth.actions";
+import { initializeCharacterAction, logoutAction } from "@/server/actions/auth.actions";
 import { triggerHaptic, calculateAge } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import {
@@ -18,6 +18,11 @@ import {
   BookOpen,
   DollarSign,
   Compass,
+  Droplets,
+  Footprints,
+  Check,
+  X,
+  LogOut,
 } from "lucide-react";
 import { FitnessExperience } from "@/types";
 
@@ -38,40 +43,58 @@ export default function CharacterCreationPage() {
   const [fitnessExperience, setFitnessExperience] = useState<FitnessExperience>("beginner");
   const [fitnessObjective, setFitnessObjective] = useState("Hypertrophy & Lifelong Physical Conditioning");
 
-  // Step 2: Available Equipment (20-in-1 bench + 60kg plates)
+  // Step 2: Available Equipment (20-in-1 bench + rods + plates or calisthenics)
   const [hasBench, setHasBench] = useState(true);
+  const [hasBarbell, setHasBarbell] = useState(true);
+  const [barbellWeight, setBarbellWeight] = useState(7.0);
+  const [hasEzBar, setHasEzBar] = useState(true);
+  const [ezBarWeight, setEzBarWeight] = useState(5.0);
+  const [hasCablePulley, setHasCablePulley] = useState(true);
   const [handleWeight, setHandleWeight] = useState(2.0);
+  const [plate10kgCount, setPlate10kgCount] = useState(2); // 20 kg
   const [plate5kgCount, setPlate5kgCount] = useState(8); // 40 kg
   const [plate25kgCount, setPlate25kgCount] = useState(4); // 10 kg
   const [plate2kgCount, setPlate2kgCount] = useState(4); // 8 kg
   const [plate125kgCount, setPlate125kgCount] = useState(4); // 5 kg
-  const [plate1kgCount, setPlate1kgCount] = useState(4); // 4 kg -> Total ~67kg (or configured by user)
+  const [plate1kgCount, setPlate1kgCount] = useState(4); // 4 kg
+  const [isCalisthenicsOnly, setIsCalisthenicsOnly] = useState(false);
 
-  // Step 3: Affordable Nutrition Fuel & Budget
-  const [sattuDailyGrams, setSattuDailyGrams] = useState(50);
-  const [boiledEggsWeeklyDays, setBoiledEggsWeeklyDays] = useState(4);
+  // Step 3: Baseline Routine Habits & Fuel (Professional & clean)
   const [monthlyBudgetInr, setMonthlyBudgetInr] = useState(4500);
+  const [dailyWaterLitres, setDailyWaterLitres] = useState(3.5);
+  const [dailyStepTarget, setDailyStepTarget] = useState(8000);
+  const [boiledEggsWeeklyDays, setBoiledEggsWeeklyDays] = useState(4);
 
   const [age, setAge] = useState(25);
   useEffect(() => {
     setAge(calculateAge(dob));
   }, [dob]);
 
-  const totalPlateWeight =
-    plate5kgCount * 5 +
-    plate25kgCount * 2.5 +
-    plate2kgCount * 2 +
-    plate125kgCount * 1.25 +
-    plate1kgCount * 1;
+  const totalPlateWeight = isCalisthenicsOnly
+    ? 0
+    : plate10kgCount * 10 +
+      plate5kgCount * 5 +
+      plate25kgCount * 2.5 +
+      plate2kgCount * 2 +
+      plate125kgCount * 1.25 +
+      plate1kgCount * 1;
 
   const handleNext = () => {
     triggerHaptic("light");
-    setStep((prev) => Math.min(4, prev + 1));
+    if (step === 1 && !enableGym) {
+      setStep(3); // Skip equipment step if gym is disabled
+    } else {
+      setStep((prev) => Math.min(4, prev + 1));
+    }
   };
 
   const handlePrev = () => {
     triggerHaptic("light");
-    setStep((prev) => Math.max(1, prev - 1));
+    if (step === 3 && !enableGym) {
+      setStep(1); // Return directly to identity step if gym was bypassed
+    } else {
+      setStep((prev) => Math.max(1, prev - 1));
+    }
   };
 
   const handleAwakening = async () => {
@@ -90,14 +113,19 @@ export default function CharacterCreationPage() {
         sex,
         fitnessExperience,
         fitnessObjective,
-        hasBench: enableGym ? hasBench : false,
+        hasBench: enableGym && !isCalisthenicsOnly ? hasBench : false,
         dumbbellHandleWeightKg: Number(handleWeight),
-        plate5kgCount: enableGym ? Number(plate5kgCount) : 0,
-        plate25kgCount: enableGym ? Number(plate25kgCount) : 0,
-        plate2kgCount: enableGym ? Number(plate2kgCount) : 0,
-        plate125kgCount: enableGym ? Number(plate125kgCount) : 0,
-        plate1kgCount: enableGym ? Number(plate1kgCount) : 0,
-        sattuDailyGrams: Number(sattuDailyGrams),
+        hasBarbell: enableGym && !isCalisthenicsOnly ? hasBarbell : false,
+        barbellWeightKg: Number(barbellWeight),
+        hasEzBar: enableGym && !isCalisthenicsOnly ? hasEzBar : false,
+        ezBarWeightKg: Number(ezBarWeight),
+        hasCablePulley: enableGym && !isCalisthenicsOnly ? hasCablePulley : false,
+        plate10kgCount: enableGym && !isCalisthenicsOnly ? Number(plate10kgCount) : 0,
+        plate5kgCount: enableGym && !isCalisthenicsOnly ? Number(plate5kgCount) : 0,
+        plate25kgCount: enableGym && !isCalisthenicsOnly ? Number(plate25kgCount) : 0,
+        plate2kgCount: enableGym && !isCalisthenicsOnly ? Number(plate2kgCount) : 0,
+        plate125kgCount: enableGym && !isCalisthenicsOnly ? Number(plate125kgCount) : 0,
+        plate1kgCount: enableGym && !isCalisthenicsOnly ? Number(plate1kgCount) : 0,
         boiledEggsWeeklyDays: Number(boiledEggsWeeklyDays),
         monthlyBudgetInr: Number(monthlyBudgetInr),
       });
@@ -125,29 +153,53 @@ export default function CharacterCreationPage() {
     }
   };
 
+  const currentDisplayPhase = !enableGym
+    ? step === 1
+      ? 1
+      : step === 3
+      ? 2
+      : 3
+    : step;
+  const totalDisplayPhases = !enableGym ? 3 : 4;
+
   return (
     <div className="min-h-screen bg-[#07080b] text-slate-100 flex items-center justify-center p-3 sm:p-4 selection:bg-cyan-500 selection:text-black relative">
       <div className="fixed top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-gradient-to-b from-cyan-600/10 via-purple-600/10 to-transparent blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-2xl hunter-panel rounded-3xl border border-cyan-500/40 p-5 sm:p-8 shadow-2xl relative z-10 space-y-5 text-slate-200">
-        {/* Header */}
-        <div className="text-center space-y-1 border-b border-slate-800 pb-4">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shadow-sm shadow-cyan-400" />
-            <span className="text-[11px] font-mono font-black tracking-widest text-cyan-400 uppercase">
+        {/* Top Utility Bar */}
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-red-400 font-mono font-bold transition bg-slate-900/80 hover:bg-red-950/40 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-red-500/40 group"
+              title="Sign out and return to login screen"
+            >
+              <LogOut className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              <span>Back to Login</span>
+            </button>
+          </form>
+
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-sm shadow-cyan-400" />
+            <span className="text-[10px] sm:text-[11px] font-mono font-black tracking-widest text-cyan-400 uppercase">
               THE SYSTEM // AWAKENING CEREMONY
             </span>
           </div>
+        </div>
+
+        {/* Header */}
+        <div className="text-center space-y-1 pb-2">
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mana-text-glow">
             FORGE YOUR HUNTER PROFILE
           </h1>
           <p className="text-xs text-slate-400">
-            Phase {step} of 4 • Set your baseline identity, main quest domain &amp; fuel
+            Phase {currentDisplayPhase} of {totalDisplayPhases} • Set baseline identity, quest domain &amp; daily habits
           </p>
 
           {/* Progress Indicator Dots */}
           <div className="flex items-center justify-center gap-2 pt-2">
-            {[1, 2, 3, 4].map((s) => (
+            {(enableGym ? [1, 2, 3, 4] : [1, 3, 4]).map((s) => (
               <div
                 key={s}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
@@ -212,7 +264,9 @@ export default function CharacterCreationPage() {
                       onClick={() => {
                         triggerHaptic("light");
                         setActiveMainQuest(item.id);
-                        if (item.id === "fitness") setEnableGym(true);
+                        if (item.id === "fitness") {
+                          setEnableGym(true);
+                        }
                       }}
                       className={`p-3 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
                         isSelected
@@ -228,23 +282,61 @@ export default function CharacterCreationPage() {
               </div>
             </div>
 
-            {/* Enable Home Gym Toggle */}
-            <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
-              <div>
-                <span className="text-xs font-bold text-white block">
-                  Activate Home Gym Companion
-                </span>
-                <span className="text-[11px] text-slate-400">
-                  Include 20-in-1 bench &amp; 60kg plates calculator on dashboard
-                </span>
+            {/* Dynamic Gym Prompt for Non-Fitness Quests */}
+            {activeMainQuest !== "fitness" ? (
+              <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 mt-0.5 shrink-0">
+                    <Dumbbell className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-0.5 flex-1">
+                    <span className="text-xs font-bold text-white block">
+                      Include Gym &amp; Physical Training in Your Routine?
+                    </span>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Your primary quest is <span className="text-cyan-400 font-bold uppercase">{activeMainQuest}</span>. Would you like the System to also schedule workouts &amp; habits? (Changeable anytime in Settings).
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setEnableGym(true);
+                    }}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold font-mono transition flex items-center justify-center gap-1.5 ${
+                      enableGym
+                        ? "bg-cyan-500/20 text-cyan-300 border-cyan-500 shadow-sm"
+                        : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>YES, INCLUDE GYM</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setEnableGym(false);
+                    }}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold font-mono transition flex items-center justify-center gap-1.5 ${
+                      !enableGym
+                        ? "bg-slate-800 text-slate-200 border-slate-600 shadow-sm"
+                        : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>NO, SKIP GYM</span>
+                  </button>
+                </div>
               </div>
-              <input
-                type="checkbox"
-                checked={enableGym}
-                onChange={(e) => setEnableGym(e.target.checked)}
-                className="w-5 h-5 rounded border-slate-700 text-cyan-500 focus:ring-0 cursor-pointer"
-              />
-            </div>
+            ) : (
+              <div className="p-3 rounded-2xl bg-cyan-950/30 border border-cyan-500/30 flex items-center gap-2.5 text-xs text-cyan-300 font-mono">
+                <Dumbbell className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span>Primary Quest: Full Physical Awakening &amp; Gym Arsenal Activated</span>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -259,7 +351,7 @@ export default function CharacterCreationPage() {
                   className="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
                 />
                 <span className="text-[10px] text-cyan-400 font-mono mt-1 block">
-                  Chronological Age: {age} Years Old (Ages with you dynamically)
+                  Chronological Age: {age} Years Old (Ages dynamically)
                 </span>
               </div>
 
@@ -308,51 +400,151 @@ export default function CharacterCreationPage() {
           </div>
         )}
 
-        {/* STEP 2: HOME GYM ARSENAL (OR SKIP IF DISABLED) */}
-        {step === 2 && (
+        {/* STEP 2: PHYSICAL ARSENAL (20-IN-1 BENCH, RODS, PLATES & CALISTHENICS) */}
+        {step === 2 && enableGym && (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
-              <Dumbbell className="w-4 h-4" />
-              <span>STEP 2: AVAILABLE PHYSICAL ARSENAL (HOME GYM)</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
+                <Dumbbell className="w-4 h-4" />
+                <span>STEP 2: AVAILABLE PHYSICAL ARSENAL</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic("medium");
+                  setIsCalisthenicsOnly(!isCalisthenicsOnly);
+                }}
+                className={`px-3 py-1 rounded-xl text-[11px] font-mono font-bold border transition self-start sm:self-auto ${
+                  isCalisthenicsOnly
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-400 shadow-sm"
+                    : "bg-slate-900 text-slate-400 border-slate-700 hover:text-white"
+                }`}
+              >
+                {isCalisthenicsOnly ? "✓ Bodyweight Calisthenics Mode" : "Switch to Free-Hand Calisthenics"}
+              </button>
             </div>
 
-            {!enableGym ? (
-              <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 text-center space-y-2">
-                <Compass className="w-8 h-8 text-cyan-400 mx-auto" />
-                <h3 className="text-sm font-bold text-white">Home Gym Companion Inactive</h3>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
-                  You selected <strong>{activeMainQuest.toUpperCase()}</strong> as your primary quest domain. Home gym tracking is optional and can be enabled anytime from Hunter Settings.
+            {isCalisthenicsOnly ? (
+              <div className="p-6 rounded-3xl bg-slate-900/60 border border-emerald-500/30 text-center space-y-2">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <h3 className="text-sm font-bold text-white">Pure Bodyweight Calisthenics Mode Active</h3>
+                <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                  Zero weights or bench required. The System will configure progressive bodyweight splits (Push-Ups, Pike Press, Inverted Rows, Squats, and Core Protocols) with bi-weekly variation and level unlocks.
                 </p>
                 <button
                   type="button"
-                  onClick={() => setEnableGym(true)}
-                  className="text-xs text-cyan-400 font-bold underline pt-2"
+                  onClick={() => setIsCalisthenicsOnly(false)}
+                  className="text-xs text-cyan-400 font-bold underline pt-2 block mx-auto"
                 >
-                  Enable Home Gym Instead
+                  Configure Weight Equipment Instead
                 </button>
               </div>
             ) : (
               <>
-                <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white">20-in-1 Adjustable Workout Bench</span>
-                    <span className="text-xs text-emerald-400 font-mono font-bold">DETECTED ✓</span>
+                {/* 20-in-1 Bench & Apparatus Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* Bench */}
+                  <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-white block">20-in-1 Workout Bench</span>
+                      <span className="text-[10px] text-slate-400 font-mono">Flat, Incline, Decline, Seated</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setHasBench(!hasBench);
+                      }}
+                      className={`px-3 py-1 rounded-xl text-xs font-mono font-bold border transition ${
+                        hasBench
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-400 shadow-sm"
+                          : "bg-red-950/40 text-red-400 border-red-500/40"
+                      }`}
+                    >
+                      {hasBench ? "EQUIPPED ✓" : "MISSING ✕"}
+                    </button>
                   </div>
-                  <p className="text-[11px] text-slate-400">
-                    Positions: Flat, Incline 15°, 30°, 45°, 60°, 75°, Seated 90°, and Decline.
-                  </p>
+
+                  {/* Straight Barbell Rod */}
+                  <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-white block">Straight Barbell Rod</span>
+                      <span className="text-[10px] text-slate-400 font-mono">Weight: {barbellWeight} KG</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setHasBarbell(!hasBarbell);
+                      }}
+                      className={`px-3 py-1 rounded-xl text-xs font-mono font-bold border transition ${
+                        hasBarbell
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-400 shadow-sm"
+                          : "bg-red-950/40 text-red-400 border-red-500/40"
+                      }`}
+                    >
+                      {hasBarbell ? "EQUIPPED ✓" : "MISSING ✕"}
+                    </button>
+                  </div>
+
+                  {/* Curly Rod (EZ Bar) */}
+                  <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-white block">Curly Rod (EZ Bar)</span>
+                      <span className="text-[10px] text-slate-400 font-mono">Weight: {ezBarWeight} KG</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setHasEzBar(!hasEzBar);
+                      }}
+                      className={`px-3 py-1 rounded-xl text-xs font-mono font-bold border transition ${
+                        hasEzBar
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-400 shadow-sm"
+                          : "bg-red-950/40 text-red-400 border-red-500/40"
+                      }`}
+                    >
+                      {hasEzBar ? "EQUIPPED ✓" : "MISSING ✕"}
+                    </button>
+                  </div>
+
+                  {/* Back Pull Chain / Pulley */}
+                  <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-white block">Back Pull Chain / Cable</span>
+                      <span className="text-[10px] text-slate-400 font-mono">Lat &amp; Cable Pulley Attachment</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setHasCablePulley(!hasCablePulley);
+                      }}
+                      className={`px-3 py-1 rounded-xl text-xs font-mono font-bold border transition ${
+                        hasCablePulley
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-400 shadow-sm"
+                          : "bg-red-950/40 text-red-400 border-red-500/40"
+                      }`}
+                    >
+                      {hasCablePulley ? "EQUIPPED ✓" : "MISSING ✕"}
+                    </button>
+                  </div>
                 </div>
 
+                {/* Plates & Dumbbells */}
                 <div className="p-4 rounded-2xl bg-slate-950 border border-cyan-500/30 space-y-3">
                   <div className="flex items-center justify-between text-xs font-mono">
-                    <span className="text-cyan-400 font-bold uppercase">Adjustable Dumbbells + Plate Inventory</span>
+                    <span className="text-cyan-400 font-bold uppercase">Weight Plates &amp; Dumbbell Handles</span>
                     <span className="text-white font-bold">{totalPlateWeight} KG Plates Total</span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
                       <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">
-                        Handle (KG)
+                        DB Handle (KG)
                       </label>
                       <input
                         type="number"
@@ -363,9 +555,21 @@ export default function CharacterCreationPage() {
                       />
                     </div>
 
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-cyan-500/40">
+                      <label className="text-[10px] text-cyan-300 uppercase font-mono block mb-1">
+                        10KG Plates
+                      </label>
+                      <input
+                        type="number"
+                        value={plate10kgCount}
+                        onChange={(e) => setPlate10kgCount(parseInt(e.target.value, 10) || 0)}
+                        className="w-full text-center text-sm font-black font-mono text-white bg-transparent focus:outline-none"
+                      />
+                    </div>
+
                     <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
                       <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">
-                        5KG Plates (Count)
+                        5KG Plates
                       </label>
                       <input
                         type="number"
@@ -377,7 +581,7 @@ export default function CharacterCreationPage() {
 
                     <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
                       <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">
-                        2.5KG Plates (Count)
+                        2.5KG Plates
                       </label>
                       <input
                         type="number"
@@ -389,7 +593,7 @@ export default function CharacterCreationPage() {
 
                     <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
                       <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">
-                        2KG Plates (Count)
+                        2KG Plates
                       </label>
                       <input
                         type="number"
@@ -401,7 +605,7 @@ export default function CharacterCreationPage() {
 
                     <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
                       <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">
-                        1.25KG Plates (Count)
+                        1.25KG Plates
                       </label>
                       <input
                         type="number"
@@ -413,7 +617,7 @@ export default function CharacterCreationPage() {
 
                     <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
                       <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">
-                        1KG Plates (Count)
+                        1KG Plates
                       </label>
                       <input
                         type="number"
@@ -429,28 +633,85 @@ export default function CharacterCreationPage() {
           </div>
         )}
 
-        {/* STEP 3: NUTRITION & FUEL */}
+        {/* STEP 3: BASELINE ROUTINE HABITS & FUEL */}
         {step === 3 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
               <Utensils className="w-4 h-4" />
-              <span>STEP 3: DAILY NUTRITION FUEL &amp; MACRO TARGETS</span>
+              <span>STEP 3: BASELINE ROUTINE HABITS &amp; FUEL</span>
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Monthly Budget */}
               <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                <label className="block text-xs font-bold text-white uppercase tracking-wider">
-                  Daily Chana Sattu Protocol (Grams)
-                </label>
+                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                  <span>Monthly Food Budget (INR ₹)</span>
+                </div>
                 <input
                   type="number"
-                  step="10"
-                  value={sattuDailyGrams}
-                  onChange={(e) => setSattuDailyGrams(parseInt(e.target.value) || 50)}
+                  step="500"
+                  value={monthlyBudgetInr}
+                  onChange={(e) => setMonthlyBudgetInr(parseInt(e.target.value) || 4500)}
                   className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-sm text-cyan-400 font-mono font-bold"
                 />
                 <span className="text-[11px] text-slate-400 block">
-                  ~205 kcal, 10.5g protein per 50g clean cellular fuel source
+                  High-protein staples &amp; cellular recovery allocation
+                </span>
+              </div>
+
+              {/* Daily Water Target */}
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                  <Droplets className="w-4 h-4 text-cyan-400" />
+                  <span>Daily Hydration Target (Litres)</span>
+                </div>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={dailyWaterLitres}
+                  onChange={(e) => setDailyWaterLitres(parseFloat(e.target.value) || 3.5)}
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-sm text-cyan-400 font-mono font-bold"
+                />
+                <span className="text-[11px] text-slate-400 block">
+                  Metabolic kinetics &amp; cellular recovery hydration
+                </span>
+              </div>
+
+              {/* Daily Step Target */}
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                  <Footprints className="w-4 h-4 text-amber-400" />
+                  <span>Daily Walking Target (Steps)</span>
+                </div>
+                <input
+                  type="number"
+                  step="500"
+                  value={dailyStepTarget}
+                  onChange={(e) => setDailyStepTarget(parseInt(e.target.value) || 8000)}
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-sm text-cyan-400 font-mono font-bold"
+                />
+                <span className="text-[11px] text-slate-400 block">
+                  Baseline NEAT calorie expenditure &amp; endurance
+                </span>
+              </div>
+
+              {/* Boiled Eggs Weekly Days */}
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                  <Utensils className="w-4 h-4 text-yellow-400" />
+                  <span>Boiled Eggs Protocol (Days / Week)</span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  max="7"
+                  value={boiledEggsWeeklyDays}
+                  onChange={(e) => setBoiledEggsWeeklyDays(parseInt(e.target.value) || 4)}
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-sm text-cyan-400 font-mono font-bold"
+                />
+                <span className="text-[11px] text-slate-400 block">
+                  Complete bio-available protein foundation
                 </span>
               </div>
             </div>
@@ -476,7 +737,13 @@ export default function CharacterCreationPage() {
               </div>
               <div className="flex justify-between border-b border-slate-800 pb-2">
                 <span className="text-slate-400">Gym Module:</span>
-                <span className="font-bold text-white">{enableGym ? "Active (60kg Arsenal)" : "Inactive"}</span>
+                <span className="font-bold text-white">
+                  {!enableGym
+                    ? "Inactive (Dedicated to Main Quest)"
+                    : isCalisthenicsOnly
+                    ? "Active (Bodyweight Calisthenics)"
+                    : `Active (${totalPlateWeight}kg Plates + Equipment)`}
+                </span>
               </div>
               <div className="flex justify-between border-b border-slate-800 pb-2">
                 <span className="text-slate-400">Baseline Level:</span>
@@ -484,7 +751,7 @@ export default function CharacterCreationPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Attributes (The 7 Stats):</span>
-                <span className="font-bold text-emerald-400">10.00 pts each (70 total)</span>
+                <span className="font-bold text-emerald-400">1.00 pts each (All Active)</span>
               </div>
             </div>
           </div>
@@ -502,7 +769,15 @@ export default function CharacterCreationPage() {
               PREVIOUS
             </button>
           ) : (
-            <div />
+            <form action={logoutAction}>
+              <button
+                type="submit"
+                className="px-4 py-2.5 rounded-xl border border-slate-800 bg-slate-950/80 hover:bg-red-950/40 hover:border-red-500/40 text-slate-400 hover:text-red-300 text-xs font-bold flex items-center gap-1.5 transition"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                BACK TO LOGIN
+              </button>
+            </form>
           )}
 
           {step < 4 ? (

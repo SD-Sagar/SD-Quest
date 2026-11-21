@@ -90,6 +90,7 @@ export function TodayDashboardView({
   }, [completedWorkouts]);
 
   // Determine today's workout split
+  const isGymEnabled = profile.enable_gym !== undefined ? profile.enable_gym : (profile.active_main_quest === "fitness");
   const isSunday = dayName === "Sunday";
   const todaySplitInfo = SPLIT_INFO[dayName] || SPLIT_INFO.Monday;
   
@@ -187,7 +188,7 @@ export function TodayDashboardView({
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[700px] h-[250px] bg-gradient-to-b from-cyan-500/10 via-blue-600/5 to-transparent blur-3xl pointer-events-none" />
 
       {/* Desktop Navigation */}
-      <DesktopNavbar />
+      <DesktopNavbar enableGym={isGymEnabled} />
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5 relative z-10 pb-28 md:pb-12">
@@ -360,6 +361,7 @@ export function TodayDashboardView({
               streakTier={streakInfo.tier}
               streakMessage={streakInfo.statusMessage}
               initialCrateClaimed={profile.last_mystery_box_claimed_date === todayDateStr}
+              enableGym={isGymEnabled}
             />
 
             {/* Quests Engine */}
@@ -369,7 +371,7 @@ export function TodayDashboardView({
                   <span className="text-cyan-400">◆</span> ACTIVE DIRECTIVES &amp; COMMITMENTS
                 </h2>
                 <span className="text-[10px] font-mono font-bold text-cyan-400 font-hud">
-                  {quests.filter((q) => q.status === "completed").length + (isTodayWorkoutCompleted ? 1 : 0)} / {quests.length + 1} COMPLETED
+                  {quests.filter((q) => q.status === "completed").length + (isGymEnabled && isTodayWorkoutCompleted ? 1 : 0)} / {quests.length + (isGymEnabled ? 1 : 0)} COMPLETED
                 </span>
               </div>
 
@@ -377,15 +379,19 @@ export function TodayDashboardView({
                 quests={quests}
                 profile={profile}
                 hideCreationButtons={true}
-                mainQuestSplit={{
-                  dayName,
-                  title: todaySplitInfo.title,
-                  subtitle: todaySplitInfo.subtitle,
-                  isRest: isSunday,
-                  isCompleted: isTodayWorkoutCompleted,
-                  sessionData: todaySession,
-                  onEnterGym: handleNavigateToGym,
-                }}
+                mainQuestSplit={
+                  isGymEnabled
+                    ? {
+                        dayName,
+                        title: todaySplitInfo.title,
+                        subtitle: todaySplitInfo.subtitle,
+                        isRest: isSunday,
+                        isCompleted: isTodayWorkoutCompleted,
+                        sessionData: todaySession,
+                        onEnterGym: handleNavigateToGym,
+                      }
+                    : undefined
+                }
               />
             </div>
           </div>
@@ -404,7 +410,7 @@ export function TodayDashboardView({
 
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden">
-        <BottomNav onStartWorkout={handleNavigateToGym} />
+        <BottomNav enableGym={isGymEnabled} onStartWorkout={handleNavigateToGym} />
       </div>
     </div>
   );

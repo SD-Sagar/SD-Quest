@@ -27,9 +27,11 @@ export default async function SettingsPage() {
 
   if (!profile) redirect("/character-creation");
 
+  const isGymEnabled = profile?.enable_gym !== false;
+
   return (
     <div className="min-h-screen bg-[#07080b] text-slate-100 selection:bg-cyan-500 selection:text-black">
-      <DesktopNavbar />
+      <DesktopNavbar enableGym={isGymEnabled} />
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-12 space-y-6">
         {/* Navigation Bar / Back to Dashboard */}
         <div className="flex items-center justify-between gap-3">
@@ -64,7 +66,7 @@ export default async function SettingsPage() {
         />
       </main>
       <div className="md:hidden">
-        <BottomNav />
+        <BottomNav enableGym={isGymEnabled} />
       </div>
     </div>
   );

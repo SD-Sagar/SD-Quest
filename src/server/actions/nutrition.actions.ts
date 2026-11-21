@@ -50,6 +50,7 @@ export async function logPresetMealAction(item: {
   fat_g: number;
   cost_inr?: number;
   isPoisonous?: boolean;
+  category?: string;
 }) {
   const supabase = await createClient();
   const {
@@ -82,9 +83,12 @@ export async function logPresetMealAction(item: {
     );
     await PlayerRepository.setPoisonDebuffExpiry(user.id, drinkPoison.newExpiresAt);
   } else {
-    // If refreshing non-alcoholic beverage, relieve fatigue
+    // If refreshing non-alcoholic beverage or in beverage category, relieve fatigue
     const nameLower = item.food_name.toLowerCase();
-    const isDrink = /drink|cold\s*drink|soft\s*drink|soda|coke|pepsi|juice|tea|coffee|shake|beverage|water/.test(nameLower);
+    const isDrink =
+      item.category === "beverage_toxin" ||
+      item.category === "beverages_toxins" ||
+      /drink|cold\s*drink|soft\s*drink|soda|coke|pepsi|juice|tea|coffee|shake|beverage|water|lassi|lemonade|energy\s*soda/.test(nameLower);
     if (isDrink) {
       await PlayerRepository.relieveFatigue(user.id, { mental: 12.0, physical: 6.0 });
     }
@@ -94,6 +98,84 @@ export async function logPresetMealAction(item: {
   revalidatePath("/diet");
   revalidatePath("/gym");
   return log;
+}
+
+export async function addCustomFoodAction(item: {
+  name: string;
+  category: "clean_staple" | "traditional_meal" | "beverage_toxin";
+  serving_size: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  cost_inr?: number;
+  description?: string;
+  is_poisonous?: boolean;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Unauthorized");
+
+  const created = await NutritionRepository.addCustomFood(user.id, {
+    name: item.name,
+    category: item.category,
+    default_serving: item.serving_size,
+    calories: item.calories,
+    protein_g: item.protein_g,
+    carbs_g: item.carbs_g,
+    fat_g: item.fat_g,
+    approx_cost_inr: item.cost_inr,
+    description: item.description,
+    is_poisonous: item.is_poisonous,
+  });
+  revalidatePath("/");
+  revalidatePath("/diet");
+  return created;
+}
+
+export async function deleteCustomFoodAction(foodId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Unauthorized");
+
+  const success = await NutritionRepository.deleteCustomFood(user.id, foodId);
+  revalidatePath("/");
+  revalidatePath("/diet");
+  return success;
+}
+
+export async function hidePresetFoodAction(presetId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Unauthorized");
+
+  const success = await NutritionRepository.hidePresetFood(user.id, presetId);
+  revalidatePath("/");
+  revalidatePath("/diet");
+  return success;
+}
+
+export async function unhidePresetFoodAction(presetId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Unauthorized");
+
+  const success = await NutritionRepository.unhidePresetFood(user.id, presetId);
+  revalidatePath("/");
+  revalidatePath("/diet");
+  return success;
 }
 
 export async function clearPoisonAction() {

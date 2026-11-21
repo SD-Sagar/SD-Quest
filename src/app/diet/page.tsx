@@ -21,18 +21,21 @@ export default async function DietPage() {
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-  const [profile, targets, foodCatalog, logs, activity, completedWorkouts] = await Promise.all([
+  const [profile, targets, foodCatalog, logs, activity, completedWorkouts, hiddenPresetIds] = await Promise.all([
     PlayerRepository.getProfile(user.id),
     NutritionRepository.getTargets(user.id),
     NutritionRepository.getFoodCatalog(user.id),
     NutritionRepository.getLogsForDate(user.id, todayStr),
     ActivityRepository.getActivityForDate(user.id, todayStr),
     WorkoutRepository.getTodaysCompletedWorkouts(user.id),
+    NutritionRepository.getHiddenPresetFoodIds(user.id),
   ]);
+
+  const isGymEnabled = profile?.enable_gym !== false;
 
   return (
     <div className="min-h-screen bg-[#07080b] text-slate-100 selection:bg-cyan-500 selection:text-black">
-      <DesktopNavbar />
+      <DesktopNavbar enableGym={isGymEnabled} />
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-12 space-y-6">
         <div>
           <h1 className="text-2xl font-black text-white tracking-tight mana-text-glow font-mono">
@@ -47,6 +50,7 @@ export default async function DietPage() {
           logs={logs}
           targets={targets}
           foodCatalog={foodCatalog}
+          hiddenPresetIds={hiddenPresetIds}
           profile={profile}
           activity={activity}
           completedWorkouts={completedWorkouts}
@@ -54,7 +58,7 @@ export default async function DietPage() {
         />
       </main>
       <div className="md:hidden">
-        <BottomNav />
+        <BottomNav enableGym={isGymEnabled} />
       </div>
     </div>
   );
