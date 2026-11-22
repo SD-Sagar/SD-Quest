@@ -54,6 +54,11 @@ export function CharacterHUD({
   const graceCoinsCount = profile.grace_coins ?? (profile.active_session_state as any)?.grace_coins ?? 0;
   const poisonInfo = getRemainingPoisonTime(profile.poison_expires_at);
 
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const xpPercentage = Math.min(
     100,
     Math.round((profile.current_xp / (profile.xp_to_next_level || 500)) * 100)
@@ -92,8 +97,26 @@ export function CharacterHUD({
       currentMentalFatigue: Number(profile.mental_fatigue) || 0,
       currentPhysicalFatigue: Number(profile.physical_fatigue) || 0,
       isMeditation,
+      hunterLevel: profile.current_level,
+      endurance: attributes.endurance,
+      vitality: attributes.vitality,
+      discipline: attributes.discipline,
+      mentality: attributes.mentality,
+      priority: q.priority,
+      difficulty: q.difficulty,
     });
-  }, [isQuestActive, activeQuestState.quest, questElapsedSeconds, profile.mental_fatigue, profile.physical_fatigue]);
+  }, [
+    isQuestActive,
+    activeQuestState.quest,
+    questElapsedSeconds,
+    profile.mental_fatigue,
+    profile.physical_fatigue,
+    profile.current_level,
+    attributes.endurance,
+    attributes.vitality,
+    attributes.discipline,
+    attributes.mentality,
+  ]);
 
   const sessionState = ((profile.active_session_state as any) || {});
   const isCurrentlySleeping = Boolean(
@@ -282,7 +305,7 @@ export function CharacterHUD({
     }
 
     // 6. Cellular Hydration Surge (BLUE/WHITE BUFF)
-    if (live.isHydrationSurgeActive && !isWorkoutActive) {
+    if (live.isHydrationSurgeActive) {
       const mins = Math.floor(live.hydrationRemainingSeconds / 60);
       const secs = String(live.hydrationRemainingSeconds % 60).padStart(2, "0");
       list.push({
@@ -699,8 +722,8 @@ export function CharacterHUD({
       <div className="relative z-10 p-3 rounded-2xl bg-[#070b14]/90 border border-slate-800 space-y-2 font-hud">
         <div className="flex items-center justify-between flex-wrap gap-1.5">
           <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-            <span className={`w-1.5 h-1.5 rounded-full ${isWorkoutActive ? "bg-amber-400" : "bg-cyan-400"} animate-pulse`} />
-            {isWorkoutActive ? "LIVE SESSION TELEMETRY" : "BIOLOGICAL FATIGUE TELEMETRY"}
+            <span className={`w-1.5 h-1.5 rounded-full ${isMounted && isWorkoutActive ? "bg-amber-400" : "bg-cyan-400"} animate-pulse`} />
+            {isMounted && isWorkoutActive ? "LIVE SESSION TELEMETRY" : "BIOLOGICAL FATIGUE TELEMETRY"}
           </span>
           <span
             className={`text-[9.5px] font-mono font-bold px-2 py-0.5 rounded border ${

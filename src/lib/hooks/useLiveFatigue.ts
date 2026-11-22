@@ -83,6 +83,12 @@ export function useLiveFatigue(
     const then = new Date(lastUpdateIso).getTime();
 
     const updateLiveDecay = () => {
+      const dynamicRates = calculateDynamicFatigueRecovery({
+        ...recoveryStats,
+        lastHydrationSurgeAt: activeSurgeTimestamp || recoveryStats?.lastHydrationSurgeAt,
+      });
+      setRatesInfo(dynamicRates);
+
       if (isPaused) {
         setMentalFatigue(initialMental);
         setPhysicalFatigue(initialPhysical);
@@ -92,12 +98,6 @@ export function useLiveFatigue(
       const now = Date.now();
       const diffMs = Math.max(0, now - then);
       const secondsElapsed = diffMs / 1000;
-
-      const dynamicRates = calculateDynamicFatigueRecovery({
-        ...recoveryStats,
-        lastHydrationSurgeAt: activeSurgeTimestamp || recoveryStats?.lastHydrationSurgeAt,
-      });
-      setRatesInfo(dynamicRates);
 
       const recoveredMental = secondsElapsed * dynamicRates.mentalRatePerSec;
       const recoveredPhysical = secondsElapsed * dynamicRates.physicalRatePerSec;

@@ -6,6 +6,9 @@ export interface ActiveQuestUiState {
   isMinimized: boolean;
   quest: Quest | null;
   startedAtTimestamp: number | null;
+  initialPhysicalFatigue: number;
+  initialMentalFatigue: number;
+  hunterLevel: number;
 }
 
 const initialState: ActiveQuestUiState = {
@@ -13,6 +16,9 @@ const initialState: ActiveQuestUiState = {
   isMinimized: false,
   quest: null,
   startedAtTimestamp: null,
+  initialPhysicalFatigue: 0,
+  initialMentalFatigue: 0,
+  hunterLevel: 1,
 };
 
 export const questUiSlice = createSlice({
@@ -21,12 +27,21 @@ export const questUiSlice = createSlice({
   reducers: {
     startQuestSession: (
       state,
-      action: PayloadAction<{ quest: Quest; startedAtTimestamp?: number }>
+      action: PayloadAction<{
+        quest: Quest;
+        startedAtTimestamp?: number;
+        initialPhysicalFatigue?: number;
+        initialMentalFatigue?: number;
+        hunterLevel?: number;
+      }>
     ) => {
       state.isActive = true;
       state.isMinimized = false;
       state.quest = action.payload.quest;
       state.startedAtTimestamp = action.payload.startedAtTimestamp || Date.now();
+      state.initialPhysicalFatigue = action.payload.initialPhysicalFatigue ?? 0;
+      state.initialMentalFatigue = action.payload.initialMentalFatigue ?? 0;
+      state.hunterLevel = action.payload.hunterLevel ?? 1;
     },
     minimizeQuestSession: (state) => {
       state.isMinimized = true;
@@ -39,6 +54,9 @@ export const questUiSlice = createSlice({
       state.isMinimized = false;
       state.quest = null;
       state.startedAtTimestamp = null;
+      state.initialPhysicalFatigue = 0;
+      state.initialMentalFatigue = 0;
+      state.hunterLevel = 1;
     },
     restoreQuestSession: (state, action: PayloadAction<any>) => {
       const data = action.payload;
@@ -68,6 +86,9 @@ export const questUiSlice = createSlice({
       state.startedAtTimestamp = data.started_at
         ? new Date(data.started_at).getTime()
         : data.startedAtTimestamp || Date.now();
+      state.initialPhysicalFatigue = Number(data.physical_fatigue ?? data.initialPhysicalFatigue ?? 0);
+      state.initialMentalFatigue = Number(data.mental_fatigue ?? data.initialMentalFatigue ?? 0);
+      state.hunterLevel = Number(data.hunter_level ?? data.hunterLevel ?? 1);
     },
   },
 });

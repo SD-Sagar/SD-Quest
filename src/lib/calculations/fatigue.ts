@@ -283,6 +283,7 @@ export interface SessionFatigueParams {
   actualFinalMentalFatigue?: number;
   graceCoinSpent?: boolean;
   isMeditation?: boolean;
+  isHydrationSurge?: boolean;
 }
 
 /**
@@ -321,14 +322,15 @@ export function calculateSessionFatigueDelta(params: SessionFatigueParams): Sess
   // Overtime Surge Multiplier (+0.75x baseline acceleration)
   let overtimeSurgeMultiplier = overtimeMinutes > 0 ? 1.75 : 1.0;
 
-  // Biological Capacity & Stat Resistance
+  // Biological Capacity & Stat Resistance (Buffered by Cellular Hydration Surge if active)
+  const hydrationBuff = params.isHydrationSurge ? 0.75 : 1.0;
   const physicalResistance = Math.max(
     0.35,
-    1 / (1 + (Number(endurance) + Number(vitality)) * 0.006 + Math.max(0, hunterLevel - 1) * 0.005)
+    (1 / (1 + (Number(endurance) + Number(vitality)) * 0.006 + Math.max(0, hunterLevel - 1) * 0.005)) * hydrationBuff
   );
   const mentalResistance = Math.max(
     0.35,
-    1 / (1 + (Number(discipline) + Number(mentality)) * 0.006 + Math.max(0, hunterLevel - 1) * 0.005)
+    (1 / (1 + (Number(discipline) + Number(mentality)) * 0.006 + Math.max(0, hunterLevel - 1) * 0.005)) * hydrationBuff
   );
 
   let mentalDelta = 0;

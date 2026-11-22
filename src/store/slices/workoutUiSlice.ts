@@ -246,10 +246,18 @@ export const workoutUiSlice = createSlice({
       state.status = "lifting";
     },
 
-    tickSetupTimer: (state) => {
+    tickSetupTimer: (state, action: PayloadAction<{ isHydrationSurge?: boolean } | undefined>) => {
       if (!state.setupTimerActive) return;
       if (state.setupTimerSeconds > 0) {
         state.setupTimerSeconds -= 1;
+
+        // Natural biological cooldown during equipment setup / awaiting phase
+        const surgeMultiplier = action.payload?.isHydrationSurge ? 1.5 : 1.0;
+        const physicalRecoveryPerSec = 0.0033 * surgeMultiplier;
+        const mentalRecoveryPerSec = 0.0016 * surgeMultiplier;
+
+        state.currentPhysicalFatigue = Math.max(0, Number((state.currentPhysicalFatigue - physicalRecoveryPerSec).toFixed(3)));
+        state.currentMentalFatigue = Math.max(0, Number((state.currentMentalFatigue - mentalRecoveryPerSec).toFixed(3)));
       } else {
         state.setupTimerActive = false;
       }

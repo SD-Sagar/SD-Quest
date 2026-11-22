@@ -379,12 +379,19 @@ export function QuestList({
       return;
     }
 
-    // Launch fresh universal quest session
+    // Launch fresh universal quest session with hunter's real profile fatigue
     const startedAt = Date.now();
+    const currentPhys = Number(profile?.physical_fatigue) || 0;
+    const currentMent = Number(profile?.mental_fatigue) || 0;
+    const currentLvl = profile?.current_level || 1;
+
     dispatch(
       startQuestSession({
         quest: q,
         startedAtTimestamp: startedAt,
+        initialPhysicalFatigue: currentPhys,
+        initialMentalFatigue: currentMent,
+        hunterLevel: currentLvl,
       })
     );
 
@@ -399,6 +406,9 @@ export function QuestList({
         linked_attributes: Object.keys(q.attribute_rewards || {}),
         category: q.category,
         quest_data: q,
+        mental_fatigue: currentMent,
+        physical_fatigue: currentPhys,
+        hunter_level: currentLvl,
       });
     } catch (err) {
       console.warn("Failed to persist quest session to cloud:", err);

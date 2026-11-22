@@ -29,9 +29,10 @@ export function GlobalWorkoutHost() {
   const activeQuest = useAppSelector((state) => state.questUi.quest);
   const questStartedAtTimestamp = useAppSelector((state) => state.questUi.startedAtTimestamp);
 
+  const questUiState = useAppSelector((state) => state.questUi);
   const [questElapsedSeconds, setQuestElapsedSeconds] = useState(0);
-  const [baseMental, setBaseMental] = useState(0);
-  const [basePhysical, setBasePhysical] = useState(0);
+  const [baseMental, setBaseMental] = useState(() => questUiState.initialMentalFatigue ?? 0);
+  const [basePhysical, setBasePhysical] = useState(() => questUiState.initialPhysicalFatigue ?? 0);
   const [surgeRemainingSecs, setSurgeRemainingSecs] = useState(0);
 
   // Live cellular hydration surge listener
@@ -188,9 +189,12 @@ export function GlobalWorkoutHost() {
       isFun: activeQuest.is_fun,
       linkedAttributes: linkedAttrs as AttributeType[],
       category: activeQuest.category,
-      currentMentalFatigue: 0,
-      currentPhysicalFatigue: 0,
+      currentMentalFatigue: baseMental,
+      currentPhysicalFatigue: basePhysical,
       isMeditation: isMeditationQuest,
+      priority: activeQuest.priority,
+      difficulty: activeQuest.difficulty,
+      isHydrationSurge: surgeRemainingSecs > 0,
     });
 
     const overtimeSecs = Math.max(0, questElapsedSeconds - targetMins * 60);

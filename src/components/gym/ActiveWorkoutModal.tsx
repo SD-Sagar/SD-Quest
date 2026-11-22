@@ -250,10 +250,10 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
         playTimerCompleteSound();
         triggerHaptic("medium");
       }
-      dispatch(tickSetupTimer());
+      dispatch(tickSetupTimer({ isHydrationSurge: surgeRemainingSecs > 0 }));
     }, 1000);
     return () => clearInterval(interval);
-  }, [session.setupTimerActive, session.setupTimerSeconds, dispatch]);
+  }, [session.setupTimerActive, session.setupTimerSeconds, surgeRemainingSecs, dispatch]);
 
   // Sync skipping target to input
   useEffect(() => {

@@ -28,7 +28,8 @@ interface LiveQuestStopwatchProps {
 export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const reduxStartedAt = useAppSelector((state) => state.questUi.startedAtTimestamp);
+  const reduxQuestState = useAppSelector((state) => state.questUi);
+  const reduxStartedAt = reduxQuestState.startedAtTimestamp;
 
   const [seconds, setSeconds] = useState(() => {
     if (reduxStartedAt) {
@@ -47,8 +48,9 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
     }
     return null;
   });
-  const [baseProfileMental, setBaseProfileMental] = useState(0);
-  const [baseProfilePhysical, setBaseProfilePhysical] = useState(0);
+  const [baseProfileMental, setBaseProfileMental] = useState(() => reduxQuestState.initialMentalFatigue ?? 0);
+  const [baseProfilePhysical, setBaseProfilePhysical] = useState(() => reduxQuestState.initialPhysicalFatigue ?? 0);
+  const [hunterLevel, setHunterLevel] = useState(() => reduxQuestState.hunterLevel ?? 1);
   const [surgeRemainingSecs, setSurgeRemainingSecs] = useState(0);
 
   // Live cellular hydration surge listener
@@ -114,6 +116,7 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
         if (active) {
           if (active.mental_fatigue !== undefined) setBaseProfileMental(Number(active.mental_fatigue) || 0);
           if (active.physical_fatigue !== undefined) setBaseProfilePhysical(Number(active.physical_fatigue) || 0);
+          if (active.hunter_level !== undefined) setHunterLevel(Number(active.hunter_level) || 1);
           if (active.grace_coin_consumed || active.grace_coin_consumed_for_session === quest.id) {
             setGraceCoinShield(true);
           }
@@ -135,6 +138,9 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
             linked_attributes: Object.keys(quest.attribute_rewards || {}),
             category: quest.category,
             quest_data: quest,
+            mental_fatigue: baseProfileMental,
+            physical_fatigue: baseProfilePhysical,
+            hunter_level: hunterLevel,
           });
         }
 
@@ -194,6 +200,10 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
       currentMentalFatigue: baseProfileMental,
       currentPhysicalFatigue: baseProfilePhysical,
       isMeditation: isMeditationQuest,
+      hunterLevel: hunterLevel,
+      priority: quest.priority,
+      difficulty: quest.difficulty,
+      isHydrationSurge: surgeRemainingSecs > 0,
     });
   }, [
     seconds,
@@ -204,6 +214,10 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
     baseProfileMental,
     baseProfilePhysical,
     isMeditationQuest,
+    hunterLevel,
+    quest.priority,
+    quest.difficulty,
+    surgeRemainingSecs,
   ]);
 
   const currentLiveMental = Math.max(0, Math.min(100, baseProfileMental + liveQuestFatigue.mentalDelta));

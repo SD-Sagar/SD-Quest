@@ -313,6 +313,9 @@ export function TodayDashboardView({
                         currentMentalFatigue: baseMental,
                         currentPhysicalFatigue: basePhysical,
                         isMeditation,
+                        hunterLevel: profile.current_level,
+                        priority: activeQuest?.priority,
+                        difficulty: activeQuest?.difficulty,
                       });
                       const totalMental = Math.max(0, Math.min(100, baseMental + liveFatigue.mentalDelta));
                       const totalPhysical = Math.max(0, Math.min(100, basePhysical + liveFatigue.physicalDelta));
