@@ -60,11 +60,18 @@ export function CharacterHUD({
   const isWorkoutActive = activeWorkout.isActive && activeWorkout.status !== "completed";
 
   const sessionState = ((profile.active_session_state as any) || {});
+  const isCurrentlySleeping = Boolean(
+    sessionState.is_sleeping ||
+    sessionState.category === "sleep" ||
+    sessionState.session_id === "system-compulsory-sleep-stasis" ||
+    sessionState.type === "sleep"
+  );
   const circadian = calculateCircadianAwakeStatus({
     lastSleepStartedAt: profile.last_sleep_started_at || sessionState.last_sleep_started_at,
-    lastSleepCompletedAt: profile.last_sleep_completed_at,
+    lastSleepCompletedAt: profile.last_sleep_completed_at || sessionState.last_sleep_completed_at,
     rollingSleepMinutes: profile.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes,
-    isCurrentlySleeping: Boolean(sessionState.is_sleeping),
+    isCurrentlySleeping,
+    frozenAwakeHours: sessionState.frozen_awake_hours,
     createdAt: profile.created_at,
   });
 
@@ -330,10 +337,10 @@ export function CharacterHUD({
                     triggerHaptic("heavy");
                     setIsStatModalOpen(true);
                   }}
-                  className="px-2.5 py-0.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-[11px] font-mono font-black uppercase tracking-wider animate-pulse flex items-center gap-1 shadow-[0_0_12px_rgba(251,191,36,0.6)] transition"
+                  className="px-2.5 py-0.5 rounded-lg bg-white hover:bg-slate-100 text-blue-600 border border-blue-400/50 text-[11px] font-mono font-black uppercase tracking-wider animate-pulse flex items-center gap-1.5 shadow-[0_0_15px_rgba(255,255,255,0.7)] transition"
                   title="Grace Coins Available for Debuff Purification!"
                 >
-                  <Coins className="w-3.5 h-3.5 fill-black text-amber-950" />
+                  <Coins className="w-3.5 h-3.5 fill-blue-600 text-blue-600" />
                   <span>{unallocatedPoints} COIN{unallocatedPoints !== 1 ? "S" : ""}</span>
                 </button>
               )}
@@ -401,7 +408,7 @@ export function CharacterHUD({
                 <div
                   className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 transition-all duration-300 ${
                     isDebuff
-                      ? "bg-[#070b14]/90 border-white/25 text-white shadow-[0_0_16px_rgba(255,255,255,0.08)] hover:border-white/40"
+                      ? "bg-white/[0.07] backdrop-blur-md border-white/30 text-white shadow-[0_0_20px_rgba(255,255,255,0.14)] hover:border-white/50"
                       : "bg-[#070b14]/90 border-cyan-400/40 text-cyan-200 shadow-[0_0_16px_rgba(0,229,255,0.18)] hover:border-cyan-400/70"
                   }`}
                 >
@@ -453,22 +460,6 @@ export function CharacterHUD({
                       >
                         {effect.badge}
                       </span>
-                    )}
-                    {isDebuff && unallocatedPoints > 0 && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          triggerHaptic("heavy");
-                          setIsStatModalOpen(true);
-                        }}
-                        className="px-2 py-0.5 rounded bg-amber-400 hover:bg-amber-300 text-black font-mono font-black text-[9px] uppercase tracking-wider flex items-center gap-1 shadow-[0_0_8px_rgba(251,191,36,0.5)] transition"
-                        title="Purify with Grace Coin"
-                      >
-                        <Coins className="w-2.5 h-2.5 fill-black text-amber-950" />
-                        <span>PURIFY (-3H)</span>
-                      </button>
                     )}
                     {effect.timer && (
                       <span
@@ -641,8 +632,8 @@ export function CharacterHUD({
               <span className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400 block truncate">
                 CIRCADIAN
               </span>
-              <span className={`text-[11px] sm:text-xs font-mono font-black truncate block ${circadian.isExhaustionLockout ? "text-red-400 animate-pulse" : "text-white"}`}>
-                {circadian.hoursAwakeLive.toFixed(1)}h/26h
+              <span className={`text-[11px] sm:text-xs font-mono font-black truncate block ${circadian.isCurrentlySleeping ? "text-cyan-300 animate-pulse" : circadian.isExhaustionLockout ? "text-red-400 animate-pulse" : "text-white"}`}>
+                {circadian.isCurrentlySleeping ? "STASIS (FROZEN)" : `${circadian.hoursAwakeLive.toFixed(1)}h/26h`}
               </span>
             </div>
           </div>
@@ -650,7 +641,12 @@ export function CharacterHUD({
 
         {/* Dynamic Telemetry Status / Debuff Note */}
         <p className="text-[10px] font-mono text-slate-400 border-t border-slate-800/60 pt-1.5">
-          {circadian.isExhaustionLockout ? (
+          {circadian.isCurrentlySleeping ? (
+            <span className="text-cyan-300 font-bold flex items-center gap-1.5 animate-pulse">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping inline-block" />
+              CIRCADIAN STASIS ACTIVE: Sleep stasis engaged. Awake countdown frozen at {circadian.hoursAwakeLive.toFixed(1)}h. Continuous decay halted.
+            </span>
+          ) : circadian.isExhaustionLockout ? (
             <span className="text-red-400 font-bold animate-pulse">
               ⚠ CRITICAL EXHAUSTION LOCKOUT ACTIVE: Awake {circadian.hoursAwakeLive.toFixed(1)}h (&ge; 26h limit)! -50 XP/min Mana leak active. Zero XP rate on all tasks. Enter bed or initiate sleep stasis immediately to halt decay!
             </span>

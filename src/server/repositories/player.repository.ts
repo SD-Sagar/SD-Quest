@@ -33,6 +33,9 @@ export class PlayerRepository {
     }
 
     // Resilient fallback for circadian sleep telemetry
+    if (!profile.last_sleep_completed_at && sessionState.last_sleep_completed_at) {
+      profile.last_sleep_completed_at = sessionState.last_sleep_completed_at;
+    }
     if (!profile.last_sleep_started_at) {
       if (sessionState.last_sleep_started_at) {
         profile.last_sleep_started_at = sessionState.last_sleep_started_at;
@@ -73,18 +76,25 @@ export class PlayerRepository {
     }
 
     // Continuous Circadian 26h+ Exhaustion Mana Drain (-50 XP/min)
-    const lastSleepStarted =
-      profile.last_sleep_started_at ||
+    const isCurrentlySleeping = Boolean(
+      sessionState.is_sleeping ||
+      sessionState.category === "sleep" ||
+      sessionState.session_id === "system-compulsory-sleep-stasis" ||
+      sessionState.type === "sleep"
+    );
+
+    const lastSleepCompleted =
       profile.last_sleep_completed_at ||
+      sessionState.last_sleep_completed_at ||
       profile.created_at;
-    const isCurrentlySleeping = Boolean(sessionState.is_sleeping);
 
-    if (lastSleepStarted && !isCurrentlySleeping) {
-      const msSinceSleepStart = Date.now() - new Date(lastSleepStarted).getTime();
-      const hoursSinceSleepStart = msSinceSleepStart / 3600000;
+    // STASIS PAUSE: When actively sleeping, countdown stops and ZERO XP drain can ever occur.
+    if (lastSleepCompleted && !isCurrentlySleeping) {
+      const msSinceSleepCompleted = Math.max(0, Date.now() - new Date(lastSleepCompleted).getTime());
+      const hoursAwake = msSinceSleepCompleted / 3600000;
 
-      if (hoursSinceSleepStart >= 26.0) {
-        const overdueMs = msSinceSleepStart - 26.0 * 3600000;
+      if (hoursAwake >= 26.0) {
+        const overdueMs = msSinceSleepCompleted - 26.0 * 3600000;
         const totalOverdueMins = Math.floor(overdueMs / 60000);
 
         const lastDrainAt = sessionState.last_circadian_drain_at;
@@ -115,6 +125,39 @@ export class PlayerRepository {
             notes: `[CRITICAL EXHAUSTION LOCKOUT: 26H+ SLEEP DEFICIT (-50 XP/m for ${minsToDrain}m)]`,
           });
         }
+      }
+    }
+
+    // 3-Day Directive Inactivity Failure Penalty:
+    // If no daily challenges are completed across a 3-day lapse without Medical Sanctuary:
+    // A complete level is wiped out, and XP is set to 99% of that previous level.
+    if (profile.last_streak_date && profile.condition !== "medical_sanctuary") {
+      const today = new Date().toISOString().split("T")[0];
+      const d1 = new Date(today + "T00:00:00Z");
+      const d2 = new Date(profile.last_streak_date + "T00:00:00Z");
+      const daysSinceLastStreak = Math.round((d1.getTime() - d2.getTime()) / (1000 * 3600 * 24));
+
+      const lastWipeDate = sessionState.last_inactivity_wipe_streak_date;
+      if (daysSinceLastStreak >= 3 && lastWipeDate !== profile.last_streak_date) {
+        sessionState.last_inactivity_wipe_streak_date = profile.last_streak_date;
+        const newLevel = Math.max(1, profile.current_level - 1);
+        const xpThreshold = profile.xp_to_next_level || 500;
+        const newXp = Math.floor(xpThreshold * 0.99);
+
+        profile.current_level = newLevel;
+        profile.current_xp = newXp;
+        profile.current_streak = 0;
+
+        await supabase
+          .from("profiles")
+          .update({
+            current_level: newLevel,
+            current_xp: newXp,
+            current_streak: 0,
+            active_session_state: sessionState,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
       }
     }
 
@@ -673,21 +716,23 @@ export class PlayerRepository {
       }
     } else if (debuffType === "circadian") {
       // 3-hour reduction of active awake strain + 3-hour (180m) stasis credit
-      const currentStart = profile.last_sleep_started_at || sessionState.last_sleep_started_at;
+      const currentAnchor = profile.last_sleep_completed_at || sessionState.last_sleep_completed_at || profile.last_sleep_started_at;
       const now = Date.now();
-      let newStartIso: string;
-      if (currentStart) {
-        newStartIso = new Date(new Date(currentStart).getTime() + 3 * 3600 * 1000).toISOString();
+      let newAnchorIso: string;
+      if (currentAnchor) {
+        newAnchorIso = new Date(new Date(currentAnchor).getTime() + 3 * 3600 * 1000).toISOString();
       } else {
-        newStartIso = new Date(now - 19 * 3600 * 1000).toISOString();
+        newAnchorIso = new Date(now - 19 * 3600 * 1000).toISOString();
       }
 
       const currentRolling = Number(profile.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes ?? 0);
       const newRolling = currentRolling + 180; // 3 hours of restorative stasis credit
 
-      updatePayload.last_sleep_started_at = newStartIso;
+      updatePayload.last_sleep_completed_at = newAnchorIso;
+      updatePayload.last_sleep_started_at = newAnchorIso;
       updatePayload.rolling_sleep_minutes = newRolling;
-      sessionState.last_sleep_started_at = newStartIso;
+      sessionState.last_sleep_completed_at = newAnchorIso;
+      sessionState.last_sleep_started_at = newAnchorIso;
       sessionState.rolling_sleep_minutes = newRolling;
       delete sessionState.last_circadian_drain_at;
 
@@ -814,6 +859,27 @@ export class PlayerRepository {
 
   static async saveActiveSession(userId: string, sessionState: any): Promise<void> {
     const supabase = await createClient();
+    const profile = await this.getProfile(userId);
+
+    const isSleep =
+      sessionState?.category === "sleep" ||
+      sessionState?.session_id === "system-compulsory-sleep-stasis" ||
+      sessionState?.type === "sleep";
+
+    if (isSleep) {
+      sessionState.is_sleeping = true;
+      sessionState.sleep_started_at = sessionState.started_at || new Date().toISOString();
+
+      // Calculate and freeze current awake hours at the exact moment sleep starts
+      const existingSessionState = (profile?.active_session_state as any) || {};
+      const anchor =
+        profile?.last_sleep_completed_at ||
+        existingSessionState.last_sleep_completed_at ||
+        profile?.created_at;
+      const awakeMs = anchor ? Math.max(0, Date.now() - new Date(anchor).getTime()) : 0;
+      sessionState.frozen_awake_hours = Number((awakeMs / (1000 * 3600)).toFixed(2));
+    }
+
     await supabase
       .from("profiles")
       .update({
@@ -830,10 +896,21 @@ export class PlayerRepository {
 
   static async clearActiveSession(userId: string): Promise<void> {
     const supabase = await createClient();
+    const profile = await this.getProfile(userId);
+    const sessionState = ((profile?.active_session_state as any) || {});
+
+    // Preserve persistent circadian telemetry keys while clearing active runtime keys
+    const preservedState: Record<string, any> = {};
+    if (sessionState.last_sleep_completed_at) preservedState.last_sleep_completed_at = sessionState.last_sleep_completed_at;
+    if (sessionState.last_sleep_started_at) preservedState.last_sleep_started_at = sessionState.last_sleep_started_at;
+    if (sessionState.rolling_sleep_minutes !== undefined) preservedState.rolling_sleep_minutes = sessionState.rolling_sleep_minutes;
+    if (sessionState.sleep_deprived_expires_at) preservedState.sleep_deprived_expires_at = sessionState.sleep_deprived_expires_at;
+    if (sessionState.poison_expires_at) preservedState.poison_expires_at = sessionState.poison_expires_at;
+
     await supabase
       .from("profiles")
       .update({
-        active_session_state: null,
+        active_session_state: Object.keys(preservedState).length > 0 ? preservedState : null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", userId);
@@ -880,16 +957,19 @@ export class PlayerRepository {
     const now = new Date();
     const sessionStartIso = new Date(now.getTime() - minutesSlept * 60 * 1000).toISOString();
     const sessionState = ((profile?.active_session_state as any) || {});
-    const currentRolling = Number(profile?.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes ?? 0);
-    const newRolling = currentRolling + minutesSlept;
+
+    // MAIN SLEEP PROTOCOL >= 4.0h RESETS THE 26-HOUR CIRCADIAN WINDOW TO 0!
+    // The player has had adequate core sleep; awake time resets to 0h starting from now.
+    const newRolling = minutesSlept;
 
     const updatePayload: Record<string, any> = {
       mental_fatigue: newMental,
       physical_fatigue: newPhysical,
       last_fatigue_update_at: now.toISOString(),
-      last_sleep_completed_at: now.toISOString(),
+      last_sleep_completed_at: now.toISOString(), // Wake up time: anchors new 0h awake clock!
       last_sleep_started_at: sessionStartIso,
       rolling_sleep_minutes: newRolling,
+      sleep_deprived_expires_at: null, // Clears any prior sleep deprivation debuff
       updated_at: now.toISOString(),
     };
 
@@ -898,18 +978,14 @@ export class PlayerRepository {
       updatePayload.exp_booster_expires_at = new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString();
     }
 
-    // Cumulative 4.0h sleep threshold clears sleep deprivation debuff
-    if (newRolling >= 240) {
-      updatePayload.sleep_deprived_expires_at = null;
-    }
-
     sessionState.is_sleeping = false;
+    delete sessionState.frozen_awake_hours;
+    delete sessionState.sleep_started_at;
+    delete sessionState.last_circadian_drain_at;
+    sessionState.last_sleep_completed_at = now.toISOString();
     sessionState.last_sleep_started_at = sessionStartIso;
     sessionState.rolling_sleep_minutes = newRolling;
-    if (newRolling >= 240) {
-      sessionState.sleep_deprived_expires_at = null;
-    }
-    delete sessionState.last_circadian_drain_at;
+    sessionState.sleep_deprived_expires_at = null;
     updatePayload.active_session_state = sessionState;
 
     const { error: endSleepErr } = await supabase.from("profiles").update(updatePayload).eq("id", userId);
@@ -944,15 +1020,31 @@ export class PlayerRepository {
     const currentRolling = Number(profile?.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes ?? 0);
     const newRolling = currentRolling + minutesSlept;
 
+    // PREMATURE SLEEP (< 4.0h):
+    // 26-hour window DOES NOT RESET to 0!
+    // Deduct sleep duration from frozen awake hours and shift anchor.
+    const frozenAwake = sessionState.frozen_awake_hours !== undefined 
+      ? Number(sessionState.frozen_awake_hours) 
+      : 24.0;
+    const sleepHours = minutesSlept / 60;
+    const deductedAwake = Math.max(0, frozenAwake - sleepHours);
+
+    // Anchor last_sleep_completed_at so (now - last_sleep_completed_at) equals deductedAwake hours
+    const adjustedAnchorIso = new Date(now.getTime() - deductedAwake * 3600 * 1000).toISOString();
+
     const updatePayload: Record<string, any> = {
       sleep_deprived_expires_at: new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString(),
-      last_sleep_completed_at: now.toISOString(),
+      last_sleep_completed_at: adjustedAnchorIso,
       last_sleep_started_at: sessionStartIso,
       rolling_sleep_minutes: newRolling,
       updated_at: now.toISOString(),
     };
 
     sessionState.is_sleeping = false;
+    delete sessionState.frozen_awake_hours;
+    delete sessionState.sleep_started_at;
+    delete sessionState.last_circadian_drain_at;
+    sessionState.last_sleep_completed_at = adjustedAnchorIso;
     sessionState.last_sleep_started_at = sessionStartIso;
     sessionState.rolling_sleep_minutes = newRolling;
     updatePayload.active_session_state = sessionState;
@@ -965,7 +1057,7 @@ export class PlayerRepository {
       await supabase.from("profiles").update(updatePayload).eq("id", userId);
     }
 
-    // Apply -100 XP / Mana penalty (stays deducted, universal de-leveling triggers if XP drops below 0)
+    // Apply -100 XP / Mana penalty (stays intact, universal de-leveling triggers if XP drops below 0)
     await this.grantXpAndAttributes({
       userId,
       xpDelta: -100,
@@ -1003,12 +1095,20 @@ export class PlayerRepository {
     const newRolling = currentRolling + minutesSlept;
     const hasAdequateSleep = newRolling >= 240;
 
+    // SIDE SLEEP / NAPS DO NOT RESET THE 26-HOUR CIRCADIAN CYCLE.
+    // Deduct nap duration from current awake strain by shifting anchor forward:
+    const currentAnchor = profile?.last_sleep_completed_at || sessionState.last_sleep_completed_at || profile?.created_at;
+    let adjustedAnchorIso = currentAnchor;
+    if (currentAnchor) {
+      const currentAnchorMs = new Date(currentAnchor).getTime();
+      adjustedAnchorIso = new Date(currentAnchorMs + minutesSlept * 60 * 1000).toISOString();
+    }
+
     const updatePayload: Record<string, any> = {
       mental_fatigue: newMental,
       physical_fatigue: newPhysical,
       last_fatigue_update_at: now.toISOString(),
-      last_sleep_completed_at: now.toISOString(),
-      last_sleep_started_at: sessionStartIso,
+      last_sleep_completed_at: adjustedAnchorIso,
       rolling_sleep_minutes: newRolling,
       updated_at: now.toISOString(),
     };
@@ -1020,7 +1120,7 @@ export class PlayerRepository {
     }
 
     sessionState.is_sleeping = false;
-    sessionState.last_sleep_started_at = sessionStartIso;
+    sessionState.last_sleep_completed_at = adjustedAnchorIso;
     sessionState.rolling_sleep_minutes = newRolling;
     if (hasAdequateSleep) {
       sessionState.sleep_deprived_expires_at = null;

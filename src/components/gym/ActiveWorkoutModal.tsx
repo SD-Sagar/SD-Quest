@@ -41,6 +41,7 @@ import {
   calculateAccurateWorkoutCalories,
   getMaxSetsForRank,
   getRepCeilingForRankAndSets,
+  resolveExerciseEquipmentProfile,
 } from "@/lib/calculations/gym";
 import confetti from "canvas-confetti";
 import {
@@ -128,7 +129,15 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
     updated_at: new Date().toISOString(),
   };
 
-  const dynamicPlates = calculateDumbbellPlates(inputWeight, defaultInv, true);
+  const savedEquipment = useAppSelector((state) => state.workoutUi.equipment);
+  const activeInventory = savedEquipment || defaultInv;
+
+  const currentEquipProfile = resolveExerciseEquipmentProfile(
+    currentExercise?.definition || {},
+    inputWeight,
+    activeInventory
+  );
+  const dynamicPlates = currentEquipProfile.plateSolverResult || calculateDumbbellPlates(inputWeight, activeInventory, true);
 
   // Flattened sets for accurate calorie calculation
   const allPerformedSets = session.exercises.flatMap((ex) =>
@@ -153,7 +162,8 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
   // Sync inputs with current set target when set changes
   useEffect(() => {
     if (currentSet) {
-      setInputWeight(currentSet.weightKg);
+      const isFreeHand = currentEquipProfile.isFreeHand || currentEquipProfile.isSkippingRope;
+      setInputWeight(isFreeHand ? 0 : currentSet.weightKg);
       setInputReps(currentSet.reps);
       setInputRpe(currentSet.rpe || 8);
     }
@@ -630,28 +640,57 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
           </div>
 
           {/* Physical Equipment Guidance Card */}
-          <div className="rounded-2xl bg-slate-900/90 border border-cyan-500/30 p-4 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-wider font-mono">
-              <Sliders className="w-4 h-4 text-cyan-400" />
-              <span>EQUIPMENT SETUP DIRECTIVE</span>
+          <div className="rounded-2xl bg-slate-900/90 border border-cyan-500/30 p-4 space-y-3 font-hud shadow-[0_0_15px_rgba(0,229,255,0.08)]">
+            <div className="flex items-center justify-between text-xs font-bold text-cyan-400 uppercase tracking-wider font-mono flex-wrap gap-2">
+              <span className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-cyan-400" />
+                EQUIPMENT SETUP DIRECTIVE
+              </span>
+              <span className="text-[10px] text-cyan-300 font-mono px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/40">
+                {currentEquipProfile.displayName}
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
-                <span className="text-[10px] text-slate-400 uppercase font-mono block">20-in-1 Bench Position</span>
-                <span className="text-sm font-black text-amber-400">{benchAngle}</span>
+                <span className="text-[10px] text-slate-400 uppercase font-mono block">Setup &amp; Bench</span>
+                <span className="text-sm font-black text-amber-400">{currentEquipProfile.setupInstructions}</span>
               </div>
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
-                <span className="text-[10px] text-slate-400 uppercase font-mono block">Target Weight / Hand</span>
-                <span className="text-sm font-black text-cyan-400">{currentSet?.weightKg || 15} kg</span>
+                <span className="text-[10px] text-slate-400 uppercase font-mono block">Resistance / Load</span>
+                <span className="text-sm font-black text-cyan-400">
+                  {currentEquipProfile.isFreeHand
+                    ? "Bodyweight (0 kg)"
+                    : currentEquipProfile.isSkippingRope
+                    ? "Cadence (0 kg)"
+                    : `${currentSet?.weightKg || inputWeight || 15} kg`}
+                </span>
               </div>
             </div>
 
-            {/* Plate Solver Recipe */}
-            <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] font-mono text-slate-300">
-              <span className="text-cyan-400 font-bold block mb-1">Dumbbell Loading Recipe:</span>
-              <span>{dynamicPlates.summaryString}</span>
-            </div>
+            {/* Plate Solver Recipe if plate-loaded, or Free-Hand Directive */}
+            {currentEquipProfile.isFreeHand ? (
+              <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/30 text-[11px] font-mono text-cyan-200 flex items-center justify-between flex-wrap gap-2">
+                <span className="font-bold flex items-center gap-1.5 font-hud">
+                  <Zap className="w-4 h-4 text-cyan-400" />
+                  FREE-HAND CALISTHENICS
+                </span>
+                <span className="text-[10px] text-cyan-300/80">Zero Plates Required • Mind-Muscle Tempo</span>
+              </div>
+            ) : currentEquipProfile.isSkippingRope ? (
+              <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/30 text-[11px] font-mono text-cyan-200 flex items-center justify-between flex-wrap gap-2">
+                <span className="font-bold flex items-center gap-1.5 font-hud">
+                  <Zap className="w-4 h-4 text-cyan-400" />
+                  SPEED SKIPPING ROPE
+                </span>
+                <span className="text-[10px] text-cyan-300/80">Target: 100+ Cadence Revolutions</span>
+              </div>
+            ) : (
+              <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] font-mono text-slate-300">
+                <span className="text-cyan-400 font-bold block mb-1">{currentEquipProfile.displayName} Recipe:</span>
+                <span>{dynamicPlates.summaryString}</span>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -1028,31 +1067,59 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
 
         {/* Set Controls (Weight & Reps Steppers) */}
         <div className="grid grid-cols-2 gap-3">
-          {/* Weight Stepper */}
-          <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-2">
-            <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
-              Weight / Hand (kg)
-            </span>
-            <div className="flex items-center justify-center gap-2">
-              <button
-                type="button"
-                onClick={() => setInputWeight(Math.max(0, inputWeight - 1.0))}
-                className="w-8 h-8 rounded-xl bg-slate-800 text-white font-bold flex items-center justify-center hover:bg-slate-700"
-              >
-                -
-              </button>
-              <span className="text-2xl font-black font-mono text-white min-w-16">
-                {inputWeight}
+          {/* Weight Stepper or Bodyweight Indicator */}
+          {currentEquipProfile.isFreeHand ? (
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-2 font-hud flex flex-col justify-between">
+              <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                Resistance Mode
               </span>
-              <button
-                type="button"
-                onClick={() => setInputWeight(inputWeight + 1.0)}
-                className="w-8 h-8 rounded-xl bg-slate-800 text-white font-bold flex items-center justify-center hover:bg-slate-700"
-              >
-                +
-              </button>
+              <div className="flex items-center justify-center py-1">
+                <span className="text-xs sm:text-sm font-black font-mono text-cyan-300 px-2.5 py-1.5 rounded-xl bg-cyan-950/80 border border-cyan-500/40 shadow-sm">
+                  100% BODYWEIGHT
+                </span>
+              </div>
             </div>
-          </div>
+          ) : currentEquipProfile.isSkippingRope ? (
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-2 font-hud flex flex-col justify-between">
+              <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                Agility Mode
+              </span>
+              <div className="flex items-center justify-center py-1">
+                <span className="text-xs sm:text-sm font-black font-mono text-cyan-300 px-2.5 py-1.5 rounded-xl bg-cyan-950/80 border border-cyan-500/40 shadow-sm">
+                  SPEED ROPE CADENCE
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-2 font-hud">
+              <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block truncate">
+                {currentEquipProfile.equipmentType === "leg_developer"
+                  ? "Horn Load (kg)"
+                  : currentEquipProfile.equipmentType?.includes("barbell")
+                  ? "Barbell Load (kg)"
+                  : "Weight / Hand (kg)"}
+              </span>
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setInputWeight(Math.max(0, inputWeight - 1.0))}
+                  className="w-8 h-8 rounded-xl bg-slate-800 text-white font-bold flex items-center justify-center hover:bg-slate-700 transition"
+                >
+                  -
+                </button>
+                <span className="text-2xl font-black font-mono text-white min-w-16">
+                  {inputWeight}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setInputWeight(inputWeight + 1.0)}
+                  className="w-8 h-8 rounded-xl bg-slate-800 text-white font-bold flex items-center justify-center hover:bg-slate-700 transition"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Reps Stepper with Rank Ceilings */}
           <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-2">
@@ -1097,11 +1164,29 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
           </div>
         </div>
 
-        {/* Live Plate Recipe Display */}
-        <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400 flex items-center justify-between">
-          <span className="text-slate-500">Plate Solver:</span>
-          <span className="text-slate-300">{dynamicPlates.summaryString}</span>
-        </div>
+        {/* Live Plate Recipe Display or Equipment Directive */}
+        {currentEquipProfile.isFreeHand ? (
+          <div className="p-3 rounded-xl bg-slate-950 border border-cyan-500/30 text-[11px] font-mono text-slate-300 flex items-center justify-between flex-wrap gap-2 font-hud shadow-sm">
+            <span className="text-cyan-400 font-bold flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-cyan-400" />
+              FREE-HAND CALISTHENICS
+            </span>
+            <span className="text-slate-400 text-[10px]">Zero Plates Required • Focus on Mind-Muscle Tempo</span>
+          </div>
+        ) : currentEquipProfile.isSkippingRope ? (
+          <div className="p-3 rounded-xl bg-slate-950 border border-cyan-500/30 text-[11px] font-mono text-slate-300 flex items-center justify-between flex-wrap gap-2 font-hud shadow-sm">
+            <span className="text-cyan-400 font-bold flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-cyan-400" />
+              SPEED SKIPPING ROPE
+            </span>
+            <span className="text-slate-400 text-[10px]">Cadence Target: 100+ Clean Revolutions</span>
+          </div>
+        ) : (
+          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400 flex items-center justify-between flex-wrap gap-2 font-hud">
+            <span className="text-slate-400 font-bold">{currentEquipProfile.displayName}:</span>
+            <span className="text-slate-200">{dynamicPlates.summaryString}</span>
+          </div>
+        )}
 
         {/* Action: Log Set Completed */}
         <button

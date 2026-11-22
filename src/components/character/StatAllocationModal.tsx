@@ -40,11 +40,18 @@ export function StatAllocationModal({
 
   const poisonInfo = getRemainingPoisonTime(profile.poison_expires_at);
   const sessionState = ((profile.active_session_state as any) || {});
+  const isCurrentlySleeping = Boolean(
+    sessionState.is_sleeping ||
+    sessionState.category === "sleep" ||
+    sessionState.session_id === "system-compulsory-sleep-stasis" ||
+    sessionState.type === "sleep"
+  );
   const circadian = calculateCircadianAwakeStatus({
     lastSleepStartedAt: profile.last_sleep_started_at || sessionState.last_sleep_started_at,
-    lastSleepCompletedAt: profile.last_sleep_completed_at,
+    lastSleepCompletedAt: profile.last_sleep_completed_at || sessionState.last_sleep_completed_at,
     rollingSleepMinutes: profile.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes,
-    isCurrentlySleeping: Boolean(sessionState.is_sleeping),
+    isCurrentlySleeping,
+    frozenAwakeHours: sessionState.frozen_awake_hours,
     createdAt: profile.created_at,
   });
 
@@ -94,20 +101,20 @@ export function StatAllocationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-lg hunter-panel rounded-3xl border border-amber-500/40 p-5 sm:p-6 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto text-slate-200 font-hud">
+      <div className="w-full max-w-lg hunter-panel rounded-3xl border border-cyan-500/40 p-5 sm:p-6 shadow-[0_0_30px_rgba(0,229,255,0.15)] relative space-y-4 max-h-[90vh] overflow-y-auto text-slate-200 font-hud">
         {/* Glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-36 bg-amber-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-36 bg-cyan-500/10 blur-3xl pointer-events-none" />
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-amber-500/20 pb-3 relative z-10">
+        <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3 relative z-10">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-950/80 border border-amber-500/50 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.3)]">
-              <Coins className="w-5 h-5 fill-amber-400 text-amber-950" />
+            <div className="p-2 rounded-xl bg-white text-blue-600 border border-blue-400/60 shadow-[0_0_15px_rgba(255,255,255,0.7)]">
+              <Coins className="w-5 h-5 fill-blue-600 text-blue-600" />
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white tracking-wider font-solo flex items-center gap-1.5">
                 <span>SYSTEM SANCTUARY</span>
-                <span className="text-amber-400 font-black">// GRACE COIN PURIFICATION</span>
+                <span className="text-cyan-400 font-black">// GRACE COIN PURIFICATION</span>
               </h2>
               <p className="text-[11px] text-slate-400 font-mono">
                 1 Coin = 3h Strain Relief • &le;3h or &le;30% Cleansed 100%
@@ -125,20 +132,22 @@ export function StatAllocationModal({
 
         {/* Success Banner */}
         {successBanner && (
-          <div className="p-3 rounded-2xl bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2 animate-in fade-in duration-200 shadow-[0_0_12px_rgba(16,185,129,0.2)]">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <div className="p-3 rounded-2xl bg-cyan-950/80 border border-cyan-500/60 text-cyan-200 text-xs font-mono flex items-center gap-2 animate-in fade-in duration-200 shadow-[0_0_12px_rgba(0,229,255,0.2)]">
+            <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
             <span>{successBanner}</span>
           </div>
         )}
 
         {/* Grace Coin Balance Banner */}
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/60 via-[#070b14]/90 to-amber-950/40 border border-amber-500/40 flex items-center justify-between gap-3 shadow-lg relative overflow-hidden">
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-950/70 via-[#070b14]/90 to-cyan-950/50 border border-blue-400/40 flex items-center justify-between gap-3 shadow-[0_0_20px_rgba(59,130,246,0.15)] relative overflow-hidden">
           <div className="space-y-0.5">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300 font-bold block">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-300 font-bold block">
               AVAILABLE SANCTUARY CURRENCY
             </span>
             <div className="text-xl sm:text-2xl font-black text-white font-solo flex items-center gap-2">
-              <Coins className="w-6 h-6 fill-amber-400 text-amber-950 shrink-0" />
+              <div className="p-1 rounded-lg bg-white shadow-[0_0_10px_rgba(255,255,255,0.7)] flex items-center justify-center">
+                <Coins className="w-5 h-5 fill-blue-600 text-blue-600 shrink-0" />
+              </div>
               <span>{coins} GRACE COIN{coins !== 1 ? "S" : ""}</span>
             </div>
             <p className="text-[10px] text-slate-400 max-w-sm">
@@ -146,9 +155,9 @@ export function StatAllocationModal({
             </p>
           </div>
 
-          <div className="shrink-0 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-center font-mono">
-            <span className="text-[9px] uppercase block text-slate-400">VALUE</span>
-            <span className="text-xs font-black text-amber-400">-3H / -30%</span>
+          <div className="shrink-0 p-2.5 rounded-xl bg-white/10 border border-white/30 text-white text-center font-mono shadow-[0_0_10px_rgba(255,255,255,0.15)]">
+            <span className="text-[9px] uppercase block text-slate-300 font-bold">PURIFICATION</span>
+            <span className="text-xs font-black text-cyan-300">-3H / -30%</span>
           </div>
         </div>
 
@@ -160,16 +169,16 @@ export function StatAllocationModal({
 
           {/* 1. Alcohol Poison Debuff */}
           {poisonInfo.isPoisoned && (
-            <div className="p-3.5 rounded-2xl bg-[#070b14]/90 border border-white/20 shadow-[0_0_14px_rgba(255,255,255,0.06)] flex items-center justify-between gap-3">
+            <div className="p-3.5 rounded-2xl bg-white/[0.06] backdrop-blur-md border border-white/25 shadow-[0_0_16px_rgba(255,255,255,0.08)] flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/70 text-red-400 shrink-0">
+                <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/70 text-red-400 shrink-0 shadow-[0_0_10px_rgba(239,68,68,0.5)]">
                   <Skull className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
                   <span className="text-xs font-bold text-white block truncate">
                     <span className="text-red-400 font-black">POISON</span> // INTOXICATION ({poisonInfo.intoxicationTier.toUpperCase()})
                   </span>
-                  <span className="text-[10px] font-mono text-slate-300 block">
+                  <span className="text-[10px] font-mono text-slate-200 block">
                     -{poisonInfo.xpPenaltyPct}% XP • Time Remaining: {poisonInfo.formattedString}
                   </span>
                 </div>
@@ -179,9 +188,9 @@ export function StatAllocationModal({
                 type="button"
                 disabled={coins < 1 || Boolean(pendingAction)}
                 onClick={() => handleUseCoin("poison")}
-                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-mono font-black uppercase tracking-wider transition disabled:opacity-50 shrink-0 shadow-[0_0_10px_rgba(251,191,36,0.5)] flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-blue-600 border border-blue-400/50 text-xs font-mono font-black uppercase tracking-wider transition disabled:opacity-50 shrink-0 shadow-[0_0_12px_rgba(255,255,255,0.7)] flex items-center gap-1.5"
               >
-                <Coins className="w-3.5 h-3.5 fill-black" />
+                <Coins className="w-3.5 h-3.5 fill-blue-600 text-blue-600" />
                 <span>PURGE 1 COIN (-3H)</span>
               </button>
             </div>
@@ -189,9 +198,9 @@ export function StatAllocationModal({
 
           {/* 2. Circadian Awake Exhaustion & Lockout */}
           {(circadian.isExhaustionLockout || !circadian.hasAdequateSleep) && (
-            <div className="p-3.5 rounded-2xl bg-[#070b14]/90 border border-white/20 shadow-[0_0_14px_rgba(255,255,255,0.06)] flex items-center justify-between gap-3">
+            <div className="p-3.5 rounded-2xl bg-white/[0.06] backdrop-blur-md border border-white/25 shadow-[0_0_16px_rgba(255,255,255,0.08)] flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/70 text-red-400 shrink-0">
+                <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/70 text-red-400 shrink-0 shadow-[0_0_10px_rgba(239,68,68,0.5)]">
                   <Moon className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
@@ -201,7 +210,7 @@ export function StatAllocationModal({
                     </span>
                     {" // 26H SLEEP DEFICIT"}
                   </span>
-                  <span className="text-[10px] font-mono text-slate-300 block">
+                  <span className="text-[10px] font-mono text-slate-200 block">
                     Awake: {circadian.hoursAwakeLive.toFixed(1)}h/26h • Sleep credit: {(circadian.cumulativeSleepMinutes / 60).toFixed(1)}h/4.0h
                   </span>
                 </div>
@@ -211,9 +220,9 @@ export function StatAllocationModal({
                 type="button"
                 disabled={coins < 1 || Boolean(pendingAction)}
                 onClick={() => handleUseCoin("circadian")}
-                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-mono font-black uppercase tracking-wider transition disabled:opacity-50 shrink-0 shadow-[0_0_10px_rgba(251,191,36,0.5)] flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-blue-600 border border-blue-400/50 text-xs font-mono font-black uppercase tracking-wider transition disabled:opacity-50 shrink-0 shadow-[0_0_12px_rgba(255,255,255,0.7)] flex items-center gap-1.5"
               >
-                <Coins className="w-3.5 h-3.5 fill-black" />
+                <Coins className="w-3.5 h-3.5 fill-blue-600 text-blue-600" />
                 <span>-3.0H AWAKE (+180M REST)</span>
               </button>
             </div>
@@ -221,16 +230,16 @@ export function StatAllocationModal({
 
           {/* 3. Sleep Deprivation Penalty Debuff */}
           {isSleepDeprived && (
-            <div className="p-3.5 rounded-2xl bg-[#070b14]/90 border border-white/20 shadow-[0_0_14px_rgba(255,255,255,0.06)] flex items-center justify-between gap-3">
+            <div className="p-3.5 rounded-2xl bg-white/[0.06] backdrop-blur-md border border-white/25 shadow-[0_0_16px_rgba(255,255,255,0.08)] flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/70 text-red-400 shrink-0">
+                <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/70 text-red-400 shrink-0 shadow-[0_0_10px_rgba(239,68,68,0.5)]">
                   <AlertTriangle className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
                   <span className="text-xs font-bold text-white block truncate">
                     <span className="text-red-400 font-black">SLEEP DEPRIVED</span> // REST PROTOCOL DEFICIT
                   </span>
-                  <span className="text-[10px] font-mono text-slate-300 block">
+                  <span className="text-[10px] font-mono text-slate-200 block">
                     -30% XP Speed • Cognitive stamina impaired
                   </span>
                 </div>
@@ -240,9 +249,9 @@ export function StatAllocationModal({
                 type="button"
                 disabled={coins < 1 || Boolean(pendingAction)}
                 onClick={() => handleUseCoin("sleep_deprivation")}
-                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-mono font-black uppercase tracking-wider transition disabled:opacity-50 shrink-0 shadow-[0_0_10px_rgba(251,191,36,0.5)] flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-blue-600 border border-blue-400/50 text-xs font-mono font-black uppercase tracking-wider transition disabled:opacity-50 shrink-0 shadow-[0_0_12px_rgba(255,255,255,0.7)] flex items-center gap-1.5"
               >
-                <Coins className="w-3.5 h-3.5 fill-black" />
+                <Coins className="w-3.5 h-3.5 fill-blue-600 text-blue-600" />
                 <span>PURGE 1 COIN (-3H)</span>
               </button>
             </div>
@@ -250,16 +259,16 @@ export function StatAllocationModal({
 
           {/* 4. Biological Fatigue Strain */}
           {fatigueStatus.tier !== "optimal" && (
-            <div className="p-3.5 rounded-2xl bg-[#070b14]/90 border border-white/20 shadow-[0_0_14px_rgba(255,255,255,0.06)] flex items-center justify-between gap-3">
+            <div className="p-3.5 rounded-2xl bg-white/[0.06] backdrop-blur-md border border-white/25 shadow-[0_0_16px_rgba(255,255,255,0.08)] flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/70 text-red-400 shrink-0">
+                <div className="p-2 rounded-xl bg-red-950/80 border border-red-500/70 text-red-400 shrink-0 shadow-[0_0_10px_rgba(239,68,68,0.5)]">
                   <Brain className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
                   <span className="text-xs font-bold text-white block truncate">
                     <span className="text-red-400 font-black">BIOLOGICAL STRAIN</span> // {fatigueStatus.statusLabel.toUpperCase()}
                   </span>
-                  <span className="text-[10px] font-mono text-slate-300 block">
+                  <span className="text-[10px] font-mono text-slate-200 block">
                     Physical: {profile.physical_fatigue}% • Mental: {profile.mental_fatigue}%
                   </span>
                 </div>
@@ -269,9 +278,9 @@ export function StatAllocationModal({
                 type="button"
                 disabled={coins < 1 || Boolean(pendingAction)}
                 onClick={() => handleUseCoin("fatigue")}
-                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-mono font-black uppercase tracking-wider transition disabled:opacity-50 shrink-0 shadow-[0_0_10px_rgba(251,191,36,0.5)] flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-blue-600 border border-blue-400/50 text-xs font-mono font-black uppercase tracking-wider transition disabled:opacity-50 shrink-0 shadow-[0_0_12px_rgba(255,255,255,0.7)] flex items-center gap-1.5"
               >
-                <Coins className="w-3.5 h-3.5 fill-black" />
+                <Coins className="w-3.5 h-3.5 fill-blue-600 text-blue-600" />
                 <span>PURGE -30% FATIGUE</span>
               </button>
             </div>

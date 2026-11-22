@@ -186,17 +186,28 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
             const dayQuests = questsByDate[dateStr] || [];
             const completedSession = daySessions.find((s) => s.status === "completed");
             const hasCompleted = Boolean(completedSession);
+            const completedQuestsOnDay = dayQuests.filter((q) => q.status === "completed");
             const hasDueQuests = dayQuests.length > 0;
             const isToday = dateStr === todayStr;
             const isSelected = dateStr === selectedDateStr;
             const splitHint = DEFAULT_SPLIT_HINTS[dayOfWeek] || "";
 
+            // User Rule: Streak qualified if Main Quest completed AND >= 1 other challenge completed.
+            // Full white fill if ALL challenges completed on that day.
+            const hasAllCompleted = hasCompleted && completedQuestsOnDay.length >= 2;
+            const hasStreakQualified = hasCompleted && (completedQuestsOnDay.length >= 1 || isRest);
+
             let statusBg = "bg-slate-900/40 border-slate-800/80";
             let indicatorColor = "bg-slate-700";
 
-            if (hasCompleted) {
-              statusBg = "bg-emerald-950/40 border-emerald-500/40";
-              indicatorColor = "bg-emerald-400 shadow-sm shadow-emerald-400";
+            if (hasAllCompleted) {
+              // Solid luminous white fill
+              statusBg = "bg-white text-black font-black border-white shadow-[0_0_18px_rgba(255,255,255,0.7)]";
+              indicatorColor = "bg-black";
+            } else if (hasStreakQualified || hasCompleted) {
+              // Mild translucent white fill
+              statusBg = "bg-white/15 border-white/40 text-white shadow-[0_0_12px_rgba(255,255,255,0.18)]";
+              indicatorColor = "bg-white/90 shadow-[0_0_8px_#ffffff]";
             } else if (hasDueQuests) {
               statusBg = "bg-cyan-950/30 border-cyan-500/30";
               indicatorColor = "bg-cyan-400";
@@ -219,13 +230,19 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
                 <div className="flex justify-between items-center w-full">
                   <span
                     className={`text-[10px] font-mono font-bold ${
-                      isToday ? "text-cyan-400" : isSelected ? "text-white" : "text-slate-300"
+                      hasAllCompleted
+                        ? "text-black font-black"
+                        : isToday
+                        ? "text-cyan-400"
+                        : isSelected
+                        ? "text-white"
+                        : "text-slate-300"
                     }`}
                   >
                     {dayNum}
                   </span>
                   {isToday ? (
-                    <span className="text-[7.5px] font-mono font-black text-cyan-300 uppercase px-1 rounded bg-cyan-950/80 border border-cyan-400 animate-pulse">
+                    <span className={`text-[7.5px] font-mono font-black uppercase px-1 rounded animate-pulse ${hasAllCompleted ? "bg-black text-white" : "bg-cyan-950/80 text-cyan-300 border border-cyan-400"}`}>
                       TODAY
                     </span>
                   ) : (
@@ -234,12 +251,21 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
                 </div>
 
                 <div className="text-[8.5px] font-mono truncate text-left w-full space-y-0.5">
-                  {hasCompleted ? (
-                    <div className="truncate">
-                      <span className="text-emerald-400 font-bold block truncate">
-                        CLEARED
+                  {hasAllCompleted ? (
+                    <div className="truncate text-black">
+                      <span className="font-black block truncate">
+                        CLEARED ★
                       </span>
-                      <span className="text-[7.5px] text-emerald-300/80 truncate block uppercase">
+                      <span className="text-[7.5px] text-slate-800 truncate block uppercase font-bold">
+                        {completedSession?.split_day ? completedSession.split_day.split(" ")[0] : splitHint}
+                      </span>
+                    </div>
+                  ) : hasStreakQualified || hasCompleted ? (
+                    <div className="truncate text-white">
+                      <span className="font-bold block truncate text-white">
+                        {hasStreakQualified ? "STREAK" : "CLEARED"}
+                      </span>
+                      <span className="text-[7.5px] text-slate-300 truncate block uppercase">
                         {completedSession?.split_day ? completedSession.split_day.split(" ")[0] : splitHint}
                       </span>
                     </div>

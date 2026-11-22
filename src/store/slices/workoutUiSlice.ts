@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { ExerciseDefinition } from "@/types";
+import { ExerciseDefinition, EquipmentInventory } from "@/types";
 import {
   calculateSetFatigueDelta,
   calculateRestRecoveryPerSecond,
@@ -61,6 +61,7 @@ export interface ActiveWorkoutUiState {
     isPreCompleted?: boolean;
     extraBonusMultiplier?: number;
   }[];
+  equipment?: EquipmentInventory;
 }
 
 const initialState: ActiveWorkoutUiState = {
@@ -120,6 +121,7 @@ export const workoutUiSlice = createSlice({
         playerRank?: string;
         initialPhysicalFatigue?: number;
         initialMentalFatigue?: number;
+        equipment?: EquipmentInventory;
         exercises: {
           definition: ExerciseDefinition;
           defaultWeightKg: number;
@@ -130,6 +132,7 @@ export const workoutUiSlice = createSlice({
       }>
     ) => {
       state.isActive = true;
+      state.equipment = action.payload.equipment;
       state.dayName = action.payload.dayName;
       state.title = action.payload.title;
       state.targetMuscles = action.payload.targetMuscles;
@@ -444,6 +447,25 @@ export const workoutUiSlice = createSlice({
       };
     },
 
+    setEquipmentInventory: (state, action: PayloadAction<EquipmentInventory>) => {
+      state.equipment = action.payload;
+    },
+
+    updateCurrentSetWeight: (
+      state,
+      action: PayloadAction<{ weightKg: number; plateBreakdown?: string }>
+    ) => {
+      const exercise = state.exercises[state.currentExerciseIndex];
+      if (!exercise) return;
+      const currentSet = exercise.sets[state.currentSetIndex];
+      if (currentSet) {
+        currentSet.weightKg = action.payload.weightKg;
+        if (action.payload.plateBreakdown) {
+          currentSet.plateBreakdown = action.payload.plateBreakdown;
+        }
+      }
+    },
+
     endSession: () => {
       return initialState;
     },
@@ -470,6 +492,8 @@ export const {
   restoreWorkoutSession,
   minimizeSession,
   maximizeSession,
+  setEquipmentInventory,
+  updateCurrentSetWeight,
   endSession,
 } = workoutUiSlice.actions;
 

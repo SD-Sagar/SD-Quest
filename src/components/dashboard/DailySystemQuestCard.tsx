@@ -98,6 +98,8 @@ export function DailySystemQuestCard({
 
   const totalTasks = 4;
   const completedTasks = [task1Done, task2Done, task3Done, task4Done].filter(Boolean).length;
+  // User Rule: Streak qualifies as long as Today's Main Quest (task1) is completed AND at least 1 other challenge is completed
+  const isStreakQualified = task1Done && (task2Done || task3Done || task4Done);
   const allCompleted = completedTasks === totalTasks;
 
   // Authentic Solo Leveling Grade Styling
@@ -105,13 +107,10 @@ export function DailySystemQuestCard({
   let gradeColor = "text-slate-400 border-slate-800 bg-[#070b14]";
   if (completedTasks === 4) {
     dailyGrade = "S";
-    gradeColor = "text-white border-cyan-400 bg-cyan-950/80 shadow-[0_0_20px_#00e5ff] mana-text-glow";
-  } else if (completedTasks === 3) {
-    dailyGrade = "A";
-    gradeColor = "text-cyan-300 border-cyan-500/70 bg-cyan-950/50";
-  } else if (completedTasks === 2) {
-    dailyGrade = "B";
-    gradeColor = "text-blue-300 border-blue-500/50 bg-blue-950/40";
+    gradeColor = "text-white border-white bg-white/20 shadow-[0_0_20px_#ffffff] mana-text-glow";
+  } else if (isStreakQualified) {
+    dailyGrade = completedTasks === 3 ? "A" : "B";
+    gradeColor = "text-white border-white/60 bg-white/10 shadow-[0_0_12px_rgba(255,255,255,0.3)]";
   } else if (completedTasks === 1) {
     dailyGrade = "C";
     gradeColor = "text-slate-300 border-slate-700 bg-slate-900";
@@ -181,6 +180,11 @@ export function DailySystemQuestCard({
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-950/80 border border-amber-500/60 text-amber-300 flex items-center gap-1 font-hud animate-pulse">
                 <AlertTriangle className="w-3 h-3 text-amber-400" />
                 {currentStreakDisplay}D (REDEMPTION PENDING)
+              </span>
+            ) : isStreakQualified ? (
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white/10 border border-white/50 text-white flex items-center gap-1 font-hud shadow-[0_0_10px_rgba(255,255,255,0.2)]">
+                <Zap className="w-3 h-3 text-white fill-white" />
+                STREAK SECURED ({currentStreakDisplay}D)
               </span>
             ) : (
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 flex items-center gap-1 font-hud">

@@ -520,7 +520,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Core Balance"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Initiate",
     "unlock_level": 5,
     "unlock_criteria": "Initiate Rank Bench Unlocked",
@@ -636,7 +636,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Core"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Recruit",
     "unlock_level": 3,
     "unlock_criteria": "Recruit Bench Agility",
@@ -811,7 +811,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Core"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Initiate",
     "unlock_level": 5,
     "unlock_criteria": "Initiate Bench Glute Power",
@@ -1218,7 +1218,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Front Delts"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Recruit",
     "unlock_level": 1,
     "unlock_criteria": "Awakening Foundation",
@@ -1393,7 +1393,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Anterior Deltoids"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Recruit",
     "unlock_level": 3,
     "unlock_criteria": "Recruit Stage III",
@@ -1564,7 +1564,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Triceps"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Recruit",
     "unlock_level": 2,
     "unlock_criteria": "Recruit Joint Health",
@@ -1622,7 +1622,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Front Delts"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Initiate",
     "unlock_level": 6,
     "unlock_criteria": "Initiate Pec Density",
@@ -1736,7 +1736,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Triceps Long Head"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Initiate",
     "unlock_level": 7,
     "unlock_criteria": "Initiate Ribcage Expansion",
@@ -1855,7 +1855,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Core"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Recruit",
     "unlock_level": 1,
     "unlock_criteria": "Awakening Foundation",
@@ -1912,7 +1912,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Triceps"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Initiate",
     "unlock_level": 5,
     "unlock_criteria": "Initiate Bodyweight Upper Pec",
@@ -2136,7 +2136,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Front Delts"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Initiate",
     "unlock_level": 6,
     "unlock_criteria": "Initiate Clamp Force",
@@ -2192,7 +2192,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Triceps"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Warrior",
     "unlock_level": 12,
     "unlock_criteria": "Warrior Unilateral Chest",
@@ -2249,7 +2249,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Lats"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Vanguard",
     "unlock_level": 20,
     "unlock_criteria": "Vanguard Shoulder Health",
@@ -2363,7 +2363,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Forearms"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Recruit",
     "unlock_level": 1,
     "unlock_criteria": "Awakening Foundation",
@@ -2766,7 +2766,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Triceps Long Head"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Initiate",
     "unlock_level": 7,
     "unlock_criteria": "Initiate Lat Arc",
@@ -2993,7 +2993,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Biceps"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Initiate",
     "unlock_level": 6,
     "unlock_criteria": "Initiate Prone Pull",
@@ -3447,7 +3447,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Rhomboids"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Warrior",
     "unlock_level": 10,
     "unlock_criteria": "Warrior Precision Back",
@@ -4911,7 +4911,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Mid Traps"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Initiate",
     "unlock_level": 6,
     "unlock_criteria": "Initiate Prone Delt",
@@ -6472,7 +6472,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Anconeus"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Recruit",
     "unlock_level": 2,
     "unlock_criteria": "Recruit Stage II",
@@ -6529,7 +6529,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Anconeus"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Initiate",
     "unlock_level": 5,
     "unlock_criteria": "Initiate Triceps Length",
@@ -6807,7 +6807,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Anconeus"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Warrior",
     "unlock_level": 12,
     "unlock_criteria": "Warrior Triceps Horseshoe",
@@ -6863,7 +6863,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Deep Core"
     ],
     "bench_angle": "Incline 30°",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Recruit",
     "unlock_level": 1,
     "unlock_criteria": "Daily Belly Protocol Day A",
@@ -7031,7 +7031,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Hip Flexors"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Initiate",
     "unlock_level": 5,
     "unlock_criteria": "Daily Belly Protocol Day A",
@@ -7087,7 +7087,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Deep Core"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Recruit",
     "unlock_level": 1,
     "unlock_criteria": "Daily Belly Protocol Day B",
@@ -7200,7 +7200,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Hip Flexors"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Recruit",
     "unlock_level": 2,
     "unlock_criteria": "Daily Belly Protocol Day B",
@@ -7428,7 +7428,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Upper Back"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Recruit",
     "unlock_level": 1,
     "unlock_criteria": "Sunday Recovery Sanctuary",
@@ -7541,7 +7541,7 @@ const BASE_EXERCISE_CATALOG: MasterExercise[] = [
       "Calves"
     ],
     "bench_angle": "Flat",
-    "required_equipment": "bench_and_dumbbells",
+    "required_equipment": "bodyweight",
     "unlock_tier": "Recruit",
     "unlock_level": 1,
     "unlock_criteria": "Sunday Recovery Sanctuary",

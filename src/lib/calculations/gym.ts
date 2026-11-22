@@ -1,4 +1,4 @@
-import { EquipmentInventory, EquipmentPlate, HunterRank } from "@/types";
+import { EquipmentInventory, EquipmentPlate, HunterRank, ExerciseRequiredEquipment } from "@/types";
 import {
   calculateWorkoutSessionCalories,
   calculateWalkingCalories,
@@ -11,6 +11,294 @@ export interface PlateCombinationResult {
   isExact: boolean;
   platesPerSide: { weightKg: number; count: number }[];
   summaryString: string;
+}
+
+export interface ExerciseEquipmentProfile {
+  equipmentType: ExerciseRequiredEquipment;
+  displayName: string;
+  isFreeHand: boolean;
+  isSkippingRope: boolean;
+  isPlateLoaded: boolean;
+  requiresWeightInput: boolean;
+  isDumbbellPair?: boolean;
+  dumbbellCount?: number;
+  setupInstructions: string;
+  benchPositionLabel: string;
+  loadLabel: string;
+  plateSolverResult?: PlateCombinationResult;
+}
+
+/**
+ * Calculates plates required for the plate-loaded leg developer attachment (single load horn).
+ */
+export function calculateLegDeveloperPlates(
+  targetTotalWeightKg: number,
+  inventory: EquipmentInventory
+): PlateCombinationResult {
+  const availablePlates: EquipmentPlate[] = [
+    { weightKg: 10.0, count: inventory.plate_10kg_count || 0 },
+    { weightKg: 5.0, count: inventory.plate_5kg_count || 0 },
+    { weightKg: 2.5, count: inventory.plate_2_5kg_count || 0 },
+    { weightKg: 2.0, count: inventory.plate_2kg_count || 0 },
+    { weightKg: 1.25, count: inventory.plate_1_25kg_count || 0 },
+    { weightKg: 1.0, count: inventory.plate_1kg_count || 0 },
+    ...(inventory.custom_plates || []),
+  ];
+
+  const sortedPlates = availablePlates
+    .filter((p) => p.count >= 1 && p.weightKg > 0)
+    .sort((a, b) => b.weightKg - a.weightKg);
+
+  let currentWeight = 0;
+  const platesUsed: { weightKg: number; count: number }[] = [];
+
+  for (const plate of sortedPlates) {
+    const needed = Math.floor((targetTotalWeightKg - currentWeight + 0.001) / plate.weightKg);
+    const take = Math.min(plate.count, needed);
+    if (take > 0) {
+      platesUsed.push({ weightKg: plate.weightKg, count: take });
+      currentWeight += take * plate.weightKg;
+    }
+  }
+
+  const achievableTotal = Number(currentWeight.toFixed(2));
+  const isExact = Math.abs(achievableTotal - targetTotalWeightKg) < 0.1;
+  const breakdownParts = platesUsed.map((p) => `${p.count}×${p.weightKg}kg`);
+  const summaryString =
+    breakdownParts.length > 0
+      ? `Leg Developer Horn: [${breakdownParts.join(" + ")}]`
+      : `Unloaded Horn (0kg)`;
+
+  return {
+    achievableWeightKg: achievableTotal,
+    isExact,
+    platesPerSide: platesUsed,
+    summaryString,
+  };
+}
+
+/**
+ * Resolves the exact equipment requirements, setup environment, and plate math recipe
+ * dynamically for any exercise in the catalog (free-hand, skipping rope, leg developer, barbell, or dumbbells).
+ */
+export function resolveExerciseEquipmentProfile(
+  exercise: {
+    name?: string;
+    required_equipment?: ExerciseRequiredEquipment | string;
+    bench_angle?: string | null;
+  },
+  targetWeightKg: number = 0,
+  inventory?: EquipmentInventory | null
+): ExerciseEquipmentProfile {
+  const req = (exercise.required_equipment || "bodyweight") as ExerciseRequiredEquipment;
+  const name = (exercise.name || "").toLowerCase();
+  const benchAngle = exercise.bench_angle || "Flat";
+
+  const defaultInv: EquipmentInventory = inventory || {
+    id: "default",
+    user_id: "default",
+    has_bench: true,
+    bench_positions: [],
+    has_barbell: false,
+    barbell_weight_kg: 7.0,
+    has_ez_bar: false,
+    ez_bar_weight_kg: 5.0,
+    has_cable_pulley: false,
+    has_leg_developer: true,
+    dumbbell_handle_weight_kg: 2.0,
+    plate_10kg_count: 0,
+    plate_5kg_count: 8,
+    plate_2_5kg_count: 4,
+    plate_2kg_count: 4,
+    plate_1_25kg_count: 8,
+    plate_1kg_count: 4,
+    custom_plates: [],
+    updated_at: new Date().toISOString(),
+  };
+
+  // 1. Free-Hand Bodyweight Calisthenics & Mobility
+  const isExplicitWeightedName =
+    name.includes("dumbbell") ||
+    name.includes("db ") ||
+    name.includes("(db)") ||
+    name.includes("barbell") ||
+    name.includes("ez-bar") ||
+    name.includes("ez bar") ||
+    name.includes("cable") ||
+    name.includes("pulley") ||
+    name.includes("plate") ||
+    name.includes("leg extension") ||
+    name.includes("leg curl") ||
+    name.includes("horn") ||
+    name.includes("weighted");
+
+  const isFreeBodyweightMovement =
+    req === "bodyweight" ||
+    (!isExplicitWeightedName &&
+      (name.includes("crunch") ||
+        name.includes("accordion") ||
+        name.includes("plank") ||
+        name.includes("push up") ||
+        name.includes("pushup") ||
+        name.includes("pull-up") ||
+        name.includes("pullup") ||
+        name.includes("chin-up") ||
+        name.includes("leg raise") ||
+        name.includes("knee raise") ||
+        name.includes("knee tuck") ||
+        name.includes("hollow body") ||
+        name.includes("flutter kick") ||
+        name.includes("scissor") ||
+        name.includes("cat-cow") ||
+        name.includes("child's pose") ||
+        name.includes("stretch") ||
+        name.includes("breathing") ||
+        name.includes("dip")));
+
+  if (isFreeBodyweightMovement) {
+    const usesBench =
+      benchAngle &&
+      benchAngle !== "Floor" &&
+      benchAngle !== "Mat" &&
+      !name.includes("floor");
+    const setup = usesBench ? `20-in-1 Bench (${benchAngle}) - Bodyweight Only` : "Floor / Open Mat Space";
+    const title = usesBench ? `20-in-1 Bench (${benchAngle}) • Bodyweight` : "Free-Hand / Bodyweight Calisthenics";
+
+    return {
+      equipmentType: "bodyweight",
+      displayName: title,
+      isFreeHand: true,
+      isSkippingRope: false,
+      isPlateLoaded: false,
+      requiresWeightInput: false,
+      benchPositionLabel: benchAngle,
+      setupInstructions: setup,
+      loadLabel: "100% Bodyweight Resistance (Zero Plates Required)",
+      plateSolverResult: undefined,
+    };
+  }
+
+  // 2. Skipping Rope
+  if (req === "skipping_rope" || name.includes("skipping") || name.includes("jump rope")) {
+    return {
+      equipmentType: "skipping_rope",
+      displayName: "Speed Skipping Rope",
+      isFreeHand: false,
+      isSkippingRope: true,
+      isPlateLoaded: false,
+      requiresWeightInput: false,
+      benchPositionLabel: "Floor / Open Space",
+      setupInstructions: "Floor / Open Clearance Space",
+      loadLabel: "Kinetic Agility Cadence (Zero Plates Required)",
+      plateSolverResult: undefined,
+    };
+  }
+
+  // 3. Plate-Loaded Leg Developer Attachment
+  if (req === "leg_developer" || name.includes("leg extension") || name.includes("leg curl")) {
+    const safeWeight = targetWeightKg > 0 ? targetWeightKg : 15.0;
+    const solver = calculateLegDeveloperPlates(safeWeight, defaultInv);
+    return {
+      equipmentType: "leg_developer",
+      displayName: "Leg Developer Attachment (Bench Extension / Curl)",
+      isFreeHand: false,
+      isSkippingRope: false,
+      isPlateLoaded: true,
+      requiresWeightInput: true,
+      benchPositionLabel: benchAngle || "Flat",
+      setupInstructions: "Bench Attachment Horn (Single Loading Peg)",
+      loadLabel: `${solver.achievableWeightKg.toFixed(1)} kg Total Plate Load`,
+      plateSolverResult: solver,
+    };
+  }
+
+  // 4. Barbell or Bench & Barbell
+  if (req === "barbell" || req === "bench_and_barbell" || name.includes("barbell")) {
+    const safeWeight = targetWeightKg > 0 ? targetWeightKg : 25.0;
+    const solver = calculateBarbellPlates(safeWeight, defaultInv, "straight");
+    const usesBench = req === "bench_and_barbell" || (benchAngle && benchAngle !== "Floor");
+    return {
+      equipmentType: req,
+      displayName: usesBench ? `20-in-1 Bench (${benchAngle}) + Olympic Barbell` : "Standard Olympic Barbell",
+      isFreeHand: false,
+      isSkippingRope: false,
+      isPlateLoaded: true,
+      requiresWeightInput: true,
+      benchPositionLabel: benchAngle,
+      setupInstructions: "Olympic Barbell Sleeves (Mirrored Plates per Side)",
+      loadLabel: `${solver.achievableWeightKg.toFixed(1)} kg Total Barbell Load`,
+      plateSolverResult: solver,
+    };
+  }
+
+  // 5. EZ-Bar
+  if (req === "ez_bar" || name.includes("ez-bar") || name.includes("ez bar")) {
+    const safeWeight = targetWeightKg > 0 ? targetWeightKg : 15.0;
+    const solver = calculateBarbellPlates(safeWeight, defaultInv, "ez");
+    return {
+      equipmentType: "ez_bar",
+      displayName: "Bi-Angular EZ-Curl Bar",
+      isFreeHand: false,
+      isSkippingRope: false,
+      isPlateLoaded: true,
+      requiresWeightInput: true,
+      benchPositionLabel: benchAngle || "Standing",
+      setupInstructions: "EZ-Bar Sleeves (Mirrored Plates per Side)",
+      loadLabel: `${solver.achievableWeightKg.toFixed(1)} kg Total Load`,
+      plateSolverResult: solver,
+    };
+  }
+
+  // 6. Cable Pulley System
+  if (req === "cable_pulley" || name.includes("cable") || name.includes("pulley")) {
+    const safeWeight = targetWeightKg > 0 ? targetWeightKg : 15.0;
+    return {
+      equipmentType: "cable_pulley",
+      displayName: "Adjustable Cable Pulley System",
+      isFreeHand: false,
+      isSkippingRope: false,
+      isPlateLoaded: true,
+      requiresWeightInput: true,
+      benchPositionLabel: benchAngle || "High/Low Pulley",
+      setupInstructions: "Single Cable Pulley Carabiner",
+      loadLabel: `${safeWeight.toFixed(1)} kg Pin / Cable Resistance`,
+      plateSolverResult: {
+        achievableWeightKg: safeWeight,
+        isExact: true,
+        platesPerSide: [],
+        summaryString: `Cable Pin / Stack: ${safeWeight.toFixed(1)}kg`,
+      },
+    };
+  }
+
+  // 7. Dumbbells (Default weighted)
+  const isPair = getExerciseDumbbellMultiplier(name) === 2;
+  const safeWeight = targetWeightKg > 0 ? targetWeightKg : (isPair ? 12.5 : 15.0);
+  const solver = calculateDumbbellPlates(safeWeight, defaultInv, isPair);
+  const usesBench = req === "bench_and_dumbbells" || (benchAngle && benchAngle !== "Floor");
+
+  return {
+    equipmentType: req === "bench_and_dumbbells" ? "bench_and_dumbbells" : "dumbbells",
+    displayName: usesBench
+      ? `20-in-1 Bench (${benchAngle}) + ${isPair ? "Dual Dumbbells" : "Single Dumbbell"}`
+      : isPair
+      ? "Adjustable Dual Dumbbells"
+      : "Adjustable Single Dumbbell",
+    isFreeHand: false,
+    isSkippingRope: false,
+    isPlateLoaded: true,
+    requiresWeightInput: true,
+    isDumbbellPair: isPair,
+    dumbbellCount: isPair ? 2 : 1,
+    benchPositionLabel: benchAngle,
+    setupInstructions: isPair
+      ? "Dual Dumbbell Handles (Mirrored Plates across 2 handles)"
+      : "Single Dumbbell Handle (Mirrored Plates on 1 handle)",
+    loadLabel: isPair
+      ? `${solver.achievableWeightKg.toFixed(1)} kg / Dumbbell (Pair)`
+      : `${solver.achievableWeightKg.toFixed(1)} kg (Single Dumbbell)`,
+    plateSolverResult: solver,
+  };
 }
 
 /**
@@ -75,10 +363,13 @@ export function calculateDumbbellPlates(
   const breakdownParts = platesPerSide.map(
     (p) => `${p.count}×${p.weightKg}kg`
   );
+  const handleLabel = dualDumbbells
+    ? `Pair Handles (2×${handleWeight}kg)`
+    : `Single Handle (${handleWeight}kg)`;
   const summaryString =
     breakdownParts.length > 0
-      ? `Handle (${handleWeight}kg) + [${breakdownParts.join(" + ")}] per side`
-      : `Bare Handle (${handleWeight}kg)`;
+      ? `${handleLabel} + [${breakdownParts.join(" + ")}] per side`
+      : `${handleLabel} (Bare)`;
 
   return {
     achievableWeightKg: achievableTotalPerDumbbell,
@@ -229,9 +520,20 @@ export function getExerciseDumbbellMultiplier(exerciseName: string = ""): number
     name.includes("goblet squat") ||
     name.includes("pullover") ||
     name.includes("crunch pulse") ||
-    (name.includes("tricep extension") && !name.includes("pair")) ||
+    (name.includes("tricep extension") && !name.includes("pair") && !name.includes("dual")) ||
+    (name.includes("triceps extension") && !name.includes("pair") && !name.includes("dual")) ||
+    name.includes("overhead db tricep") ||
+    name.includes("overhead two-handed") ||
+    name.includes("concentration curl") ||
+    name.includes("hip thrust") ||
+    name.includes("clamped") ||
+    name.includes("single-arm") ||
     name.includes("single arm") ||
-    name.includes("one arm")
+    name.includes("one-arm") ||
+    name.includes("one arm") ||
+    name.includes("single dumbbell") ||
+    name.includes("1x dumbbell") ||
+    name.includes("1 db")
   ) {
     return 1;
   }

@@ -114,25 +114,41 @@ export function QuestList({
       activeQuestInRedux?.id === "system-compulsory-sleep-stasis");
 
   // Circadian Awake & Sleep Status Telemetry
+  const sessionState = ((profile?.active_session_state as any) || {});
   const activeSleepDurationMinutes =
     isSleepActive && questStartedAt
       ? Math.max(0, (Date.now() - questStartedAt) / (1000 * 60))
       : 0;
 
+  const isCurrentlySleeping = Boolean(
+    isSleepActive ||
+    sessionState.is_sleeping ||
+    sessionState.category === "sleep" ||
+    sessionState.session_id === "system-compulsory-sleep-stasis" ||
+    sessionState.type === "sleep"
+  );
+
   const circadian = useMemo(() => {
     return calculateCircadianAwakeStatus({
-      lastSleepStartedAt: profile?.last_sleep_started_at,
-      lastSleepCompletedAt: profile?.last_sleep_completed_at,
-      rollingSleepMinutes: profile?.rolling_sleep_minutes || 0,
-      isCurrentlySleeping: isSleepActive,
+      lastSleepStartedAt: profile?.last_sleep_started_at || sessionState.last_sleep_started_at,
+      lastSleepCompletedAt: profile?.last_sleep_completed_at || sessionState.last_sleep_completed_at,
+      rollingSleepMinutes: profile?.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes ?? 0,
+      isCurrentlySleeping,
+      frozenAwakeHours: sessionState.frozen_awake_hours,
       currentSleepDurationMinutes: activeSleepDurationMinutes,
+      createdAt: profile?.created_at,
     });
   }, [
     profile?.last_sleep_started_at,
     profile?.last_sleep_completed_at,
     profile?.rolling_sleep_minutes,
-    isSleepActive,
+    sessionState.last_sleep_started_at,
+    sessionState.last_sleep_completed_at,
+    sessionState.rolling_sleep_minutes,
+    sessionState.frozen_awake_hours,
+    isCurrentlySleeping,
     activeSleepDurationMinutes,
+    profile?.created_at,
   ]);
 
   useEffect(() => {
@@ -466,10 +482,22 @@ export function QuestList({
         </div>
       )}
 
-      {/* Sticky Primary Roadmap View Tabs & Category Filters on Mobile & PC */}
-      <div className="sticky top-0 md:top-16 z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 py-2.5 bg-[#05070c]/50 backdrop-blur-md border-b border-cyan-500/20 shadow-lg shadow-black/30 space-y-2 transition-all">
+      {/* Sticky Primary Roadmap View Tabs & Category Filters on Mobile & PC (Transparent on Dashboard) */}
+      <div
+        className={`space-y-2 transition-all ${
+          isCompact
+            ? "bg-transparent p-0 border-0 shadow-none static"
+            : "sticky top-0 md:top-16 z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 py-2.5 bg-[#05070c]/50 backdrop-blur-md border-b border-cyan-500/20 shadow-lg shadow-black/30"
+        }`}
+      >
         {/* Primary Roadmap View Tabs */}
-        <div className="flex rounded-2xl bg-slate-950/60 backdrop-blur-md p-1 border border-slate-800/80 shadow-sm">
+        <div
+          className={`flex rounded-2xl p-1 border shadow-sm transition-colors ${
+            isCompact
+              ? "bg-[#070b14]/50 border-cyan-500/20 backdrop-blur-sm"
+              : "bg-slate-950/60 backdrop-blur-md border-slate-800/80"
+          }`}
+        >
           <button
             onClick={() => {
               triggerHaptic("light");

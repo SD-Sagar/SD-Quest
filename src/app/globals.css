@@ -32,7 +32,15 @@ body {
 
 /* Mobile Safe Area & Gesture Protection */
 .safe-area-pb {
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  padding-bottom: max(0.625rem, calc(env(safe-area-inset-bottom, 0px) + 0.25rem));
+}
+
+.safe-area-content-pb {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+button, a, input, select, textarea {
+  touch-action: manipulation;
 }
 
 /* Prevent auto-zoom on mobile inputs */

@@ -249,6 +249,7 @@ export interface CustomExerciseRoutine {
   name: string;
   target_muscle: string;
   bench_angle?: string;
+  required_equipment?: ExerciseRequiredEquipment | string;
   sets: number;
   reps_target: number;
   target_weight_kg: number;
@@ -256,6 +257,7 @@ export interface CustomExerciseRoutine {
   primary_attribute?: AttributeType;
   attributes_yield?: Partial<Record<AttributeType, number>>;
   is_custom_created?: boolean;
+  phase?: "core" | "belly";
 }
 
 export interface WorkoutSetLog {

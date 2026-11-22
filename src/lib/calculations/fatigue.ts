@@ -733,6 +733,7 @@ export function calculateCircadianAwakeStatus(params: {
   lastSleepCompletedAt?: string | null;
   rollingSleepMinutes?: number;
   isCurrentlySleeping?: boolean;
+  frozenAwakeHours?: number;
   currentSleepDurationMinutes?: number;
   createdAt?: string;
   nowMs?: number;
@@ -751,12 +752,13 @@ export function calculateCircadianAwakeStatus(params: {
   const cumulativeSleepMinutes = rollingMins + (isCurrentlySleeping ? currentSleepMins : 0);
   const hasAdequateSleep = cumulativeSleepMinutes >= 240; // 4.0h
 
-  // Anchor: when last sleep started
+  // Anchor for awake time:
+  // When user woke up from qualifying restorative sleep (lastSleepCompletedAt), OR createdAt
   let anchorTimestamp = now;
-  if (params.lastSleepStartedAt) {
+  if (params.lastSleepCompletedAt) {
+    anchorTimestamp = new Date(params.lastSleepCompletedAt).getTime();
+  } else if (params.lastSleepStartedAt) {
     anchorTimestamp = new Date(params.lastSleepStartedAt).getTime();
-  } else if (params.lastSleepCompletedAt) {
-    anchorTimestamp = new Date(params.lastSleepCompletedAt).getTime() - 8 * 3600 * 1000;
   } else if (params.createdAt) {
     anchorTimestamp = new Date(params.createdAt).getTime();
   }
@@ -764,14 +766,20 @@ export function calculateCircadianAwakeStatus(params: {
   const elapsedMs = Math.max(0, now - anchorTimestamp);
   let hoursAwakeLive = Number((elapsedMs / (1000 * 3600)).toFixed(2));
 
-  // Live decay while sleeping: each minute of sleep relieves awake strain
-  if (isCurrentlySleeping && currentSleepMins > 0) {
-    const sleepHours = currentSleepMins / 60;
-    // Each 1 hour of restorative sleep relieves 2.5 hours of circadian awake strain
-    hoursAwakeLive = Math.max(0, Number((hoursAwakeLive - sleepHours * 2.5).toFixed(2)));
+  // IF CURRENTLY IN SLEEP STASIS:
+  // Awake timer stops! Countdown freezes at the moment sleep started.
+  if (isCurrentlySleeping) {
+    if (params.frozenAwakeHours !== undefined && params.frozenAwakeHours !== null && params.frozenAwakeHours >= 0) {
+      hoursAwakeLive = params.frozenAwakeHours;
+    } else if (params.lastSleepStartedAt) {
+      const sleepStartMs = new Date(params.lastSleepStartedAt).getTime();
+      const awakeBeforeSleepMs = Math.max(0, sleepStartMs - anchorTimestamp);
+      hoursAwakeLive = Number((awakeBeforeSleepMs / (1000 * 3600)).toFixed(2));
+    }
   }
 
-  const isExhaustionLockout = hoursAwakeLive >= 26.0 && !isCurrentlySleeping;
+  // Never trigger exhaustion lockout while in active sleep stasis
+  const isExhaustionLockout = !isCurrentlySleeping && hoursAwakeLive >= 26.0;
   const isPhysicalTrainingLocked = !hasAdequateSleep || isExhaustionLockout;
 
   const overdueMinutes = Math.max(0, Math.floor((hoursAwakeLive - 26.0) * 60));
@@ -782,7 +790,10 @@ export function calculateCircadianAwakeStatus(params: {
   let gaugeTier: "optimal" | "warning" | "critical" | "lockout" = "optimal";
   let gaugeColor = "stroke-cyan-400 text-cyan-300";
 
-  if (hoursAwakeLive >= 26.0) {
+  if (isCurrentlySleeping) {
+    gaugeTier = "optimal";
+    gaugeColor = "stroke-cyan-400 text-cyan-300";
+  } else if (hoursAwakeLive >= 26.0) {
     gaugeTier = "lockout";
     gaugeColor = "stroke-red-500 text-red-400";
   } else if (hoursAwakeLive >= 22.0) {

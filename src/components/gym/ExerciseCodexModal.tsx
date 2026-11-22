@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MasterExercise } from "@/lib/data/exerciseCatalog";
 import { EquipmentInventory, HunterRank } from "@/types";
-import { calculateDumbbellPlates } from "@/lib/calculations/gym";
+import { calculateDumbbellPlates, resolveExerciseEquipmentProfile } from "@/lib/calculations/gym";
 import { triggerHaptic } from "@/lib/utils";
 import {
   X,
@@ -21,6 +21,7 @@ import {
   Shield,
   Layers,
   Play,
+  Zap,
 } from "lucide-react";
 
 interface ExerciseCodexModalProps {
@@ -31,8 +32,9 @@ interface ExerciseCodexModalProps {
   playerLevel: number;
   playerRank: HunterRank;
   equipment: EquipmentInventory | null;
+  initialWeight?: number;
   onSelectForWorkout?: (exercise: MasterExercise) => void;
-  onLaunchIndividual?: (exercise: MasterExercise) => void;
+  onLaunchIndividual?: (exercise: MasterExercise, targetWeightKg?: number) => void;
 }
 
 export function ExerciseCodexModal({
@@ -43,11 +45,18 @@ export function ExerciseCodexModal({
   playerLevel,
   playerRank,
   equipment,
+  initialWeight,
   onSelectForWorkout,
   onLaunchIndividual,
 }: ExerciseCodexModalProps) {
   const [activeStepIndex, setActiveStepIndex] = useState(0);
-  const [calcWeight, setCalcWeight] = useState(15.0);
+  const [calcWeight, setCalcWeight] = useState(initialWeight && initialWeight > 0 ? initialWeight : 15.0);
+
+  useEffect(() => {
+    if (initialWeight !== undefined && initialWeight > 0) {
+      setCalcWeight(initialWeight);
+    }
+  }, [exercise?.id, initialWeight]);
 
   if (!isOpen || !exercise) return null;
 
@@ -64,7 +73,8 @@ export function ExerciseCodexModal({
     updated_at: new Date().toISOString(),
   };
 
-  const plateSolver = calculateDumbbellPlates(calcWeight, defaultInv, true);
+  const equipProfile = resolveExerciseEquipmentProfile(exercise, calcWeight, defaultInv);
+  const plateSolver = equipProfile.plateSolverResult || calculateDumbbellPlates(calcWeight, defaultInv, true);
   const currentStep = exercise.demo_steps[activeStepIndex] || exercise.demo_steps[0];
 
   return (
@@ -206,38 +216,74 @@ export function ExerciseCodexModal({
           </div>
         </div>
 
-        {/* Live Plate Math Solver for this Exercise */}
-        <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-              <Dumbbell className="w-4 h-4 text-cyan-400" />
-              60kg HOME GYM PLATE BREAKDOWN
-            </span>
-            <div className="flex items-center gap-1.5">
-              {[10, 15, 17.5, 20].map((w) => (
-                <button
-                  key={w}
-                  onClick={() => {
-                    triggerHaptic("light");
-                    setCalcWeight(w);
-                  }}
-                  className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition ${
-                    calcWeight === w
-                      ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40"
-                      : "bg-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {w}kg
-                </button>
-              ))}
+        {/* Dynamic Equipment Specification & Plate Math Solver */}
+        {equipProfile.isFreeHand ? (
+          <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-cyan-500/30 space-y-2 font-hud shadow-[0_0_15px_rgba(0,229,255,0.08)]">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5 font-solo">
+                <Zap className="w-4 h-4 text-cyan-400" />
+                EQUIPMENT // {equipProfile.displayName.toUpperCase()}
+              </span>
+              <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-500/40">
+                ZERO PLATES REQUIRED
+              </span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-black/50 border border-slate-800 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
+              <span>Setup: <strong className="text-white font-mono">{equipProfile.setupInstructions}</strong></span>
+              <span className="text-cyan-400 font-mono text-[11px] font-bold">{equipProfile.loadLabel}</span>
             </div>
           </div>
-
-          <div className="p-2.5 rounded-xl bg-black/50 border border-slate-800 font-mono text-xs flex items-center justify-between">
-            <span className="text-cyan-400 font-bold">{plateSolver.achievableWeightKg.toFixed(2)} kg / dumbbell</span>
-            <span className="text-slate-300">{plateSolver.summaryString}</span>
+        ) : equipProfile.isSkippingRope ? (
+          <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-cyan-500/30 space-y-2 font-hud shadow-[0_0_15px_rgba(0,229,255,0.08)]">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5 font-solo">
+                <Zap className="w-4 h-4 text-cyan-400" />
+                EQUIPMENT // {equipProfile.displayName.toUpperCase()}
+              </span>
+              <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-500/40">
+                KINETIC AGILITY
+              </span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-black/50 border border-slate-800 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
+              <span>Target: <strong className="text-white font-mono">100+ Clean Revolutions</strong></span>
+              <span className="text-cyan-400 font-mono text-[11px] font-bold">{equipProfile.setupInstructions}</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2.5 font-hud">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5 font-solo">
+                <Dumbbell className="w-4 h-4 text-cyan-400" />
+                EQUIPMENT // {equipProfile.displayName.toUpperCase()}
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[10, 15, 17.5, 20].map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setCalcWeight(w);
+                    }}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition ${
+                      calcWeight === w
+                        ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
+                        : "bg-slate-800 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {w}kg
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-black/50 border border-slate-800 font-mono text-xs flex items-center justify-between flex-wrap gap-2">
+              <span className="text-cyan-400 font-bold">
+                {equipProfile.loadLabel}
+              </span>
+              <span className="text-slate-300">{plateSolver.summaryString}</span>
+            </div>
+          </div>
+        )}
 
         {/* Pro Form Cues vs Common Mistakes */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -287,7 +333,7 @@ export function ExerciseCodexModal({
             <button
               onClick={() => {
                 triggerHaptic("heavy");
-                onLaunchIndividual(exercise);
+                onLaunchIndividual(exercise, equipProfile.isFreeHand || equipProfile.isSkippingRope ? 0 : calcWeight);
                 onClose();
               }}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-black font-mono text-xs tracking-wider transition flex items-center gap-1.5 shadow-lg shadow-cyan-950"

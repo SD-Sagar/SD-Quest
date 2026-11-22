@@ -1,14 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useAppDispatch } from "@/store";
-import { startWorkoutSession, restoreWorkoutSession } from "@/store/slices/workoutUiSlice";
+import { useAppDispatch, useAppSelector } from "@/store";
+import {
+  startWorkoutSession,
+  restoreWorkoutSession,
+  updateCurrentSetWeight,
+} from "@/store/slices/workoutUiSlice";
 import { triggerHaptic } from "@/lib/utils";
 import {
   calculateDumbbellPlates,
+  calculateBarbellPlates,
+  calculateLegDeveloperPlates,
   getRankVolumeWarning,
   calculateExtraWorkoutXpMultiplier,
+  resolveExerciseEquipmentProfile,
 } from "@/lib/calculations/gym";
 import { calculateCircadianAwakeStatus } from "@/lib/calculations/fatigue";
 import {
@@ -55,6 +62,11 @@ import {
   AlertTriangle,
   X,
   Moon,
+  Plus,
+  Minus,
+  Check,
+  RotateCcw,
+  Eye,
 } from "lucide-react";
 
 const SPLIT_SCHEDULE: { day: DayOfWeek; title: string; subtitle: string; isRest: boolean }[] = [
@@ -106,7 +118,13 @@ export function GymTrainerHub({
 
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(todayName);
   const [selectedExerciseForModal, setSelectedExerciseForModal] = useState<MasterExercise | null>(null);
+  const [arsenalEquipType, setArsenalEquipType] = useState<
+    "dumbbells" | "dumbbells_single" | "barbell" | "ez_bar" | "cable_pulley" | "leg_developer"
+  >("dumbbells");
   const [targetWeightCalc, setTargetWeightCalc] = useState(15.0);
+  const [exerciseWeightMap, setExerciseWeightMap] = useState<Record<string, number>>({});
+  const [focusedExerciseId, setFocusedExerciseId] = useState<string | null>(null);
+  const [appliedFeedback, setAppliedFeedback] = useState<string | null>(null);
   const [showFullLibrary, setShowFullLibrary] = useState(false);
   const [savedUnfinishedSession, setSavedUnfinishedSession] = useState<any | null>(initialActiveSession || null);
   const [todaysCompletedSessions, setTodaysCompletedSessions] = useState<any[]>(initialCompletedSessions || []);
@@ -122,11 +140,18 @@ export function GymTrainerHub({
   const [isProtocolIntelOpen, setIsProtocolIntelOpen] = useState(false);
 
   const sessionState = ((profile?.active_session_state as any) || {});
+  const isCurrentlySleeping = Boolean(
+    sessionState.is_sleeping ||
+    sessionState.category === "sleep" ||
+    sessionState.session_id === "system-compulsory-sleep-stasis" ||
+    sessionState.type === "sleep"
+  );
   const circadian = calculateCircadianAwakeStatus({
     lastSleepStartedAt: profile?.last_sleep_started_at || sessionState.last_sleep_started_at,
-    lastSleepCompletedAt: profile?.last_sleep_completed_at,
+    lastSleepCompletedAt: profile?.last_sleep_completed_at || sessionState.last_sleep_completed_at,
     rollingSleepMinutes: profile?.rolling_sleep_minutes ?? sessionState.rolling_sleep_minutes,
-    isCurrentlySleeping: Boolean(sessionState.is_sleeping),
+    isCurrentlySleeping,
+    frozenAwakeHours: sessionState.frozen_awake_hours,
     createdAt: profile?.created_at,
   });
   const isCircadianLocked = !devUnlockOverride && circadian.isPhysicalTrainingLocked;
@@ -134,6 +159,7 @@ export function GymTrainerHub({
     title: string;
     message: string;
     pendingExercise?: MasterExercise;
+    pendingWeight?: number;
   } | null>(null);
 
   // Sync initial props or refresh from Supabase
@@ -154,11 +180,11 @@ export function GymTrainerHub({
       if (saved?.isActive && saved?.status !== "completed") {
         setSavedUnfinishedSession(saved);
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     getTodaysWorkoutsAction().then((sessions) => {
       setTodaysCompletedSessions(sessions || []);
-    }).catch(() => {});
+    }).catch(() => { });
 
     const handleWorkoutCompleted = (e: any) => {
       const session = e.detail?.session || e.detail;
@@ -166,6 +192,9 @@ export function GymTrainerHub({
         setTodaysCompletedSessions((prev) => [session, ...prev]);
         setSavedUnfinishedSession(null);
       }
+      // Reset all exercise weights back to system prescribed plan after workout session completes
+      setExerciseWeightMap({});
+      setFocusedExerciseId(null);
       if (e.detail?.isSingleExercise) {
         setSoloTrialPrompt({
           exerciseName: e.detail.exerciseName || "Movement Trial",
@@ -200,7 +229,7 @@ export function GymTrainerHub({
   // If today's workout is already completed, automatically purge any leftover in-progress session
   useEffect(() => {
     if (isTodayCompleted && savedUnfinishedSession) {
-      clearActiveSessionAction().catch(() => {});
+      clearActiveSessionAction().catch(() => { });
       setSavedUnfinishedSession(null);
     }
   }, [isTodayCompleted, savedUnfinishedSession]);
@@ -226,7 +255,149 @@ export function GymTrainerHub({
     updated_at: new Date().toISOString(),
   };
 
-  const plateSolver = calculateDumbbellPlates(targetWeightCalc, defaultInv, true);
+  const activeWorkoutUi = useAppSelector((state) => state.workoutUi);
+  const isWorkoutActive = activeWorkoutUi.isActive;
+  const currentWorkoutExercise = activeWorkoutUi.exercises[activeWorkoutUi.currentExerciseIndex];
+  const currentWorkoutSetIndex = activeWorkoutUi.currentSetIndex;
+
+  // Whenever an active workout session ends, exits, or completes, reset all weights back to system plan
+  const wasWorkoutActiveRef = useRef(false);
+  useEffect(() => {
+    if (wasWorkoutActiveRef.current && !activeWorkoutUi.isActive) {
+      setExerciseWeightMap({});
+      setFocusedExerciseId(null);
+    }
+    wasWorkoutActiveRef.current = activeWorkoutUi.isActive;
+  }, [activeWorkoutUi.isActive]);
+
+  let currentPlateSolver = {
+    achievableWeightKg: targetWeightCalc,
+    isExact: true,
+    platesPerSide: [] as { weightKg: number; count: number }[],
+    summaryString: `${targetWeightCalc.toFixed(1)} kg`,
+  };
+
+  if (arsenalEquipType === "dumbbells") {
+    currentPlateSolver = calculateDumbbellPlates(targetWeightCalc, defaultInv, true);
+  } else if (arsenalEquipType === "dumbbells_single") {
+    currentPlateSolver = calculateDumbbellPlates(targetWeightCalc, defaultInv, false);
+  } else if (arsenalEquipType === "barbell") {
+    currentPlateSolver = calculateBarbellPlates(targetWeightCalc, defaultInv, "straight");
+  } else if (arsenalEquipType === "ez_bar") {
+    currentPlateSolver = calculateBarbellPlates(targetWeightCalc, defaultInv, "ez");
+  } else if (arsenalEquipType === "leg_developer") {
+    currentPlateSolver = calculateLegDeveloperPlates(targetWeightCalc, defaultInv);
+  } else if (arsenalEquipType === "cable_pulley") {
+    currentPlateSolver = {
+      achievableWeightKg: targetWeightCalc,
+      isExact: true,
+      platesPerSide: [],
+      summaryString: `${targetWeightCalc.toFixed(1)} kg Cable / Pin Resistance`,
+    };
+  }
+
+  const plateSolver = currentPlateSolver;
+
+  const getSystemPrescribedWeight = (ex: MasterExercise): number => {
+    const prof = resolveExerciseEquipmentProfile(ex, 0, defaultInv);
+    if (prof.isFreeHand || prof.isSkippingRope) return 0;
+    return prof.plateSolverResult?.achievableWeightKg ?? (prof.dumbbellCount === 1 ? 15.0 : 12.5);
+  };
+
+  const getExerciseWeight = (ex: MasterExercise): number => {
+    if (exerciseWeightMap[ex.id] !== undefined) {
+      return exerciseWeightMap[ex.id];
+    }
+    return getSystemPrescribedWeight(ex);
+  };
+
+  const isExerciseWeightCustomized = (ex: MasterExercise): boolean => {
+    if (exerciseWeightMap[ex.id] === undefined) return false;
+    const sys = getSystemPrescribedWeight(ex);
+    return Math.abs(exerciseWeightMap[ex.id] - sys) > 0.05;
+  };
+
+  const handleResetExerciseWeight = (ex: MasterExercise) => {
+    triggerHaptic("medium");
+    setExerciseWeightMap((prev) => {
+      const next = { ...prev };
+      delete next[ex.id];
+      return next;
+    });
+    const sys = getSystemPrescribedWeight(ex);
+    if (focusedExerciseId === ex.id) {
+      setTargetWeightCalc(sys);
+    }
+  };
+
+  const handleExerciseWeightStep = (ex: MasterExercise, delta: number) => {
+    triggerHaptic("light");
+    const currentW = getExerciseWeight(ex);
+    const newW = Math.max(0, Math.round((currentW + delta) * 10) / 10);
+    setExerciseWeightMap((prev) => ({ ...prev, [ex.id]: newW }));
+    setFocusedExerciseId(ex.id);
+    setTargetWeightCalc(newW);
+
+    const prof = resolveExerciseEquipmentProfile(ex, newW, defaultInv);
+    if (prof.equipmentType === "leg_developer") {
+      setArsenalEquipType("leg_developer");
+    } else if (prof.equipmentType === "barbell" || prof.equipmentType === "bench_and_barbell") {
+      setArsenalEquipType("barbell");
+    } else if (prof.equipmentType === "ez_bar") {
+      setArsenalEquipType("ez_bar");
+    } else if (prof.equipmentType === "cable_pulley") {
+      setArsenalEquipType("cable_pulley");
+    } else if (prof.dumbbellCount === 1) {
+      setArsenalEquipType("dumbbells_single");
+    } else {
+      setArsenalEquipType("dumbbells");
+    }
+  };
+
+  const handleFocusExercise = (ex: MasterExercise) => {
+    triggerHaptic("light");
+    setFocusedExerciseId(ex.id);
+    const w = getExerciseWeight(ex);
+    setTargetWeightCalc(w);
+
+    const prof = resolveExerciseEquipmentProfile(ex, w, defaultInv);
+    if (prof.equipmentType === "leg_developer") {
+      setArsenalEquipType("leg_developer");
+    } else if (prof.equipmentType === "barbell" || prof.equipmentType === "bench_and_barbell") {
+      setArsenalEquipType("barbell");
+    } else if (prof.equipmentType === "ez_bar") {
+      setArsenalEquipType("ez_bar");
+    } else if (prof.equipmentType === "cable_pulley") {
+      setArsenalEquipType("cable_pulley");
+    } else if (prof.dumbbellCount === 1) {
+      setArsenalEquipType("dumbbells_single");
+    } else {
+      setArsenalEquipType("dumbbells");
+    }
+    setIsPlateCalcExpanded(true);
+  };
+
+  const handleArsenalWeightChange = (newWeight: number) => {
+    triggerHaptic("light");
+    setTargetWeightCalc(newWeight);
+    if (focusedExerciseId) {
+      setExerciseWeightMap((prev) => ({ ...prev, [focusedExerciseId]: newWeight }));
+    }
+  };
+
+  const handleApplyToActiveSet = () => {
+    triggerHaptic("success");
+    dispatch(
+      updateCurrentSetWeight({
+        weightKg: currentPlateSolver.achievableWeightKg,
+        plateBreakdown: currentPlateSolver.summaryString,
+      })
+    );
+    setAppliedFeedback(
+      `✓ APPLIED ${currentPlateSolver.achievableWeightKg}KG TO SET ${currentWorkoutSetIndex + 1}`
+    );
+    setTimeout(() => setAppliedFeedback(null), 3000);
+  };
 
   // Dynamic Bi-Weekly Rotation (Week A vs Week B) & Level-Scaled Sets/Reps
   const weekRotation = getCurrentWeekRotationIndex(); // 0 = Week A, 1 = Week B
@@ -269,13 +440,18 @@ export function GymTrainerHub({
         default_rest_seconds: masterEx.default_rest_seconds,
       };
 
-      const solver = calculateDumbbellPlates(15.0, defaultInv, true);
+      const customWeight = getExerciseWeight(masterEx);
+      const equipProfile = resolveExerciseEquipmentProfile(masterEx, customWeight, defaultInv);
       const wasDoneEarlier = completedExerciseNames.has(masterEx.name.toLowerCase());
 
       return {
         definition: def,
-        defaultWeightKg: solver.achievableWeightKg,
-        plateBreakdown: solver.summaryString,
+        defaultWeightKg: equipProfile.isFreeHand || equipProfile.isSkippingRope ? 0 : (equipProfile.plateSolverResult?.achievableWeightKg ?? customWeight),
+        plateBreakdown: equipProfile.isFreeHand
+          ? "Bodyweight Calisthenics (0kg)"
+          : equipProfile.isSkippingRope
+            ? "Speed Skipping Rope (0kg)"
+            : (equipProfile.plateSolverResult?.summaryString || `${customWeight}kg`),
         phase: masterEx.phase,
         isPreCompleted: wasDoneEarlier,
       };
@@ -293,13 +469,15 @@ export function GymTrainerHub({
         playerRank: profile?.rank || "Recruit",
         initialPhysicalFatigue: profile?.physical_fatigue || 0,
         initialMentalFatigue: profile?.mental_fatigue || 0,
+        equipment: defaultInv,
         exercises: sessionExercises,
       })
     );
   };
 
-  const executeIndividualExercise = (exercise: MasterExercise) => {
-    const solver = calculateDumbbellPlates(15.0, defaultInv, true);
+  const executeIndividualExercise = (exercise: MasterExercise, customWeight?: number) => {
+    const targetWeight = customWeight !== undefined ? customWeight : getExerciseWeight(exercise);
+    const equipProfile = resolveExerciseEquipmentProfile(exercise, targetWeight, defaultInv);
     const def: ExerciseDefinition = {
       id: exercise.id,
       name: exercise.name,
@@ -336,11 +514,16 @@ export function GymTrainerHub({
         playerRank: profile?.rank || "Recruit",
         initialPhysicalFatigue: profile?.physical_fatigue || 0,
         initialMentalFatigue: profile?.mental_fatigue || 0,
+        equipment: defaultInv,
         exercises: [
           {
             definition: def,
-            defaultWeightKg: solver.achievableWeightKg,
-            plateBreakdown: solver.summaryString,
+            defaultWeightKg: equipProfile.isFreeHand || equipProfile.isSkippingRope ? 0 : (equipProfile.plateSolverResult?.achievableWeightKg ?? targetWeight),
+            plateBreakdown: equipProfile.isFreeHand
+              ? "Bodyweight Calisthenics (0kg)"
+              : equipProfile.isSkippingRope
+                ? "Speed Skipping Rope (0kg)"
+                : (equipProfile.plateSolverResult?.summaryString || `${targetWeight}kg`),
             phase: "core",
           },
         ],
@@ -348,7 +531,7 @@ export function GymTrainerHub({
     );
   };
 
-  const handleLaunchIndividualExercise = (exercise: MasterExercise) => {
+  const handleLaunchIndividualExercise = (exercise: MasterExercise, targetWeight?: number) => {
     triggerHaptic("medium");
     const totalSetsToday = todaysCompletedSessions.reduce((acc, s) => acc + (s.workout_set_logs?.length || 0), 0);
     const isAnotherDay = selectedDay !== todayName;
@@ -368,18 +551,18 @@ export function GymTrainerHub({
           ? `CROSS-DAY PROTOCOL // ${playerRank.toUpperCase()} ADVISORY`
           : warning.title,
         message: isAnotherDay
-          ? `You are selecting ${exercise.name} from ${selectedDay}'s split while today is ${todayName}. ${
-              isTodayCompleted
-                ? `Today's quota is already completed. Overworking this movement will count as a Solo Trial, but increases central nervous fatigue for a Level ${playerLevel} ${playerRank}.`
-                : `This will execute as an isolated Solo Trial and will NOT mark today's full ${todayName} protocol complete.`
-            }`
+          ? `You are selecting ${exercise.name} from ${selectedDay}'s split while today is ${todayName}. ${isTodayCompleted
+            ? `Today's quota is already completed. Overworking this movement will count as a Solo Trial, but increases central nervous fatigue for a Level ${playerLevel} ${playerRank}.`
+            : `This will execute as an isolated Solo Trial and will NOT mark today's full ${todayName} protocol complete.`
+          }`
           : warning.message,
         pendingExercise: exercise,
+        pendingWeight: targetWeight,
       });
       return;
     }
 
-    executeIndividualExercise(exercise);
+    executeIndividualExercise(exercise, targetWeight);
   };
 
   const handleResumeSavedSession = () => {
@@ -405,11 +588,10 @@ export function GymTrainerHub({
               triggerHaptic("light");
               setWorkoutMode("system");
             }}
-            className={`flex-1 py-2.5 sm:py-3 rounded-xl text-xs font-mono font-black transition flex items-center justify-center gap-2 ${
-              workoutMode === "system"
-                ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/60 shadow-lg shadow-cyan-950/50"
-                : "text-slate-400 hover:text-white"
-            }`}
+            className={`flex-1 py-2.5 sm:py-3 rounded-xl text-xs font-mono font-black transition flex items-center justify-center gap-2 ${workoutMode === "system"
+              ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/60 shadow-lg shadow-cyan-950/50"
+              : "text-slate-400 hover:text-white"
+              }`}
           >
             <Sparkles className="w-4 h-4" />
             <span>SYSTEM PLAN (AI CURATED)</span>
@@ -420,11 +602,10 @@ export function GymTrainerHub({
               triggerHaptic("light");
               setWorkoutMode("custom");
             }}
-            className={`flex-1 py-2.5 sm:py-3 rounded-xl text-xs font-mono font-black transition flex items-center justify-center gap-2 ${
-              workoutMode === "custom"
-                ? "bg-purple-500/20 text-purple-300 border border-purple-500/60 shadow-lg shadow-purple-950/50"
-                : "text-slate-400 hover:text-white"
-            }`}
+            className={`flex-1 py-2.5 sm:py-3 rounded-xl text-xs font-mono font-black transition flex items-center justify-center gap-2 ${workoutMode === "custom"
+              ? "bg-purple-500/20 text-purple-300 border border-purple-500/60 shadow-lg shadow-purple-950/50"
+              : "text-slate-400 hover:text-white"
+              }`}
           >
             <Sliders className="w-4 h-4" />
             <span>CUSTOM PLAN (HUNTER FORGED)</span>
@@ -524,11 +705,10 @@ export function GymTrainerHub({
                     triggerHaptic("light");
                     setSelectedDay(item.day);
                   }}
-                  className={`px-3.5 py-2.5 rounded-2xl text-xs font-mono font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                    isSelected
-                      ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/60 shadow-lg shadow-cyan-950/50"
-                      : "bg-slate-900/70 text-slate-400 border border-slate-800 hover:text-white"
-                  }`}
+                  className={`px-3.5 py-2.5 rounded-2xl text-xs font-mono font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${isSelected
+                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/60 shadow-lg shadow-cyan-950/50"
+                    : "bg-slate-900/70 text-slate-400 border border-slate-800 hover:text-white"
+                    }`}
                 >
                   {isToday && <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />}
                   <span>{item.day.slice(0, 3).toUpperCase()}</span>
@@ -892,105 +1072,250 @@ export function GymTrainerHub({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-                  {curatedSessionList.map((ex, i) => (
-                    <div
-                      key={ex.id}
-                      onClick={() => {
-                        triggerHaptic("light");
-                        setSelectedExerciseForModal(ex);
-                      }}
-                      className={`${
-                        isMobileCompactView ? "p-2.5 sm:p-3" : "p-3.5 sm:p-4"
-                      } rounded-2xl bg-[#090d18] border border-cyan-500/20 hover:border-cyan-400/60 hover:bg-[#0c1222] transition-all cursor-pointer flex items-center justify-between gap-2.5 group`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 group-hover:border-cyan-400 group-hover:bg-cyan-500/20 flex items-center justify-center font-mono font-black text-xs shrink-0 transition">
-                          #{i + 1}
-                        </div>
+                  {curatedSessionList.map((ex, i) => {
+                    const currentWeight = getExerciseWeight(ex);
+                    const systemWeight = getSystemPrescribedWeight(ex);
+                    const isCustomized = isExerciseWeightCustomized(ex);
+                    const prof = resolveExerciseEquipmentProfile(ex, currentWeight, defaultInv);
+                    const isFocused = focusedExerciseId === ex.id;
 
-                        <div className="min-w-0 space-y-0.5 sm:space-y-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs sm:text-sm font-bold text-white truncate max-w-[150px] sm:max-w-none">{ex.name}</span>
-                            <span className="text-[9px] sm:text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-cyan-950/60 text-cyan-300 border border-cyan-500/30 shrink-0">
-                              {ex.bench_angle}
-                            </span>
+                    return (
+                      <div
+                        key={ex.id}
+                        onClick={() => {
+                          triggerHaptic("light");
+                          handleFocusExercise(ex);
+                        }}
+                        className={`${isMobileCompactView ? "p-2.5 sm:p-3" : "p-3.5 sm:p-4"
+                          } rounded-2xl bg-[#090d18] border transition-all cursor-pointer flex items-center justify-between gap-2.5 group ${isFocused
+                            ? "border-cyan-400 bg-[#0b1324] shadow-[0_0_15px_rgba(0,229,255,0.18)] ring-1 ring-cyan-400/50"
+                            : "border-cyan-500/20 hover:border-cyan-400/60 hover:bg-[#0c1222]"
+                          }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl font-mono font-black text-xs shrink-0 transition flex items-center justify-center ${isFocused
+                            ? "bg-cyan-500 text-black shadow-[0_0_10px_#00e5ff]"
+                            : "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 group-hover:border-cyan-400 group-hover:bg-cyan-500/20"
+                            }`}>
+                            #{i + 1}
                           </div>
 
-                          <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-400">
-                            <span className="truncate">{ex.target_muscle}</span>
-                            <span>•</span>
-                            <span className="shrink-0">
-                              {ex.default_sets}S × {ex.default_reps_min}-{ex.default_reps_max}R
-                            </span>
-                          </div>
+                          <div className="min-w-0 space-y-0.5 sm:space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  triggerHaptic("light");
+                                  setSelectedExerciseForModal(ex);
+                                }}
+                                className="text-left text-xs sm:text-sm font-bold text-white hover:text-cyan-300 truncate max-w-[150px] sm:max-w-none transition flex items-center gap-1 group/title"
+                                title="View Movement Guide & Biomechanics"
+                              >
+                                <span className="truncate group-hover/title:underline underline-offset-2">{ex.name}</span>
+                              </button>
+                              <span className="text-[9px] sm:text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-cyan-950/60 text-cyan-300 border border-cyan-500/30 shrink-0">
+                                {ex.bench_angle}
+                              </span>
+                              {prof.isFreeHand ? (
+                                <span className="text-[8.5px] sm:text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-950/70 text-emerald-300 border border-emerald-500/40 shrink-0">
+                                  BODYWEIGHT
+                                </span>
+                              ) : prof.isSkippingRope ? (
+                                <span className="text-[8.5px] sm:text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-950/70 text-cyan-300 border border-cyan-500/40 shrink-0">
+                                  SKIPPING ROPE
+                                </span>
+                              ) : prof.equipmentType === "leg_developer" ? (
+                                <span className="text-[8.5px] sm:text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-950/70 text-blue-300 border border-blue-500/40 shrink-0">
+                                  LEG DEVELOPER
+                                </span>
+                              ) : prof.equipmentType?.includes("barbell") ? (
+                                <span className="text-[8.5px] sm:text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-purple-950/70 text-purple-300 border border-purple-500/40 shrink-0">
+                                  BARBELL
+                                </span>
+                              ) : prof.equipmentType === "ez_bar" ? (
+                                <span className="text-[8.5px] sm:text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-950/70 text-indigo-300 border border-indigo-500/40 shrink-0">
+                                  EZ-BAR
+                                </span>
+                              ) : prof.equipmentType === "cable_pulley" ? (
+                                <span className="text-[8.5px] sm:text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-950/70 text-amber-300 border border-amber-500/40 shrink-0">
+                                  CABLE
+                                </span>
+                              ) : prof.dumbbellCount === 1 ? (
+                                <span className="text-[8.5px] sm:text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-950/70 text-cyan-300 border border-cyan-500/40 shrink-0">
+                                  1× DUMBBELL
+                                </span>
+                              ) : (
+                                <span className="text-[8.5px] sm:text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-950/70 text-cyan-300 border border-cyan-500/40 shrink-0">
+                                  DUMBBELLS (PAIR)
+                                </span>
+                              )}
+                            </div>
 
-                          {/* RPG Attribute Yield Badges - Shown in detailed view or desktop */}
-                          {!isMobileCompactView && (() => {
-                            const yields = getExerciseAttributeYield(ex);
-                            return (
-                              <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                                {yields.strength && (
-                                  <span className="px-1 py-0.2 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[8px] sm:text-[9px] font-mono font-bold">
-                                    STR +{yields.strength.toFixed(2)}
-                                  </span>
-                                )}
-                                {yields.discipline && (
-                                  <span className="px-1 py-0.2 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[8px] sm:text-[9px] font-mono font-bold">
-                                    DIS +{yields.discipline.toFixed(2)}
-                                  </span>
-                                )}
-                                {yields.endurance && (
-                                  <span className="px-1 py-0.2 rounded bg-blue-950/80 border border-blue-500/40 text-blue-300 text-[8px] sm:text-[9px] font-mono font-bold">
-                                    END +{yields.endurance.toFixed(2)}
-                                  </span>
-                                )}
-                                {yields.agility && (
-                                  <span className="px-1 py-0.2 rounded bg-slate-900 border border-cyan-400/30 text-cyan-200 text-[8px] sm:text-[9px] font-mono font-bold">
-                                    AGI +{yields.agility.toFixed(2)}
-                                  </span>
-                                )}
-                                {yields.vitality && (
-                                  <span className="px-1 py-0.2 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[8px] sm:text-[9px] font-mono font-bold">
-                                    VIT +{yields.vitality.toFixed(2)}
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })()}
+                            <div className="flex items-center gap-2 text-[11px] sm:text-xs text-slate-400 flex-wrap">
+                              <span className="truncate">{ex.target_muscle}</span>
+                              <span>•</span>
+                              <span className="shrink-0 font-mono">
+                                {ex.default_sets}S × {ex.default_reps_min}-{ex.default_reps_max}R
+                              </span>
+
+                              {/* Interactive Inline Weight Stepper on Weighted Cards */}
+                              {!prof.isFreeHand && !prof.isSkippingRope && (
+                                <div
+                                  className="inline-flex items-center gap-1 bg-[#040810] border border-cyan-500/40 rounded-lg px-1.5 py-0.5 font-mono shadow-sm"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => handleExerciseWeightStep(ex, -1.0)}
+                                    className="w-4 h-4 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-[10px] font-bold flex items-center justify-center transition"
+                                    title="Decrease load 1kg"
+                                  >
+                                    -
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleFocusExercise(ex)}
+                                    className={`px-1 text-[10px] sm:text-[11px] font-bold font-mono transition flex items-center gap-1 ${isFocused
+                                      ? "text-cyan-300 underline underline-offset-2"
+                                      : "text-slate-200 hover:text-cyan-300"
+                                      }`}
+                                    title="Inspect exact plate recipe in Arsenal Forge"
+                                  >
+                                    <span>{currentWeight.toFixed(1)}kg</span>
+                                    <span className="text-[8px] text-cyan-400/80">
+                                      {prof.equipmentType === "leg_developer"
+                                        ? "HORN"
+                                        : prof.equipmentType?.includes("barbell")
+                                          ? "BAR"
+                                          : prof.equipmentType === "ez_bar"
+                                            ? "EZ"
+                                            : prof.equipmentType === "cable_pulley"
+                                              ? "CABLE"
+                                              : prof.dumbbellCount === 1
+                                                ? "1×DB"
+                                                : "PAIR"}
+                                    </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleExerciseWeightStep(ex, 1.0)}
+                                    className="w-4 h-4 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-[10px] font-bold flex items-center justify-center transition"
+                                    title="Increase load 1kg"
+                                  >
+                                    +
+                                  </button>
+
+                                  {/* Reset to System Plan if customized by player */}
+                                  {isCustomized && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleResetExerciseWeight(ex)}
+                                      className="ml-0.5 px-1 py-0.5 rounded bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 text-amber-300 text-[8px] sm:text-[9px] font-mono font-bold flex items-center gap-0.5 transition shadow-sm"
+                                      title={`Reset to System Plan (${systemWeight.toFixed(1)}kg)`}
+                                    >
+                                      <RotateCcw className="w-2.5 h-2.5" />
+                                      <span>SYS</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* RPG Attribute Yield Badges - Shown in detailed view or desktop */}
+                            {!isMobileCompactView && (() => {
+                              const yields = getExerciseAttributeYield(ex);
+                              return (
+                                <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                  {yields.strength && (
+                                    <span className="px-1 py-0.2 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[8px] sm:text-[9px] font-mono font-bold">
+                                      STR +{yields.strength.toFixed(2)}
+                                    </span>
+                                  )}
+                                  {yields.discipline && (
+                                    <span className="px-1 py-0.2 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[8px] sm:text-[9px] font-mono font-bold">
+                                      DIS +{yields.discipline.toFixed(2)}
+                                    </span>
+                                  )}
+                                  {yields.endurance && (
+                                    <span className="px-1 py-0.2 rounded bg-blue-950/80 border border-blue-500/40 text-blue-300 text-[8px] sm:text-[9px] font-mono font-bold">
+                                      END +{yields.endurance.toFixed(2)}
+                                    </span>
+                                  )}
+                                  {yields.agility && (
+                                    <span className="px-1 py-0.2 rounded bg-slate-900 border border-cyan-400/30 text-cyan-200 text-[8px] sm:text-[9px] font-mono font-bold">
+                                      AGI +{yields.agility.toFixed(2)}
+                                    </span>
+                                  )}
+                                  {yields.vitality && (
+                                    <span className="px-1 py-0.2 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[8px] sm:text-[9px] font-mono font-bold">
+                                      VIT +{yields.vitality.toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-1.5 sm:gap-2">
+                          {/* View Codex Guide Button without starting workout */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              triggerHaptic("light");
+                              setSelectedExerciseForModal(ex);
+                            }}
+                            className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-cyan-950/80 border border-slate-700/80 hover:border-cyan-400 text-slate-300 hover:text-cyan-300 transition flex items-center gap-1 shadow-sm"
+                            title="View Movement Guide & Instructions"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-cyan-400" />
+                            <span className="text-[9.5px] font-mono font-bold hidden xs:inline">GUIDE</span>
+                          </button>
+
+                          {completedExerciseNames.has(ex.name.toLowerCase()) ? (
+                            <span className="text-[9px] sm:text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/90 border border-cyan-400/60 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl flex items-center gap-1 shadow-sm shadow-cyan-950">
+                              <CheckCircle2 className="w-3 h-3 text-cyan-400" />
+                              <span className="hidden xs:inline">DONE</span>
+                            </span>
+                          ) : (isTodayCompleted && selectedDay === todayName) ? (
+                            <span className="text-[9px] sm:text-[10px] font-mono font-bold text-slate-400 bg-slate-900/80 border border-slate-700/60 px-2 py-0.5 rounded-xl flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3 text-slate-400" />
+                              <span className="hidden xs:inline">SKIP</span>
+                            </span>
+                          ) : (
+                            <span className="text-[9px] sm:text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl">
+                              ACTIVE
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLaunchIndividualExercise(ex, getExerciseWeight(ex));
+                            }}
+                            className="p-1.5 rounded-lg bg-cyan-950/70 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-black transition shadow-sm"
+                            title="Launch Individual Solo Trial"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              triggerHaptic("light");
+                              setSelectedExerciseForModal(ex);
+                            }}
+                            className="p-1 text-slate-500 hover:text-cyan-400 transition"
+                            title="View Movement Guide"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
-
-                      <div className="shrink-0 flex items-center gap-1.5 sm:gap-2">
-                        {completedExerciseNames.has(ex.name.toLowerCase()) ? (
-                          <span className="text-[9px] sm:text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/90 border border-cyan-400/60 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl flex items-center gap-1 shadow-sm shadow-cyan-950">
-                            <CheckCircle2 className="w-3 h-3 text-cyan-400" />
-                            <span className="hidden xs:inline">DONE</span>
-                          </span>
-                        ) : (isTodayCompleted && selectedDay === todayName) ? (
-                          <span className="text-[9px] sm:text-[10px] font-mono font-bold text-slate-400 bg-slate-900/80 border border-slate-700/60 px-2 py-0.5 rounded-xl flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3 text-slate-400" />
-                            <span className="hidden xs:inline">SKIP</span>
-                          </span>
-                        ) : (
-                          <span className="text-[9px] sm:text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl">
-                            ACTIVE
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleLaunchIndividualExercise(ex);
-                          }}
-                          className="p-1.5 rounded-lg bg-cyan-950/70 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-black transition"
-                          title="Launch Individual Solo Trial"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                        </button>
-                        <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition" />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1028,16 +1353,19 @@ export function GymTrainerHub({
                               triggerHaptic("light");
                               setSelectedExerciseForModal(ex);
                             }}
-                            className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-center justify-between ${
-                              unlocked
-                                ? "bg-slate-900 border-slate-800 hover:border-cyan-500/40 text-slate-200"
-                                : "bg-slate-950 border-slate-900 opacity-60 text-slate-500"
-                            }`}
+                            className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-center justify-between ${unlocked
+                              ? "bg-slate-900 border-slate-800 hover:border-cyan-500/40 text-slate-200"
+                              : "bg-slate-950 border-slate-900 opacity-60 text-slate-500"
+                              }`}
                           >
                             <div className="min-w-0">
                               <span className="text-xs font-bold block truncate">{ex.name}</span>
-                              <span className="text-[10px] text-slate-400 font-mono">
-                                Bench: {ex.bench_angle} • {ex.target_muscle}
+                              <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5 flex-wrap">
+                                <span>Bench: {ex.bench_angle}</span>
+                                <span>•</span>
+                                <span className="text-cyan-300">
+                                  {resolveExerciseEquipmentProfile(ex, 15, equipment).displayName}
+                                </span>
                               </span>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
@@ -1070,8 +1398,8 @@ export function GymTrainerHub({
             </>
           )}
 
-          {/* 60KG Home Dumbbell Plate Calculator Quick Widget (Collapsible Anti-Scroll) */}
-          <div className="solo-frame rounded-2xl p-4 sm:p-5 space-y-3 font-hud">
+          {/* ARSENAL EQUIPMENT & WEIGHT FORGE (Collapsible Anti-Scroll) */}
+          <div className="solo-frame rounded-2xl p-4 sm:p-5 space-y-4 font-hud">
             <button
               type="button"
               onClick={() => {
@@ -1083,12 +1411,12 @@ export function GymTrainerHub({
               <div className="flex items-center gap-2">
                 <Dumbbell className="w-4 h-4 text-cyan-400" />
                 <span className="text-white group-hover:text-cyan-300 transition">
-                  60KG ARSENAL DUMBBELL PLATE CALCULATOR
+                  ARSENAL EQUIPMENT & WEIGHT FORGE
                 </span>
               </div>
               <div className="flex items-center gap-2 text-cyan-400">
                 <span className="text-xs font-mono font-bold">
-                  {plateSolver.achievableWeightKg.toFixed(1)}kg / DB
+                  {currentPlateSolver.achievableWeightKg.toFixed(1)}kg • {arsenalEquipType.toUpperCase().replace("_", " ")}
                 </span>
                 {isPlateCalcExpanded ? (
                   <ChevronUp className="w-4 h-4" />
@@ -1099,40 +1427,234 @@ export function GymTrainerHub({
             </button>
 
             {isPlateCalcExpanded && (
-              <div className="pt-2 border-t border-cyan-500/20 space-y-3 animate-in fade-in duration-150">
-                <p className="text-xs text-slate-400 font-mono">
-                  Select target dumbbell weight to instantly view exact symmetric plate loading for your 20-in-1 bench setup (8×5kg, 4×2.5kg, 4×2kg, 8×1.25kg, 4×1kg):
-                </p>
+              <div className="pt-2 border-t border-cyan-500/20 space-y-3.5 animate-in fade-in duration-150">
+                {/* Linked Exercise Banner if an exercise card is currently selected */}
+                {(() => {
+                  const focusedEx = focusedExerciseId
+                    ? curatedSessionList.find((e) => e.id === focusedExerciseId) ||
+                    dayExercises.find((e) => e.id === focusedExerciseId)
+                    : null;
 
-                <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                  {[6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 26.0, 28.0, 30.0].map((w) => (
+                  if (!focusedEx) return null;
+                  const curW = getExerciseWeight(focusedEx);
+                  const sysW = getSystemPrescribedWeight(focusedEx);
+                  const isCust = isExerciseWeightCustomized(focusedEx);
+
+                  return (
+                    <div className="p-2.5 rounded-xl bg-cyan-950/70 border border-cyan-400/60 flex items-center justify-between gap-2 flex-wrap animate-in fade-in">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+                        <span className="text-xs font-mono font-bold text-white truncate">
+                          LINKED TO MOVEMENT: <strong className="text-cyan-300">{focusedEx.name}</strong> ({curW.toFixed(1)}kg)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isCust && (
+                          <button
+                            type="button"
+                            onClick={() => handleResetExerciseWeight(focusedEx)}
+                            className="px-2 py-0.5 rounded bg-amber-950/80 border border-amber-500/50 hover:bg-amber-900 text-amber-300 text-[10px] font-mono font-bold flex items-center gap-1 transition shadow-sm"
+                            title={`Reset ${focusedEx.name} to original System Plan (${sysW.toFixed(1)}kg)`}
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>RESET TO SYSTEM ({sysW.toFixed(1)}kg)</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setFocusedExerciseId(null);
+                          }}
+                          className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 hover:border-cyan-400 text-slate-300 text-[10px] font-mono shrink-0 transition"
+                          title="Unlink and use as independent calculator"
+                        >
+                          ✕ Free Mode
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Equipment Type Mode Selector */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                  {[
+                    { id: "dumbbells" as const, label: "DB (PAIR)" },
+                    { id: "dumbbells_single" as const, label: "1× DB (SINGLE)" },
+                    { id: "barbell" as const, label: "BARBELL" },
+                    { id: "ez_bar" as const, label: "EZ-BAR" },
+                    { id: "cable_pulley" as const, label: "CABLE PULLEY" },
+                    { id: "leg_developer" as const, label: "LEG DEVELOPER" },
+                  ].map((tab) => (
                     <button
-                      key={w}
+                      key={tab.id}
                       type="button"
                       onClick={() => {
                         triggerHaptic("light");
-                        setTargetWeightCalc(w);
+                        setArsenalEquipType(tab.id);
+                        if (tab.id === "barbell" && targetWeightCalc < (defaultInv.barbell_weight_kg || 7.0)) {
+                          handleArsenalWeightChange(25.0);
+                        } else if (tab.id === "dumbbells" && targetWeightCalc > 30.0) {
+                          handleArsenalWeightChange(15.0);
+                        }
                       }}
-                      className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-xs font-mono font-bold transition ${
-                        Math.abs(targetWeightCalc - w) < 0.1
-                          ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 shadow-sm"
-                          : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white"
-                      }`}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-mono font-bold tracking-wider shrink-0 transition ${arsenalEquipType === tab.id
+                        ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400 shadow-[0_0_10px_rgba(0,229,255,0.2)]"
+                        : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white"
+                        }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+            {/* Equipment Type Mode Selector */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+              {[
+                { id: "dumbbells" as const, label: "DB (PAIR)" },
+                { id: "dumbbells_single" as const, label: "1× DB (SINGLE)" },
+                { id: "barbell" as const, label: "BARBELL" },
+                { id: "ez_bar" as const, label: "EZ-BAR" },
+                { id: "cable_pulley" as const, label: "CABLE PULLEY" },
+                { id: "leg_developer" as const, label: "LEG DEVELOPER" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setArsenalEquipType(tab.id);
+                    if (focusedExerciseId) {
+                      const focusedEx = curatedSessionList.find((e) => e.id === focusedExerciseId);
+                      if (focusedEx) {
+                        const prof = resolveExerciseEquipmentProfile(focusedEx, 0, defaultInv);
+                        const isMatch =
+                          (tab.id === "dumbbells" && prof.equipmentType === "dumbbells" && prof.dumbbellCount !== 1) ||
+                          (tab.id === "dumbbells_single" && prof.dumbbellCount === 1) ||
+                          (tab.id === "barbell" && (prof.equipmentType === "barbell" || prof.equipmentType === "bench_and_barbell")) ||
+                          (tab.id === "ez_bar" && prof.equipmentType === "ez_bar") ||
+                          (tab.id === "leg_developer" && prof.equipmentType === "leg_developer") ||
+                          (tab.id === "cable_pulley" && prof.equipmentType === "cable_pulley");
+                        if (!isMatch) {
+                          setFocusedExerciseId(null);
+                        }
+                      }
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-mono font-bold tracking-wider shrink-0 transition ${arsenalEquipType === tab.id
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400 shadow-[0_0_10px_rgba(0,229,255,0.2)]"
+                    : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white"
+                    }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+                {/* Preset Chips */}
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                  {(arsenalEquipType === "dumbbells"
+                    ? [6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 26.0, 28.0, 30.0]
+                    : arsenalEquipType === "dumbbells_single"
+                      ? [6.5, 8.5, 10.5, 11.5, 12.5, 13.5, 14.0, 15.0, 16.5, 18.5, 20.0, 22.0, 25.0]
+                      : arsenalEquipType === "barbell"
+                        ? [10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 60.0]
+                        : arsenalEquipType === "ez_bar"
+                          ? [8.0, 10.0, 12.0, 15.0, 18.0, 20.0, 25.0, 30.0]
+                          : arsenalEquipType === "cable_pulley"
+                            ? [5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 50.0]
+                            : [5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0]
+                  ).map((w) => (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => handleArsenalWeightChange(w)}
+                      className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-xs font-mono font-bold transition ${Math.abs(targetWeightCalc - w) < 0.1
+                        ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 shadow-sm"
+                        : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white"
+                        }`}
                     >
                       {w}kg
                     </button>
                   ))}
                 </div>
 
-                <div className="p-3 rounded-xl bg-[#070b14] border border-cyan-500/25 font-mono text-xs flex items-center justify-between">
-                  <span className="text-slate-400">Dumbbell Breakdown:</span>
-                  <span className="text-cyan-400 font-bold">{plateSolver.summaryString}</span>
+                {/* Custom Weight Stepper & Direct Typing Input */}
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-slate-400 uppercase font-bold">
+                      Custom Load:
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newW = Math.max(0, Math.round((targetWeightCalc - 1.0) * 10) / 10);
+                          handleArsenalWeightChange(newW);
+                        }}
+                        className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-400 text-xs font-bold flex items-center justify-center transition"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        max="120"
+                        value={targetWeightCalc}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          if (!isNaN(val)) handleArsenalWeightChange(val);
+                        }}
+                        className="w-16 px-2 py-1 text-center font-mono font-bold text-sm text-cyan-300 bg-slate-900 border border-cyan-500/40 rounded-lg focus:outline-none focus:border-cyan-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newW = Math.round((targetWeightCalc + 1.0) * 10) / 10;
+                          handleArsenalWeightChange(newW);
+                        }}
+                        className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-400 text-xs font-bold flex items-center justify-center transition"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-xs font-mono text-slate-400 font-bold ml-1">kg</span>
+                    </div>
+                  </div>
+
+                  {/* Active Workout Direct Apply Button */}
+                  {isWorkoutActive && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleApplyToActiveSet}
+                        className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-mono text-xs font-bold tracking-wider flex items-center gap-1.5 shadow-[0_0_12px_rgba(0,229,255,0.4)] transition"
+                      >
+                        <Zap className="w-3.5 h-3.5 text-cyan-200" />
+                        <span>APPLY TO CURRENT SET</span>
+                      </button>
+                      {appliedFeedback && (
+                        <span className="text-[10px] font-mono text-emerald-400 font-bold animate-in fade-in">
+                          {appliedFeedback}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Plate Breakdown Card */}
+                <div className="p-3 rounded-xl bg-[#070b14] border border-cyan-500/25 font-mono text-xs flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-slate-400 font-bold">
+                    {arsenalEquipType.toUpperCase().replace("_", " ")} Breakdown:
+                  </span>
+                  <span className="text-cyan-400 font-bold">{currentPlateSolver.summaryString}</span>
                 </div>
               </div>
             )}
           </div>
         </>
-      )}
+      )
+      }
 
       {/* Exercise Codex Modal (Demo, form cues, bench angle, unlock criteria) */}
       <ExerciseCodexModal
@@ -1147,52 +1669,56 @@ export function GymTrainerHub({
         playerLevel={playerLevel}
         playerRank={playerRank}
         equipment={defaultInv}
+        initialWeight={selectedExerciseForModal ? getExerciseWeight(selectedExerciseForModal) : 15.0}
         onLaunchIndividual={handleLaunchIndividualExercise}
       />
 
       {/* Rank Volume Warning Modal (Solo Leveling Notification Modal) */}
-      {warningModalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
-          <div className="max-w-md w-full solo-notification-modal rounded-xl p-6 space-y-4 shadow-2xl text-white">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-950/80 border border-cyan-400 flex items-center justify-center text-cyan-400 shrink-0">
-                <AlertTriangle className="w-5 h-5 text-cyan-400" />
+      {
+        warningModalData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
+            <div className="max-w-md w-full solo-notification-modal rounded-xl p-6 space-y-4 shadow-2xl text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-950/80 border border-cyan-400 flex items-center justify-center text-cyan-400 shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-cyan-400" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-solo font-bold text-cyan-300 uppercase tracking-widest block mana-text-glow">
+                    [ SYSTEM ADVISORY // {playerRank.toUpperCase()} RANK ]
+                  </span>
+                  <h3 className="text-base font-bold text-white font-solo">{warningModalData.title}</h3>
+                </div>
               </div>
-              <div>
-                <span className="text-[10px] font-solo font-bold text-cyan-300 uppercase tracking-widest block mana-text-glow">
-                  [ SYSTEM ADVISORY // {playerRank.toUpperCase()} RANK ]
-                </span>
-                <h3 className="text-base font-bold text-white font-solo">{warningModalData.title}</h3>
+
+              <p className="text-xs text-slate-300 leading-relaxed font-hud bg-[#070b14] p-3 rounded-xl border border-cyan-500/30">
+                {warningModalData.message}
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setWarningModalData(null)}
+                  className="solo-btn-secondary py-2 px-3 text-xs"
+                >
+                  ABORT TRIAL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ex = warningModalData.pendingExercise;
+                    const wt = warningModalData.pendingWeight;
+                    setWarningModalData(null);
+                    if (ex) executeIndividualExercise(ex, wt);
+                  }}
+                  className="solo-btn py-2 px-4 text-xs"
+                >
+                  PROCEED OVERRIDE ◆
+                </button>
               </div>
-            </div>
-
-            <p className="text-xs text-slate-300 leading-relaxed font-hud bg-[#070b14] p-3 rounded-xl border border-cyan-500/30">
-              {warningModalData.message}
-            </p>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setWarningModalData(null)}
-                className="solo-btn-secondary py-2 px-3 text-xs"
-              >
-                ABORT TRIAL
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const ex = warningModalData.pendingExercise;
-                  setWarningModalData(null);
-                  if (ex) executeIndividualExercise(ex);
-                }}
-                className="solo-btn py-2 px-4 text-xs"
-              >
-                PROCEED OVERRIDE ◆
-              </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 }
