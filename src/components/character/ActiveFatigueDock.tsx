@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Brain, Flame } from "lucide-react";
 import { useLiveFatigue } from "@/lib/hooks/useLiveFatigue";
+import { getFatigueStatus } from "@/lib/calculations/fatigue";
 import { getActiveSessionAction } from "@/server/actions/player.actions";
 
 interface ActiveFatigueDockProps {
@@ -14,23 +15,21 @@ interface ActiveFatigueDockProps {
 /**
  * Compact, icon-only mobile-responsive live biological fatigue telemetry dock.
  * Built specifically for active Gym workout headers, Solo trials, and Quest countdown modals.
+ * When explicit session values are passed, directly renders real-time session numbers with zero lag.
  */
 export function ActiveFatigueDock({
   initialMental,
   initialPhysical,
   lastUpdateIso,
 }: ActiveFatigueDockProps) {
+  const hasExplicitValues = initialMental !== undefined && initialPhysical !== undefined;
+
   const [baseMental, setBaseMental] = useState(initialMental ?? 0);
   const [basePhysical, setBasePhysical] = useState(initialPhysical ?? 0);
   const [baseLastUpdate, setBaseLastUpdate] = useState(lastUpdateIso || null);
 
   useEffect(() => {
-    if (initialMental !== undefined || initialPhysical !== undefined) {
-      setBaseMental(initialMental ?? 0);
-      setBasePhysical(initialPhysical ?? 0);
-      setBaseLastUpdate(lastUpdateIso || null);
-      return;
-    }
+    if (hasExplicitValues) return;
 
     let isMounted = true;
     async function syncFatigue() {
@@ -47,13 +46,19 @@ export function ActiveFatigueDock({
     return () => {
       isMounted = false;
     };
-  }, [initialMental, initialPhysical, lastUpdateIso]);
+  }, [hasExplicitValues]);
 
-  const { displayMental, displayPhysical, fatigueStatus } = useLiveFatigue(
-    baseMental,
-    basePhysical,
-    baseLastUpdate
+  const live = useLiveFatigue(
+    hasExplicitValues ? initialMental : baseMental,
+    hasExplicitValues ? initialPhysical : basePhysical,
+    hasExplicitValues ? null : baseLastUpdate
   );
+
+  const finalMental = hasExplicitValues ? initialMental : live.mentalFatigue;
+  const finalPhysical = hasExplicitValues ? initialPhysical : live.physicalFatigue;
+  const displayMental = `${Number(finalMental).toFixed(1)}%`;
+  const displayPhysical = `${Number(finalPhysical).toFixed(1)}%`;
+  const fatigueStatus = getFatigueStatus(finalMental, finalPhysical);
 
   return (
     <div

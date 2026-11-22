@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { completeQuestAction } from "@/server/actions/quest.actions";
 import {
@@ -16,8 +16,9 @@ import { endQuestSession, minimizeQuestSession } from "@/store/slices/questUiSli
 import { triggerHaptic } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { Play, Pause, X, CheckCircle2, Zap, Flame, Shield, Minimize2, AlertTriangle, Moon } from "lucide-react";
-import { Quest } from "@/types";
+import { Quest, AttributeType } from "@/types";
 import { ActiveFatigueDock } from "@/components/character/ActiveFatigueDock";
+import { calculateSessionFatigueDelta } from "@/lib/calculations/fatigue";
 
 interface LiveQuestStopwatchProps {
   quest: Quest;
@@ -46,6 +47,39 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
     }
     return null;
   });
+  const [baseProfileMental, setBaseProfileMental] = useState(0);
+  const [baseProfilePhysical, setBaseProfilePhysical] = useState(0);
+  const [surgeRemainingSecs, setSurgeRemainingSecs] = useState(0);
+
+  // Live cellular hydration surge listener
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkSurge = () => {
+      const stored = localStorage.getItem("sd_last_hydration_surge_at");
+      if (stored) {
+        const diffMs = Date.now() - new Date(stored).getTime();
+        const rem = Math.max(0, Math.floor((5 * 60 * 1000 - diffMs) / 1000));
+        setSurgeRemainingSecs(rem);
+      } else {
+        setSurgeRemainingSecs(0);
+      }
+    };
+
+    checkSurge();
+    const interval = setInterval(checkSurge, 1000);
+
+    const handleSurge = () => {
+      setSurgeRemainingSecs(300);
+      triggerHaptic("success");
+    };
+
+    window.addEventListener("hydrationSurgeTriggered", handleSurge);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("hydrationSurgeTriggered", handleSurge);
+    };
+  }, []);
 
   const isSleepQuest = quest.category === "sleep" || (quest as any).is_sleep;
   const isMeditationQuest =
@@ -53,7 +87,7 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
     quest.description?.includes("[MEDITATION_PROTOCOL]") ||
     quest.title.toLowerCase().includes("meditat");
 
-  const linkedAttrs = Object.keys(quest.attribute_rewards || {});
+  const linkedAttrs = Object.keys(quest.attribute_rewards || {}) as AttributeType[];
   const funHasIntelligenceOrPhysical = linkedAttrs.some(
     (a) =>
       a === "intelligence" ||
@@ -78,6 +112,8 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
         let sessionStart = startTimeIso || (quest.started_at ? quest.started_at : new Date().toISOString());
 
         if (active) {
+          if (active.mental_fatigue !== undefined) setBaseProfileMental(Number(active.mental_fatigue) || 0);
+          if (active.physical_fatigue !== undefined) setBaseProfilePhysical(Number(active.physical_fatigue) || 0);
           if (active.grace_coin_consumed || active.grace_coin_consumed_for_session === quest.id) {
             setGraceCoinShield(true);
           }
@@ -146,6 +182,32 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
   const diffMinutes = minutes - estimatedMinutes;
   const isOvertime = diffMinutes > 0;
   const hoursSlept = Number((minutes / 60).toFixed(2));
+
+  // Live fatigue delta projection matching exactly final log completion formula
+  const liveQuestFatigue = useMemo(() => {
+    return calculateSessionFatigueDelta({
+      durationMinutes: seconds / 60,
+      targetMinutes: estimatedMinutes,
+      isFun: quest.is_fun,
+      linkedAttributes: linkedAttrs,
+      category: quest.category,
+      currentMentalFatigue: baseProfileMental,
+      currentPhysicalFatigue: baseProfilePhysical,
+      isMeditation: isMeditationQuest,
+    });
+  }, [
+    seconds,
+    estimatedMinutes,
+    quest.is_fun,
+    linkedAttrs,
+    quest.category,
+    baseProfileMental,
+    baseProfilePhysical,
+    isMeditationQuest,
+  ]);
+
+  const currentLiveMental = Math.max(0, Math.min(100, baseProfileMental + liveQuestFatigue.mentalDelta));
+  const currentLivePhysical = Math.max(0, Math.min(100, baseProfilePhysical + liveQuestFatigue.physicalDelta));
 
   // Live EXP Drain calculation for unshielded pure fun (-0.50 XP/sec)
   const overtimeSeconds = Math.max(0, seconds - estimatedMinutes * 60);
@@ -315,7 +377,16 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
               {isSleepQuest ? "STASIS" : "TELEMETRY"}
             </span>
-            <ActiveFatigueDock />
+            <ActiveFatigueDock
+              initialMental={currentLiveMental}
+              initialPhysical={currentLivePhysical}
+            />
+            {surgeRemainingSecs > 0 && (
+              <span className="flex items-center gap-1 text-[9px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-400 px-1.5 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_#00e5ff]">
+                <span>💧</span>
+                <span>SURGE {Math.floor(surgeRemainingSecs / 60)}:{String(surgeRemainingSecs % 60).padStart(2, "0")}</span>
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <button

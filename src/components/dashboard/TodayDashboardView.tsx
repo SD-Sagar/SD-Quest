@@ -91,6 +91,11 @@ export function TodayDashboardView({
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [todaysWorkouts, setTodaysWorkouts] = useState<any[]>(completedWorkouts || []);
   const [showDetailedTelemetry, setShowDetailedTelemetry] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     setTodaysWorkouts(completedWorkouts || []);
@@ -264,7 +269,7 @@ export function TodayDashboardView({
         </div>
 
         {/* Active Directive Live Telemetry Banner (Only visible if active session in progress) */}
-        {(isWorkoutActive || (isQuestActive && activeQuest)) && (
+        {isMounted && (isWorkoutActive || (isQuestActive && activeQuest)) && (
           <div className="mb-4 p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-cyan-950/70 via-blue-950/50 to-slate-950/80 border border-cyan-400/50 shadow-[0_0_20px_rgba(0,229,255,0.2)] flex items-center justify-between gap-3 text-white animate-in fade-in duration-200">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-xl bg-cyan-950/90 border border-cyan-400 flex items-center justify-center text-cyan-300 shadow-[0_0_12px_#00e5ff] shrink-0 animate-pulse">
@@ -285,9 +290,9 @@ export function TodayDashboardView({
                     <>
                       <span className="text-cyan-300">Set #{currentSetIndex + 1}</span>
                       <span>•</span>
-                      <span className="text-amber-300">PHY: {Math.round(workoutPhysicalFatigue)}%</span>
+                      <span className="text-amber-300">PHY: {workoutPhysicalFatigue.toFixed(1)}%</span>
                       <span>•</span>
-                      <span className="text-cyan-300">MNT: {Math.round(workoutMentalFatigue)}%</span>
+                      <span className="text-cyan-300">MNT: {workoutMentalFatigue.toFixed(1)}%</span>
                     </>
                   ) : (
                     (() => {
@@ -297,16 +302,20 @@ export function TodayDashboardView({
                       const linkedAttrs = Object.keys(activeQuest?.attribute_rewards || {});
                       const funHasGrowth = linkedAttrs.some(a => a === "intelligence" || a === "strength" || a === "endurance" || a === "agility" || a === "vitality");
                       const isPureFun = Boolean(activeQuest?.is_fun && (!funHasGrowth || linkedAttrs.length === 0));
+                      const baseMental = Number(profile.mental_fatigue) || 0;
+                      const basePhysical = Number(profile.physical_fatigue) || 0;
                       const liveFatigue = calculateSessionFatigueDelta({
                         durationMinutes: questElapsedSecs / 60,
                         targetMinutes: targetMins,
                         isFun: activeQuest?.is_fun,
                         linkedAttributes: linkedAttrs as AttributeType[],
                         category: activeQuest?.category,
-                        currentMentalFatigue: 0,
-                        currentPhysicalFatigue: 0,
+                        currentMentalFatigue: baseMental,
+                        currentPhysicalFatigue: basePhysical,
                         isMeditation,
                       });
+                      const totalMental = Math.max(0, Math.min(100, baseMental + liveFatigue.mentalDelta));
+                      const totalPhysical = Math.max(0, Math.min(100, basePhysical + liveFatigue.physicalDelta));
                       const isOvertime = elapsedMins > targetMins;
                       const liveDrainXp = Math.round(Math.max(0, questElapsedSecs - targetMins * 60) * 0.50);
                       const overtimeBlocks = Math.floor((elapsedMins - targetMins) / 5);
@@ -315,12 +324,12 @@ export function TodayDashboardView({
                         <>
                           <span className="text-cyan-300 font-bold">{Math.floor(questElapsedSecs / 60)}m {questElapsedSecs % 60}s</span>
                           <span>•</span>
-                          <span className={liveFatigue.mentalDelta < 0 ? "text-emerald-400" : "text-cyan-300"}>
-                            MNT: {liveFatigue.mentalDelta > 0 ? `+${Math.round(liveFatigue.mentalDelta)}%` : `${Math.round(liveFatigue.mentalDelta)}%`}
+                          <span className={totalMental >= 85 ? "text-red-400 font-bold animate-pulse" : liveFatigue.mentalDelta < 0 ? "text-emerald-400" : "text-cyan-300"}>
+                            MNT: {totalMental.toFixed(1)}%
                           </span>
                           <span>•</span>
-                          <span className={liveFatigue.physicalDelta >= 85 ? "text-red-400 font-bold animate-pulse" : "text-amber-300"}>
-                            PHY: {liveFatigue.physicalDelta > 0 ? `+${Math.round(liveFatigue.physicalDelta)}%` : "0%"}
+                          <span className={totalPhysical >= 85 ? "text-red-400 font-bold animate-pulse" : "text-amber-300"}>
+                            PHY: {totalPhysical.toFixed(1)}%
                           </span>
                           {isPureFun && isOvertime && liveDrainXp > 0 && (
                             <span className="text-red-400 font-bold animate-pulse">⚡ -{liveDrainXp} XP DRAIN</span>

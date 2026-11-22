@@ -30,6 +30,39 @@ export function GlobalWorkoutHost() {
   const questStartedAtTimestamp = useAppSelector((state) => state.questUi.startedAtTimestamp);
 
   const [questElapsedSeconds, setQuestElapsedSeconds] = useState(0);
+  const [baseMental, setBaseMental] = useState(0);
+  const [basePhysical, setBasePhysical] = useState(0);
+  const [surgeRemainingSecs, setSurgeRemainingSecs] = useState(0);
+
+  // Live cellular hydration surge listener
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkSurge = () => {
+      const stored = localStorage.getItem("sd_last_hydration_surge_at");
+      if (stored) {
+        const diffMs = Date.now() - new Date(stored).getTime();
+        const rem = Math.max(0, Math.floor((5 * 60 * 1000 - diffMs) / 1000));
+        setSurgeRemainingSecs(rem);
+      } else {
+        setSurgeRemainingSecs(0);
+      }
+    };
+
+    checkSurge();
+    const interval = setInterval(checkSurge, 1000);
+
+    const handleSurge = () => {
+      setSurgeRemainingSecs(300);
+      triggerHaptic("success");
+    };
+
+    window.addEventListener("hydrationSurgeTriggered", handleSurge);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("hydrationSurgeTriggered", handleSurge);
+    };
+  }, []);
 
   // 1. Restore persisted sessions from Supabase on mount / refresh if Redux is empty
   useEffect(() => {
@@ -38,6 +71,9 @@ export function GlobalWorkoutHost() {
       try {
         const session = await getActiveSessionAction();
         if (!isMounted || !session) return;
+
+        if (session.mental_fatigue !== undefined) setBaseMental(Number(session.mental_fatigue) || 0);
+        if (session.physical_fatigue !== undefined) setBasePhysical(Number(session.physical_fatigue) || 0);
 
         const isWorkout =
           session.type === "workout" ||
@@ -190,24 +226,31 @@ export function GlobalWorkoutHost() {
             {/* Live Dual Fatigue Telemetry */}
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <span className={`text-[9.5px] font-mono px-1 rounded flex items-center gap-0.5 ${
-                liveFatigue.mentalDelta < 0
-                  ? "text-emerald-400 bg-emerald-950/60 border border-emerald-500/30"
-                  : liveFatigue.mentalDelta >= 85
+                (baseMental + liveFatigue.mentalDelta) >= 85
                   ? "text-red-300 bg-red-950/80 border border-red-500 animate-pulse"
+                  : liveFatigue.mentalDelta < 0
+                  ? "text-emerald-400 bg-emerald-950/60 border border-emerald-500/30"
                   : "text-cyan-300 bg-cyan-950/50 border border-cyan-500/30"
               }`}>
-                MNT: {liveFatigue.mentalDelta > 0 ? `+${Math.round(liveFatigue.mentalDelta)}%` : `${Math.round(liveFatigue.mentalDelta)}%`}
+                MNT: {Math.max(0, Math.min(100, baseMental + liveFatigue.mentalDelta)).toFixed(1)}%
               </span>
 
               <span className={`text-[9.5px] font-mono px-1 rounded flex items-center gap-0.5 ${
-                liveFatigue.physicalDelta >= 85
+                (basePhysical + liveFatigue.physicalDelta) >= 85
                   ? "text-red-300 bg-red-950/80 border border-red-500 animate-pulse"
                   : liveFatigue.physicalDelta > 0
                   ? "text-amber-300 bg-amber-950/60 border border-amber-500/30"
                   : "text-slate-400 bg-slate-900 border border-slate-800"
               }`}>
-                PHY: {liveFatigue.physicalDelta > 0 ? `+${Math.round(liveFatigue.physicalDelta)}%` : "0%"}
+                PHY: {Math.max(0, Math.min(100, basePhysical + liveFatigue.physicalDelta)).toFixed(1)}%
               </span>
+
+              {surgeRemainingSecs > 0 && (
+                <span className="text-[9.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-400/60 px-1 rounded flex items-center gap-0.5 animate-pulse">
+                  <span>💧</span>
+                  <span>SURGE {Math.floor(surgeRemainingSecs / 60)}:{String(surgeRemainingSecs % 60).padStart(2, "0")}</span>
+                </span>
+              )}
 
               {/* Overtime Live XP Drain for Pure Fun */}
               {isPureFunQuest && isOvertime && liveDrainXp > 0 && (

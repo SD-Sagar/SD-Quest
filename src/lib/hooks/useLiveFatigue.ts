@@ -29,7 +29,8 @@ export function useLiveFatigue(
   initialMental = 0,
   initialPhysical = 0,
   lastUpdateIso?: string | null,
-  recoveryStats?: HunterRecoveryStats
+  recoveryStats?: HunterRecoveryStats,
+  isPaused = false
 ): LiveFatigueReturn {
   const [mentalFatigue, setMentalFatigue] = useState(initialMental);
   const [physicalFatigue, setPhysicalFatigue] = useState(initialPhysical);
@@ -82,6 +83,12 @@ export function useLiveFatigue(
     const then = new Date(lastUpdateIso).getTime();
 
     const updateLiveDecay = () => {
+      if (isPaused) {
+        setMentalFatigue(initialMental);
+        setPhysicalFatigue(initialPhysical);
+        return;
+      }
+
       const now = Date.now();
       const diffMs = Math.max(0, now - then);
       const secondsElapsed = diffMs / 1000;
@@ -105,7 +112,7 @@ export function useLiveFatigue(
     updateLiveDecay();
     const interval = setInterval(updateLiveDecay, 1000); // 1-second live resolution
     return () => clearInterval(interval);
-  }, [initialMental, initialPhysical, lastUpdateIso, recoveryStats, activeSurgeTimestamp]);
+  }, [initialMental, initialPhysical, lastUpdateIso, recoveryStats, activeSurgeTimestamp, isPaused]);
 
   const displayMental = `${mentalFatigue.toFixed(1)}%`;
   const displayPhysical = `${physicalFatigue.toFixed(1)}%`;

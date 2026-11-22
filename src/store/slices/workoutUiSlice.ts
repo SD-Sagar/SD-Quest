@@ -371,14 +371,17 @@ export const workoutUiSlice = createSlice({
       }
     },
 
-    tickTimer: (state) => {
+    tickTimer: (state, action: PayloadAction<{ isHydrationSurge?: boolean } | undefined>) => {
       if (!state.restTimerActive) return;
       if (state.restTimerSeconds > 0) {
         state.restTimerSeconds -= 1;
 
         // Biological rest recovery per second (~2.0% per full planned rest interval)
         const plannedRest = state.exercises[state.currentExerciseIndex]?.definition.default_rest_seconds || 90;
-        const recoveryPerSec = calculateRestRecoveryPerSecond(plannedRest);
+        const baseRecoveryPerSec = calculateRestRecoveryPerSecond(plannedRest);
+        const surgeMultiplier = action.payload?.isHydrationSurge ? 2.0 : 1.0;
+        const recoveryPerSec = baseRecoveryPerSec * surgeMultiplier;
+
         // Do not recover below the hunter's initial starting fatigue (or 0)
         const fatigueFloor = Math.max(0, state.initialPhysicalFatigue);
         state.currentPhysicalFatigue = Math.max(

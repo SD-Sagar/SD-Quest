@@ -169,6 +169,55 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
     }
   }, [session.currentExerciseIndex, session.currentSetIndex, currentSet]);
 
+  // Hydration Surge Sync during workout
+  const [activeSurgeTimestamp, setActiveSurgeTimestamp] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("sd_last_hydration_surge_at");
+      if (stored && Date.now() - new Date(stored).getTime() < 5 * 60 * 1000) {
+        return stored;
+      }
+    }
+    return null;
+  });
+  const [surgeRemainingSecs, setSurgeRemainingSecs] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkSurge = () => {
+      const stored = localStorage.getItem("sd_last_hydration_surge_at");
+      if (stored) {
+        const diffMs = Date.now() - new Date(stored).getTime();
+        const rem = Math.max(0, Math.floor((5 * 60 * 1000 - diffMs) / 1000));
+        setSurgeRemainingSecs(rem);
+        if (rem > 0) {
+          setActiveSurgeTimestamp(stored);
+        } else {
+          setActiveSurgeTimestamp(null);
+        }
+      } else {
+        setSurgeRemainingSecs(0);
+        setActiveSurgeTimestamp(null);
+      }
+    };
+
+    checkSurge();
+    const interval = setInterval(checkSurge, 1000);
+
+    const handleSurge = (e: any) => {
+      const ts = e.detail?.timestamp || new Date().toISOString();
+      setActiveSurgeTimestamp(ts);
+      setSurgeRemainingSecs(300);
+      triggerHaptic("success");
+    };
+
+    window.addEventListener("hydrationSurgeTriggered", handleSurge);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("hydrationSurgeTriggered", handleSurge);
+    };
+  }, []);
+
   // Elapsed workout time clock
   useEffect(() => {
     if (!session.isActive || session.status === "completed") return;
@@ -180,7 +229,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
     return () => clearInterval(interval);
   }, [session.isActive, session.status, session.startedAtTimestamp]);
 
-  // Rest countdown ticker & sound alert
+  // Rest countdown ticker & sound alert (boosted by 2x if cellular hydration surge active)
   useEffect(() => {
     if (!session.restTimerActive) return;
     const interval = setInterval(() => {
@@ -188,10 +237,10 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
         playTimerCompleteSound();
         triggerHaptic("heavy");
       }
-      dispatch(tickTimer());
+      dispatch(tickTimer({ isHydrationSurge: surgeRemainingSecs > 0 }));
     }, 1000);
     return () => clearInterval(interval);
-  }, [session.restTimerActive, session.restTimerSeconds, dispatch]);
+  }, [session.restTimerActive, session.restTimerSeconds, surgeRemainingSecs, dispatch]);
 
   // Setup countdown ticker
   useEffect(() => {
@@ -259,7 +308,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
               {currentExercise?.definition.name || "Workout in progress"} • Set {session.currentSetIndex + 1}/{currentExercise?.sets.length || 0} • ~{accurateCal.activeCaloriesBurned} kcal (Active)
             </div>
             {/* Live Dual Fatigue Telemetry */}
-            <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <span className={`text-[9.5px] font-mono px-1 rounded ${
                 session.currentPhysicalFatigue >= 85
                   ? "text-red-300 bg-red-950/80 border border-red-500 animate-pulse"
@@ -272,6 +321,12 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
               <span className="text-[9.5px] font-mono px-1 rounded text-cyan-300 bg-cyan-950/50 border border-cyan-500/30">
                 MNT: {Math.round(session.currentMentalFatigue)}%
               </span>
+              {surgeRemainingSecs > 0 && (
+                <span className="text-[9.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-400/60 px-1 rounded flex items-center gap-0.5 animate-pulse">
+                  <span>💧</span>
+                  <span>SURGE {Math.floor(surgeRemainingSecs / 60)}:{String(surgeRemainingSecs % 60).padStart(2, "0")}</span>
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -558,6 +613,12 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
                 initialMental={session.currentMentalFatigue}
                 initialPhysical={session.currentPhysicalFatigue}
               />
+              {surgeRemainingSecs > 0 && (
+                <span className="flex items-center gap-1 text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-400 px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_#00e5ff]">
+                  <span>💧</span>
+                  <span>SURGE {Math.floor(surgeRemainingSecs / 60)}:{String(surgeRemainingSecs % 60).padStart(2, "0")}</span>
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5 shrink-0">
@@ -843,6 +904,12 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
                 initialMental={session.currentMentalFatigue}
                 initialPhysical={session.currentPhysicalFatigue}
               />
+              {surgeRemainingSecs > 0 && (
+                <span className="flex items-center gap-1 text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-400 px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_#00e5ff]">
+                  <span>💧</span>
+                  <span>SURGE {Math.floor(surgeRemainingSecs / 60)}:{String(surgeRemainingSecs % 60).padStart(2, "0")}</span>
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -1004,7 +1071,17 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
               {currentExercise?.definition.name}
             </h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap justify-end">
+            <ActiveFatigueDock
+              initialMental={session.currentMentalFatigue}
+              initialPhysical={session.currentPhysicalFatigue}
+            />
+            {surgeRemainingSecs > 0 && (
+              <span className="flex items-center gap-1 text-[9px] sm:text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-400 px-1.5 sm:px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_#00e5ff]">
+                <span>💧</span>
+                <span>SURGE {Math.floor(surgeRemainingSecs / 60)}:{String(surgeRemainingSecs % 60).padStart(2, "0")}</span>
+              </span>
+            )}
             <div className="text-right font-mono mr-1">
               <span className="text-[9px] text-slate-400 block font-hud">TIME • ACTIVE KCAL</span>
               <span className="text-xs font-bold text-cyan-400">{elapsedDisplay} • ~{accurateCal.activeCaloriesBurned}</span>

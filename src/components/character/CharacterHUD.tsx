@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Profile, PlayerAttributes, AttributeType } from "@/types";
 import { calculateAge, triggerHaptic } from "@/lib/utils";
 import { getRemainingPoisonTime } from "@/lib/calculations/nutrition";
 import { StatAllocationModal } from "./StatAllocationModal";
-import { getFatigueStatus, calculateCircadianAwakeStatus } from "@/lib/calculations/fatigue";
+import { getFatigueStatus, calculateCircadianAwakeStatus, calculateSessionFatigueDelta } from "@/lib/calculations/fatigue";
 import { useLiveFatigue } from "@/lib/hooks/useLiveFatigue";
 import { useAppSelector } from "@/store";
 import {
@@ -62,6 +62,39 @@ export function CharacterHUD({
   const activeWorkout = useAppSelector((state) => state.workoutUi);
   const isWorkoutActive = activeWorkout.isActive && activeWorkout.status !== "completed";
 
+  const activeQuestState = useAppSelector((state) => state.questUi);
+  const isQuestActive = activeQuestState.isActive && Boolean(activeQuestState.quest);
+  const isSessionActive = isWorkoutActive || isQuestActive;
+
+  const [questElapsedSeconds, setQuestElapsedSeconds] = useState(0);
+  useEffect(() => {
+    if (!isQuestActive || !activeQuestState.startedAtTimestamp) return;
+    const update = () => {
+      setQuestElapsedSeconds(Math.max(0, Math.floor((Date.now() - activeQuestState.startedAtTimestamp!) / 1000)));
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [isQuestActive, activeQuestState.startedAtTimestamp]);
+
+  const liveQuestDelta = useMemo(() => {
+    if (!isQuestActive || !activeQuestState.quest) return null;
+    const q = activeQuestState.quest;
+    const targetMins = q.estimated_duration_minutes || 60;
+    const isMeditation = q.category === "meditation" || q.description?.includes("[MEDITATION_PROTOCOL]");
+    const linkedAttrs = Object.keys(q.attribute_rewards || {}) as AttributeType[];
+    return calculateSessionFatigueDelta({
+      durationMinutes: questElapsedSeconds / 60,
+      targetMinutes: targetMins,
+      isFun: q.is_fun,
+      linkedAttributes: linkedAttrs,
+      category: q.category,
+      currentMentalFatigue: Number(profile.mental_fatigue) || 0,
+      currentPhysicalFatigue: Number(profile.physical_fatigue) || 0,
+      isMeditation,
+    });
+  }, [isQuestActive, activeQuestState.quest, questElapsedSeconds, profile.mental_fatigue, profile.physical_fatigue]);
+
   const sessionState = ((profile.active_session_state as any) || {});
   const isCurrentlySleeping = Boolean(
     sessionState.is_sleeping ||
@@ -91,29 +124,30 @@ export function CharacterHUD({
     [profile, attributes]
   );
 
+  // When a workout or quest session is active, passive biological cooldown is paused!
   const live = useLiveFatigue(
     profile.mental_fatigue,
     profile.physical_fatigue,
     profile.last_fatigue_update_at,
-    recoveryStats
+    recoveryStats,
+    isSessionActive
   );
 
-  // If a workout session is active (even minimized), Dashboard displays live session fatigue!
-  const mentalFatigue = isWorkoutActive
-    ? activeWorkout.currentMentalFatigue
-    : live.mentalFatigue;
-  const physicalFatigue = isWorkoutActive
-    ? activeWorkout.currentPhysicalFatigue
-    : live.physicalFatigue;
-  const displayMental = isWorkoutActive
-    ? `${activeWorkout.currentMentalFatigue.toFixed(1)}%`
-    : live.displayMental;
-  const displayPhysical = isWorkoutActive
-    ? `${activeWorkout.currentPhysicalFatigue.toFixed(1)}%`
-    : live.displayPhysical;
-  const fatigueStatus = isWorkoutActive
-    ? getFatigueStatus(activeWorkout.currentMentalFatigue, activeWorkout.currentPhysicalFatigue)
-    : live.fatigueStatus;
+  // Unified Live Fatigue across Dashboard, Gym & Quest Sessions:
+  let mentalFatigue = live.mentalFatigue;
+  let physicalFatigue = live.physicalFatigue;
+
+  if (isWorkoutActive && activeWorkout.currentPhysicalFatigue !== undefined) {
+    mentalFatigue = activeWorkout.currentMentalFatigue;
+    physicalFatigue = activeWorkout.currentPhysicalFatigue;
+  } else if (isQuestActive && liveQuestDelta) {
+    mentalFatigue = Math.max(0, Math.min(100, (Number(profile.mental_fatigue) || 0) + liveQuestDelta.mentalDelta));
+    physicalFatigue = Math.max(0, Math.min(100, (Number(profile.physical_fatigue) || 0) + liveQuestDelta.physicalDelta));
+  }
+
+  const displayMental = `${Number(mentalFatigue).toFixed(1)}%`;
+  const displayPhysical = `${Number(physicalFatigue).toFixed(1)}%`;
+  const fatigueStatus = getFatigueStatus(mentalFatigue, physicalFatigue);
 
   const isExpBoosterActive = Boolean(
     profile.exp_booster_expires_at &&
