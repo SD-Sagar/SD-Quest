@@ -363,7 +363,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
+                      className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition dark-picker-input"
                     />
                     <Calendar className="w-4 h-4 text-cyan-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.6)]" />
                   </div>
@@ -377,7 +377,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
+                      className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition dark-picker-input"
                     />
                     <Calendar className="w-4 h-4 text-cyan-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.6)]" />
                   </div>
@@ -394,7 +394,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
+                      className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition dark-picker-input"
                     />
                     <Calendar className="w-4 h-4 text-cyan-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.6)]" />
                   </div>
@@ -455,7 +455,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                         type="time"
                         value={startTime}
                         onChange={(e) => handleTimeWindowChange(e.target.value, endTime)}
-                        className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark]"
+                        className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] dark-picker-input"
                       />
                       <Clock className="w-4 h-4 text-cyan-400/80 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.5)]" />
                     </div>
@@ -469,7 +469,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                         type="time"
                         value={endTime}
                         onChange={(e) => handleTimeWindowChange(startTime, e.target.value)}
-                        className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark]"
+                        className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] dark-picker-input"
                       />
                       <Clock className="w-4 h-4 text-cyan-400/80 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.5)]" />
                     </div>
@@ -526,7 +526,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                         type="date"
                         value={deadlineDate}
                         onChange={(e) => setDeadlineDate(e.target.value)}
-                        className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
+                        className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition dark-picker-input"
                       />
                       <Calendar className="w-4 h-4 text-cyan-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.6)]" />
                     </div>
@@ -540,7 +540,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                         type="time"
                         value={deadlineTime}
                         onChange={(e) => setDeadlineTime(e.target.value)}
-                        className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
+                        className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition dark-picker-input"
                       />
                       <Clock className="w-4 h-4 text-cyan-400/80 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.5)]" />
                     </div>
