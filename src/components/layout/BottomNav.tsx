@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { triggerHaptic } from "@/lib/utils";
@@ -23,6 +24,12 @@ interface BottomNavProps {
 export function BottomNav({ onStartWorkout, enableGym = true }: BottomNavProps) {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingPath(null);
+  }, [pathname]);
+
   const isWorkoutMinimized = useAppSelector(
     (state) => state.workoutUi.isActive && state.workoutUi.isMinimized
   );
@@ -36,20 +43,24 @@ export function BottomNav({ onStartWorkout, enableGym = true }: BottomNavProps) 
     { label: "Calendar", href: "/calendar", icon: CalendarDays },
   ];
 
+  const activeHref = pendingPath || pathname;
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#07080b]/95 border-t border-slate-800/80 backdrop-blur-xl px-2 py-1.5 safe-area-pb">
       <div className="max-w-md mx-auto flex items-center justify-between">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          const isActive = activeHref === item.href;
 
           if (item.isCenter) {
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 onClick={() => {
                   triggerHaptic("medium");
+                  setPendingPath(item.href);
                   if (isWorkoutMinimized) {
                     dispatch(maximizeSession());
                   }
@@ -84,7 +95,11 @@ export function BottomNav({ onStartWorkout, enableGym = true }: BottomNavProps) 
             <Link
               key={item.href}
               href={item.href}
-              onClick={() => triggerHaptic("light")}
+              prefetch={true}
+              onClick={() => {
+                triggerHaptic("light");
+                setPendingPath(item.href);
+              }}
               className={`flex-1 py-1.5 flex flex-col items-center gap-1 text-[10px] font-mono font-medium transition ${
                 isActive
                   ? "text-cyan-400 font-bold"

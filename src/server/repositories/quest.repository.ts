@@ -20,11 +20,21 @@ export class QuestRepository {
       throw new Error(`Failed to fetch quests: ${error.message}`);
     }
 
-    return (data || []) as Quest[];
+    return (data || []).map((q: any) => {
+      if (q.description?.includes("[MEDITATION_PROTOCOL]") && q.category === "routine") {
+        return { ...q, category: "meditation" };
+      }
+      return q;
+    }) as Quest[];
   }
 
   static async createQuest(userId: string, quest: Partial<Quest> & { title: string }): Promise<Quest> {
     const supabase = await createClient();
+    const dbCategory =
+      quest.category === "sleep" || quest.category === "meditation"
+        ? "routine"
+        : quest.category || "routine";
+
     const { data, error } = await supabase
       .from("quests")
       .insert({
@@ -32,7 +42,7 @@ export class QuestRepository {
         title: quest.title,
         description: quest.description || null,
         classification: quest.classification || "temporary",
-        category: quest.category || "routine",
+        category: dbCategory,
         start_date: quest.start_date || new Date().toISOString().split("T")[0],
         deadline: quest.deadline || null,
         recurrence: quest.recurrence || "none",
@@ -98,13 +108,24 @@ export class QuestRepository {
       }
     );
 
+    const sessionState = (profile?.active_session_state as any) || {};
+    const isMeditation =
+      quest.category === "meditation" ||
+      quest.description?.includes("[MEDITATION_PROTOCOL]") ||
+      quest.title.toLowerCase().includes("meditat");
+    const graceCoinSpent = Boolean(
+      sessionState.grace_coin_consumed_for_session === quest.id ||
+      (sessionState.grace_coin_consumed_at &&
+        Date.now() - new Date(sessionState.grace_coin_consumed_at).getTime() < 3 * 3600 * 1000)
+    );
+
     // 3. Compute fatigue delta & overtime surge
     const fatigueDelta = calculateSessionFatigueDelta({
       durationMinutes: duration,
       targetMinutes: quest.estimated_duration_minutes,
       isFun: quest.is_fun || false,
       linkedAttributes: Object.keys(quest.attribute_rewards || {}) as AttributeType[],
-      category: quest.category,
+      category: isMeditation ? "meditation" : quest.category,
       currentMentalFatigue: decay.newMentalFatigue,
       currentPhysicalFatigue: decay.newPhysicalFatigue,
       hunterLevel: profile?.current_level,
@@ -114,6 +135,7 @@ export class QuestRepository {
       mentality: attrs?.mentality,
       priority: quest.priority,
       difficulty: quest.difficulty,
+      graceCoinSpent,
     });
 
     const newMental = Math.min(100, Math.max(0, Number((decay.newMentalFatigue + fatigueDelta.mentalDelta).toFixed(2))));
@@ -121,9 +143,10 @@ export class QuestRepository {
 
     // 4. Calculate fatigue debuff & scaled rewards (Neural Lockout = 0% XP if Mental >= 85%)
     const fatigueStatus = getFatigueStatus(decay.newMentalFatigue, decay.newPhysicalFatigue);
-    const scaledXp = fatigueStatus.isNeuralLockout
+    const baseXpEarned = fatigueStatus.isNeuralLockout
       ? 0
-      : Math.max(0, Math.round(quest.xp_reward * fatigueStatus.xpMultiplier - fatigueDelta.drainPenaltyXp));
+      : Math.round(quest.xp_reward * fatigueStatus.xpMultiplier);
+    const finalXpDelta = baseXpEarned - fatigueDelta.drainPenaltyXp;
 
     const scaledAttributes: Record<string, number> = {};
     for (const [attr, val] of Object.entries(quest.attribute_rewards || {})) {
@@ -161,7 +184,7 @@ export class QuestRepository {
     // 7. Atomically execute server-side XP & attribute rewards
     const rpgRewards = await PlayerRepository.grantXpAndAttributes({
       userId,
-      xpDelta: scaledXp,
+      xpDelta: finalXpDelta,
       attrDeltas: scaledAttributes,
       sourceType: "quest_completion",
       sourceId: questId,

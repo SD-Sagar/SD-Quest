@@ -51,6 +51,7 @@ export function CharacterHUD({
   const [selectedStatusDrawer, setSelectedStatusDrawer] = useState<any | null>(null);
   const age = calculateAge(profile.dob);
   const unallocatedPoints = profile.unallocated_stat_points || 0;
+  const graceCoinsCount = profile.grace_coins ?? (profile.active_session_state as any)?.grace_coins ?? 0;
   const poisonInfo = getRemainingPoisonTime(profile.poison_expires_at);
 
   const xpPercentage = Math.min(
@@ -340,11 +341,20 @@ export function CharacterHUD({
                     setIsStatModalOpen(true);
                   }}
                   className="px-2.5 py-0.5 rounded-lg bg-white hover:bg-slate-100 text-blue-600 border border-blue-400/50 text-[11px] font-mono font-black uppercase tracking-wider animate-pulse flex items-center gap-1.5 shadow-[0_0_15px_rgba(255,255,255,0.7)] transition"
-                  title="Grace Coins Available for Debuff Purification!"
+                  title="Stat Allocation Points Available!"
                 >
                   <Coins className="w-3.5 h-3.5 fill-blue-600 text-blue-600" />
-                  <span>{unallocatedPoints} COIN{unallocatedPoints !== 1 ? "S" : ""}</span>
+                  <span>{unallocatedPoints} STAT PTS</span>
                 </button>
+              )}
+              {graceCoinsCount > 0 && (
+                <div
+                  title="Grace Coins: Shields +60m pure fun overtime without live XP drain"
+                  className="px-2 py-0.5 rounded-lg bg-amber-950/80 border border-amber-500/50 text-amber-300 text-[11px] font-mono font-bold flex items-center gap-1 shadow-[0_0_10px_rgba(245,158,11,0.25)]"
+                >
+                  <span className="text-xs">🪙</span>
+                  <span>{graceCoinsCount} GRACE</span>
+                </div>
               )}
               {onOpenSanctuaryModal && (
                 <button

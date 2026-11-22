@@ -92,6 +92,19 @@ export async function claimDailyMysteryBoxAction() {
   return result;
 }
 
+export async function spendGraceCoinAction() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Unauthorized");
+
+  const result = await PlayerRepository.spendGraceCoin(user.id);
+  revalidatePath("/");
+  return result;
+}
+
 export async function saveActiveSessionAction(sessionState: any) {
   const supabase = await createClient();
   const {

@@ -9,6 +9,7 @@ import {
   getActiveSessionAction,
   completeSleepSessionAction,
   applySleepDeprivationAction,
+  spendGraceCoinAction,
 } from "@/server/actions/player.actions";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { endQuestSession, minimizeQuestSession } from "@/store/slices/questUiSlice";
@@ -37,6 +38,8 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
   const [isRunning, setIsRunning] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showSleepDeprivedModal, setShowSleepDeprivedModal] = useState(false);
+  const [graceCoinShield, setGraceCoinShield] = useState(false);
+  const [graceCoinsAvailable, setGraceCoinsAvailable] = useState(0);
   const [startTimeIso, setStartTimeIso] = useState<string | null>(() => {
     if (reduxStartedAt) {
       return new Date(reduxStartedAt).toISOString();
@@ -45,6 +48,24 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
   });
 
   const isSleepQuest = quest.category === "sleep" || (quest as any).is_sleep;
+  const isMeditationQuest =
+    quest.category === "meditation" ||
+    quest.description?.includes("[MEDITATION_PROTOCOL]") ||
+    quest.title.toLowerCase().includes("meditat");
+
+  const linkedAttrs = Object.keys(quest.attribute_rewards || {});
+  const funHasIntelligenceOrPhysical = linkedAttrs.some(
+    (a) =>
+      a === "intelligence" ||
+      a === "strength" ||
+      a === "endurance" ||
+      a === "agility" ||
+      a === "vitality"
+  );
+  const isPureFunQuest = Boolean(
+    quest.is_fun && (!funHasIntelligenceOrPhysical || linkedAttrs.length === 0)
+  );
+
   const estimatedMinutes = isSleepQuest ? 480 : quest.estimated_duration_minutes || 30;
 
   // 1. Initialize or resume universal timestamp session from Supabase
@@ -56,8 +77,16 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
         const active = await getActiveSessionAction();
         let sessionStart = startTimeIso || (quest.started_at ? quest.started_at : new Date().toISOString());
 
-        if (active && active.session_id === quest.id && active.started_at) {
-          sessionStart = active.started_at;
+        if (active) {
+          if (active.grace_coin_consumed || active.grace_coin_consumed_for_session === quest.id) {
+            setGraceCoinShield(true);
+          }
+          if (active.grace_coins !== undefined) {
+            setGraceCoinsAvailable(active.grace_coins);
+          }
+          if (active.session_id === quest.id && active.started_at) {
+            sessionStart = active.started_at;
+          }
         } else if (!startTimeIso && !quest.started_at) {
           // Register fresh session in Supabase for cross-device & offline tracking
           await saveActiveSessionAction({
@@ -117,6 +146,29 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
   const diffMinutes = minutes - estimatedMinutes;
   const isOvertime = diffMinutes > 0;
   const hoursSlept = Number((minutes / 60).toFixed(2));
+
+  // Live EXP Drain calculation for unshielded pure fun (-0.50 XP/sec)
+  const overtimeSeconds = Math.max(0, seconds - estimatedMinutes * 60);
+  const liveDrainedXp = Number((overtimeSeconds * 0.5).toFixed(1));
+
+  const handleSpendGraceCoin = async () => {
+    triggerHaptic("heavy");
+    try {
+      const res = await spendGraceCoinAction();
+      if (res.success) {
+        setGraceCoinShield(true);
+        setGraceCoinsAvailable(res.remainingCoins);
+        const active = await getActiveSessionAction();
+        await saveActiveSessionAction({
+          ...active,
+          grace_coin_consumed: true,
+          grace_coin_consumed_for_session: quest.id,
+        });
+      }
+    } catch (e) {
+      console.error("Failed to spend Grace Coin:", e);
+    }
+  };
 
   const handleFinish = async () => {
     triggerHaptic("heavy");
@@ -294,7 +346,11 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
           <p className="text-xs text-slate-400 font-mono">
             {isSleepQuest
               ? "Circadian Target: 8h 00m – 8h 30m (2X EXP Window) • Minimum Safe: 4h 00m"
-              : `Target Duration: ${estimatedMinutes} Min • ${quest.is_fun ? "🎮 Recreational Mode" : "Disciplined Objective"}`}
+              : isMeditationQuest
+              ? `🧘 Mindfulness Target: ${estimatedMinutes} Min • Mental Purge Protocol`
+              : isPureFunQuest
+              ? `🎮 Pure Fun (No Stats): ${estimatedMinutes} Min • Overtime Strict Drain`
+              : `Target Duration: ${estimatedMinutes} Min • ${quest.is_fun ? "Growth Fun Mode" : "Disciplined Objective"}`}
           </p>
         </div>
 
@@ -307,6 +363,12 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
                 : hoursSlept < 4.0
                 ? "border-amber-500/60 bg-amber-950/20 shadow-amber-950/60"
                 : "border-blue-500/50 bg-blue-950/20"
+              : isMeditationQuest
+              ? isOvertime
+                ? "border-cyan-300 bg-cyan-950/30 shadow-[0_0_18px_#00e5ff]"
+                : "border-cyan-500/40 bg-cyan-950/20 shadow-cyan-950"
+              : isOvertime && isPureFunQuest && !graceCoinShield
+              ? "border-red-500/80 bg-red-950/30 shadow-[0_0_20px_rgba(239,68,68,0.4)] animate-pulse"
               : isOvertime
               ? "border-amber-500/60 bg-amber-950/20 shadow-amber-950/60"
               : "border-cyan-500/40 bg-cyan-950/20 shadow-cyan-950"
@@ -323,6 +385,10 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
                   : hoursSlept < 4.0
                   ? "text-amber-400 animate-pulse"
                   : "text-blue-300"
+                : isMeditationQuest && isOvertime
+                ? "text-cyan-300 animate-pulse"
+                : isOvertime && isPureFunQuest && !graceCoinShield
+                ? "text-red-400 animate-pulse"
                 : isOvertime
                 ? "text-amber-400 animate-pulse"
                 : "text-cyan-400"
@@ -334,6 +400,10 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
                 : hoursSlept < 4.0
                 ? `DEPRIVATION ZONE (${hoursSlept}h)`
                 : `STASIS ACTIVE (${hoursSlept}h)`
+              : isMeditationQuest && isOvertime
+              ? `DEEP ZEN (+${diffMinutes}m)`
+              : isOvertime && isPureFunQuest && !graceCoinShield
+              ? `DRAIN ACTIVE (-${liveDrainedXp} XP)`
               : isOvertime
               ? `OVERTIME (+${diffMinutes}m)`
               : isRunning
@@ -363,6 +433,65 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
                 </div>
               )}
             </div>
+          ) : isMeditationQuest ? (
+            <div className="space-y-1 text-left">
+              {isOvertime ? (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1 text-cyan-300 font-bold">
+                    <span>🧘</span>
+                    <span>DEEP ZEN OVERTIME (+10% EXP &amp; Yields per 5m)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Overtime is a virtue in meditation. Posture stillness accelerates willpower and biological clarity.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-slate-300">
+                  <span className="text-slate-400">STATUS:</span>
+                  <span className="text-cyan-300 font-bold">MINDFUL STASIS ({estimatedMinutes - minutes}m left)</span>
+                </div>
+              )}
+            </div>
+          ) : isOvertime && isPureFunQuest ? (
+            <div className="space-y-2 text-left">
+              {graceCoinShield ? (
+                <div className="p-2 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-300">
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1">
+                      <span>🪙</span>
+                      <span>GRACE COIN SHIELD ACTIVE</span>
+                    </span>
+                    <span className="text-[10px] text-amber-400 font-mono">0 DRAIN</span>
+                  </div>
+                  <p className="text-[10.5px] text-slate-300 mt-0.5">
+                    +60-minute clean buffer unlocked. Leisure running without penalties.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-xl bg-red-950/50 border border-red-500/50 text-red-300 space-y-1.5 animate-pulse">
+                  <div className="flex items-center justify-between font-bold text-red-400">
+                    <span className="flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>DOPAMINE RUNAWAY ACTIVE</span>
+                    </span>
+                    <span className="text-white font-mono font-black">-{liveDrainedXp} XP</span>
+                  </div>
+                  <p className="text-[10.5px] text-slate-300 leading-tight">
+                    Pure fun exceeded scheduled duration without growth stats. Live XP drain active (-0.50 XP/s).
+                  </p>
+                  {graceCoinsAvailable > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleSpendGraceCoin}
+                      className="w-full mt-1 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10.5px] font-mono font-bold uppercase transition flex items-center justify-center gap-1 shadow-md shadow-amber-950"
+                    >
+                      <span>🪙</span>
+                      <span>USE GRACE COIN (+60m Shield • {graceCoinsAvailable} Left)</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           ) : isOvertime ? (
             <div className="space-y-1 text-left">
               <div className="flex items-center gap-1 text-amber-400 font-bold">
@@ -372,7 +501,7 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
               <p className="text-[11px] text-slate-300">
                 Pushing beyond target limits rewards accelerated attribute growth.
                 {quest.is_fun
-                  ? " (Fatigue growth dampened by ~70% due to fun factor)."
+                  ? " (Growth fun: fatigue growth dampened by ~70%)."
                   : " (Fatigue builds at +2% per 5 min during overtime)."}
               </p>
             </div>

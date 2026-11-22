@@ -30,7 +30,17 @@ export function getRankForLevel(level: number): HunterRank {
   return "Recruit";
 }
 export type QuestClassification = "permanent" | "temporary" | "scheduled";
-export type QuestCategory = "career" | "fitness" | "routine" | "education" | "finance" | "household" | "social" | "personal" | "sleep";
+export type QuestCategory =
+  | "career"
+  | "fitness"
+  | "routine"
+  | "education"
+  | "finance"
+  | "household"
+  | "social"
+  | "personal"
+  | "sleep"
+  | "meditation";
 export type QuestStatus = "pending" | "in_progress" | "completed" | "failed" | "excused";
 export type ConditionStatus = "normal" | "fatigued" | "chicken" | "medical_sanctuary";
 export type DayOfWeek = "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
@@ -59,6 +69,7 @@ export interface Profile {
   current_xp: number;
   xp_to_next_level: number;
   unallocated_stat_points?: number;
+  grace_coins?: number;
   last_mystery_box_claimed_date?: string | null;
   current_streak?: number;
   longest_streak?: number;

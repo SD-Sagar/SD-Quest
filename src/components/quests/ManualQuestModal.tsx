@@ -70,6 +70,12 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
 
   const toggleAttribute = (attr: AttributeType) => {
     triggerHaptic("light");
+    if (
+      category === "meditation" &&
+      (attr === "mentality" || attr === "discipline" || attr === "endurance")
+    ) {
+      return; // Mandatory locked attributes for Meditation Protocol
+    }
     if (selectedAttributes.includes(attr)) {
       if (selectedAttributes.length > 1) {
         setSelectedAttributes(selectedAttributes.filter((a) => a !== attr));
@@ -144,6 +150,10 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
       }
 
       let questDesc = description.trim();
+      if (category === "meditation") {
+        const medNote = "[MEDITATION_PROTOCOL]";
+        questDesc = questDesc ? `${questDesc} • ${medNote}` : medNote;
+      }
       if (hasTimeWindow) {
         const timeNote = `[Time Window: ${startTime} – ${endTime}]`;
         questDesc = questDesc ? `${questDesc} • ${timeNote}` : timeNote;
@@ -242,12 +252,16 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                   if (val === "sleep") {
                     setSelectedAttributes(["mentality"]);
                     setDurationMinutes(480);
+                  } else if (val === "meditation") {
+                    setSelectedAttributes(["mentality", "discipline", "endurance"]);
+                    setDurationMinutes(30);
                   }
                 }}
                 className="w-full rounded-2xl bg-slate-900 border border-slate-700 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 capitalize"
               >
                 <option value="career">Career / Work</option>
                 <option value="fitness">Fitness / Health</option>
+                <option value="meditation">🧘 Meditation / Mindfulness</option>
                 <option value="routine">Routine / Duty</option>
                 <option value="education">Education / Study</option>
                 <option value="household">Household</option>
@@ -599,21 +613,43 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                 <span>Circadian Protocol: Strictly locked to <strong>+mentality</strong> only. No other attributes can be assigned.</span>
               </div>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {ALL_ATTRIBUTES.map((attr) => (
-                  <button
-                    type="button"
-                    key={attr}
-                    onClick={() => toggleAttribute(attr)}
-                    className={`px-2.5 py-1 rounded-xl text-xs font-mono capitalize transition ${
-                      selectedAttributes.includes(attr)
-                        ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
-                        : "bg-slate-900 text-slate-500 border border-slate-800"
-                    }`}
-                  >
-                    +{attr}
-                  </button>
-                ))}
+              <div className="space-y-2">
+                {category === "meditation" && (
+                  <div className="p-3 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 text-[11px] font-mono text-cyan-300 space-y-1">
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <span>🧘</span>
+                      <span>MEDITATION &amp; MINDFULNESS STASIS</span>
+                    </div>
+                    <p className="text-slate-300 leading-relaxed">
+                      • <strong>+mentality, +discipline &amp; +endurance</strong> are mandatory locked attributes.<br/>
+                      • Mental fatigue purges at half the speed of pure fun.<br/>
+                      • If <strong>+intelligence</strong> is attached: Physical fatigue stays <strong>0%</strong>.<br/>
+                      • If physical posture stats (<strong>strength, vitality, agility</strong>) are attached: Non-linear posture fatigue builds to 85% at 30m (Level 1).
+                    </p>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {ALL_ATTRIBUTES.map((attr) => {
+                    const isLocked =
+                      category === "meditation" &&
+                      (attr === "mentality" || attr === "discipline" || attr === "endurance");
+                    return (
+                      <button
+                        type="button"
+                        key={attr}
+                        onClick={() => toggleAttribute(attr)}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-mono capitalize transition flex items-center gap-1 ${
+                          selectedAttributes.includes(attr)
+                            ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
+                            : "bg-slate-900 text-slate-500 border border-slate-800"
+                        } ${isLocked ? "cursor-not-allowed opacity-90 border-cyan-400" : ""}`}
+                      >
+                        {isLocked && <span className="text-[10px]">🔒</span>}
+                        <span>+{attr}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

@@ -574,9 +574,20 @@ export class PlayerRepository {
     const highestLevel = Math.max(currentProfile.lifetime_highest_level || 1, newLevel);
     let newStatPoints = currentProfile.unallocated_stat_points || 0;
 
+    const existingSession = (currentProfile.active_session_state as any) || {};
+    let graceCoinsDelta = 0;
+
     if (transition.isPromoted && transition.levelsDelta > 0) {
       newStatPoints += transition.levelsDelta * 3;
+      graceCoinsDelta += transition.levelsDelta * 1; // +1 Grace Coin per Level Up
     }
+
+    if (newRank !== currentProfile.rank && transition.levelsDelta > 0) {
+      graceCoinsDelta += 3; // +3 Grace Coins on Class Advancement
+    }
+
+    const currentCoins = currentProfile.grace_coins ?? existingSession.grace_coins ?? 0;
+    const finalGraceCoins = Math.max(0, currentCoins + graceCoinsDelta);
 
     if (transition.isDemoted) {
       finalNotes = finalNotes
@@ -584,19 +595,35 @@ export class PlayerRepository {
         : `[DEMOTED TO LVL ${newLevel} (${newRank})]`;
     }
 
-    await supabase
+    const profileUpdate: Record<string, any> = {
+      current_level: newLevel,
+      current_xp: newXp,
+      xp_to_next_level: xpToNext,
+      lifetime_highest_level: highestLevel,
+      lifetime_total_xp: totalXp,
+      rank: newRank,
+      unallocated_stat_points: newStatPoints,
+      grace_coins: finalGraceCoins,
+      active_session_state: {
+        ...existingSession,
+        grace_coins: finalGraceCoins,
+      },
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: updateProfileErr } = await supabase
       .from("profiles")
-      .update({
-        current_level: newLevel,
-        current_xp: newXp,
-        xp_to_next_level: xpToNext,
-        lifetime_highest_level: highestLevel,
-        lifetime_total_xp: totalXp,
-        rank: newRank,
-        unallocated_stat_points: newStatPoints,
-        updated_at: new Date().toISOString(),
-      })
+      .update(profileUpdate)
       .eq("id", params.userId);
+
+    if (updateProfileErr) {
+      // In case grace_coins column doesn't exist yet in Supabase schema
+      delete profileUpdate.grace_coins;
+      await supabase
+        .from("profiles")
+        .update(profileUpdate)
+        .eq("id", params.userId);
+    }
 
     try {
       await supabase.from("xp_transactions").insert({
@@ -843,6 +870,7 @@ export class PlayerRepository {
     multiplier: number;
     multiplierLabel: string;
     bonusStatPoints: number;
+    graceCoinsAwarded?: number;
     isMilestone: boolean;
     message: string;
   }> {
@@ -865,12 +893,24 @@ export class PlayerRepository {
       notes: `${harvest.logMessage} (XP Multiplier: ${harvest.multiplierLabel})`,
     });
 
-    // 4. Update profiles with new streak and bonus unallocated stat points if milestone
+    // 4. Update profiles with new streak, Grace Coins, and bonus unallocated stat points
+    const existingSession = (profile.active_session_state as any) || {};
+    const currentGraceCoins = profile.grace_coins ?? existingSession.grace_coins ?? 0;
+    // Daily challenge completion: +1 Grace Coin. Full weekly streak milestone (4/4 completed full week): +3 Grace Coins
+    const isFullWeeklyMilestone = harvest.isMilestone || (harvest.newStreak > 0 && harvest.newStreak % 7 === 0);
+    const coinsEarned = 1 + (isFullWeeklyMilestone ? 3 : 0);
+    const newGraceCoins = currentGraceCoins + coinsEarned;
+
     const updatePayload: Record<string, any> = {
       last_mystery_box_claimed_date: today,
       last_streak_date: today,
       current_streak: harvest.newStreak,
       longest_streak: harvest.newLongestStreak,
+      grace_coins: newGraceCoins,
+      active_session_state: {
+        ...existingSession,
+        grace_coins: newGraceCoins,
+      },
       updated_at: new Date().toISOString(),
     };
 
@@ -884,7 +924,14 @@ export class PlayerRepository {
       .eq("id", userId);
 
     if (error) {
-      throw new Error(`Failed to claim mystery crate: ${error.message}`);
+      delete updatePayload.grace_coins;
+      const { error: retryErr } = await supabase
+        .from("profiles")
+        .update(updatePayload)
+        .eq("id", userId);
+      if (retryErr) {
+        throw new Error(`Failed to claim mystery crate: ${retryErr.message}`);
+      }
     }
 
     return {
@@ -896,9 +943,42 @@ export class PlayerRepository {
       multiplier: harvest.multiplier,
       multiplierLabel: harvest.multiplierLabel,
       bonusStatPoints: harvest.bonusStatPoints,
+      graceCoinsAwarded: coinsEarned,
       isMilestone: harvest.isMilestone,
-      message: harvest.logMessage,
+      message: `${harvest.logMessage} (+${coinsEarned} Grace Coin${coinsEarned > 1 ? "s" : ""})`,
     };
+  }
+
+  static async spendGraceCoin(userId: string): Promise<{ success: boolean; remainingCoins: number }> {
+    const supabase = await createClient();
+    const profile = await this.getProfile(userId);
+    if (!profile) return { success: false, remainingCoins: 0 };
+
+    const existingSession = (profile.active_session_state as any) || {};
+    const currentCoins = profile.grace_coins ?? existingSession.grace_coins ?? 0;
+
+    if (currentCoins <= 0) {
+      return { success: false, remainingCoins: 0 };
+    }
+
+    const remaining = currentCoins - 1;
+    const updatePayload: Record<string, any> = {
+      grace_coins: remaining,
+      active_session_state: {
+        ...existingSession,
+        grace_coins: remaining,
+        grace_coin_consumed_at: new Date().toISOString(),
+      },
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("profiles").update(updatePayload).eq("id", userId);
+    if (error) {
+      delete updatePayload.grace_coins;
+      await supabase.from("profiles").update(updatePayload).eq("id", userId);
+    }
+
+    return { success: true, remainingCoins: remaining };
   }
 
   static async saveActiveSession(userId: string, sessionState: any): Promise<void> {

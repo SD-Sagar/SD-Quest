@@ -281,6 +281,7 @@ export interface SessionFatigueParams {
   plannedTonnageKg?: number;
   actualFinalPhysicalFatigue?: number;
   actualFinalMentalFatigue?: number;
+  graceCoinSpent?: boolean;
 }
 
 /**
@@ -334,32 +335,87 @@ export function calculateSessionFatigueDelta(params: SessionFatigueParams): Sess
   let drainPenaltyXp = 0;
   let summaryMessage = "";
 
+  const isMeditation =
+    category === "meditation" ||
+    (params as any).isMeditation ||
+    (params as any).is_meditation;
+
   // ---------------------------------------------------------------------------
-  // CASE 1: PURE FUN (No heavy attributes linked, e.g. watching anime, chilling)
+  // CASE 0: MEDITATION & MINDFULNESS PROTOCOL
   // ---------------------------------------------------------------------------
-  if (isFun && linkedAttributes.length === 0) {
-    // Drops mental fatigue drastically (up to -30% or clears completely)
+  if (isMeditation) {
+    // 1. Mental Fatigue Purge: Half the speed of pure fun
     const hours = durationMinutes / 60;
-    mentalDelta = -Math.min(currentMentalFatigue, Math.round(25 + hours * 5));
-    physicalDelta = 0;
-    summaryMessage = `Recreational Protocol: Mental Fatigue purged by ${Math.abs(mentalDelta)}%!`;
+    const purgeAmount = Math.round(12.5 + hours * 2.5);
+    mentalDelta = -Math.min(currentMentalFatigue, purgeAmount);
+
+    // 2. Physical Posture Fatigue:
+    // Physical fatigue ONLY triggers if ANY attribute besides intelligence, mentality, discipline, endurance is attached!
+    const hasPhysicalPosture = linkedAttributes.some(
+      (attr) => attr === "strength" || attr === "vitality" || attr === "agility"
+    );
+
+    if (!hasPhysicalPosture) {
+      physicalDelta = 0;
+    } else {
+      // Level 1 Benchmark: 30 minutes = exactly 85% fatigue!
+      const levelMitigation = 1 + Math.max(0, hunterLevel - 1) * 0.05 + (Number(endurance) || 1) * 0.01;
+      const rawPostureFatigue = 85.0 * Math.pow(durationMinutes / 30, 1.40) * (1 / levelMitigation);
+      physicalDelta = Number(Math.min(100, Math.max(1, rawPostureFatigue)).toFixed(1));
+    }
+
+    // 3. Meditation Overtime: A virtue! Every +5m adds +10% bonus XP and stat yield
+    if (overtimeMinutes > 0) {
+      const overtimeBlocks = Math.floor(overtimeMinutes / 5);
+      overtimeSurgeMultiplier = 1.0 + overtimeBlocks * 0.10;
+    }
+
+    summaryMessage = hasPhysicalPosture
+      ? `Meditation Complete: Mental Fatigue purged by ${Math.abs(mentalDelta)}%. Posture strain yielded ${physicalDelta}% physical fatigue.`
+      : `Meditation Complete: Pure mental sanctuary. Mental Fatigue purged by ${Math.abs(mentalDelta)}% with zero physical strain.`;
   }
   // ---------------------------------------------------------------------------
-  // CASE 2: FUN WITH STATS / WORK (e.g. casual football, music, gaming)
+  // CASE 1: PURE FUN vs ACTIVE / INTELLECTUAL FUN
   // ---------------------------------------------------------------------------
-  else if (isFun && linkedAttributes.length > 0) {
-    // Relieves mental stress rapidly, but retains some fatigue because work is being done.
-    // Builds ~70% slower (0.3x rate).
-    const normalMental = (normalMinutes / 540) * 75.0 * 0.3;
-    const overtimeMental = (overtimeMinutes / 5) * 2.0 * 0.3;
-    mentalDelta = Number(((normalMental + overtimeMental) * mentalResistance).toFixed(1));
+  else if (isFun) {
+    // Check if Fun has Intelligence or Physical attributes attached
+    const funHasIntelligenceOrPhysical = linkedAttributes.some(
+      (attr) => attr === "intelligence" || attr === "strength" || attr === "endurance" || attr === "agility" || attr === "vitality"
+    );
 
-    if (domain === "physical" || domain === "hybrid") {
-      const normalPhysical = (normalMinutes / 60) * 15.0 * 0.3;
-      const overtimePhysical = (overtimeMinutes / 60) * 30.0 * 0.3;
-      physicalDelta = Number(((normalPhysical + overtimePhysical) * physicalResistance).toFixed(1));
+    if (!funHasIntelligenceOrPhysical || linkedAttributes.length === 0) {
+      // SUB-CASE 1A: PURE FUN (No growth stats: screen time, binging, idling)
+      const normalHours = normalMinutes / 60;
+      mentalDelta = -Math.min(currentMentalFatigue, Math.round(25 + normalHours * 5));
+      physicalDelta = 0;
+
+      // Overtime without Grace Coin triggers LIVE EXP DRAIN (-0.50 XP/sec = -30 XP/min)
+      if (overtimeMinutes > 0) {
+        if (params.graceCoinSpent) {
+          summaryMessage = `Recreational Protocol (Grace Coin Active): Mental fatigue purged by ${Math.abs(mentalDelta)}%. Overtime protected!`;
+        } else {
+          const overtimeSecs = Math.round(overtimeMinutes * 60);
+          drainPenaltyXp = Math.round(overtimeSecs * 0.50); // -0.50 XP per second
+          summaryMessage = `Dopamine Runaway: Pure fun overtime exceeded set limit! Live EXP drain penalty of -${drainPenaltyXp} XP applied (-0.50 XP/s).`;
+        }
+      } else {
+        summaryMessage = `Recreational Protocol: Mental Fatigue purged by ${Math.abs(mentalDelta)}%!`;
+      }
+    } else {
+      // SUB-CASE 1B: FUN WITH STATS (Intelligence or Physical stats: sports, chess, strategy, coding)
+      // Relieves mental stress rapidly, but retains some fatigue because work is being done.
+      // Builds ~70% slower (0.3x rate). NO overtime drain debuff!
+      const normalMental = (normalMinutes / 540) * 75.0 * 0.3;
+      const overtimeMental = (overtimeMinutes / 5) * 2.0 * 0.3;
+      mentalDelta = Number(((normalMental + overtimeMental) * mentalResistance).toFixed(1));
+
+      if (domain === "physical" || domain === "hybrid") {
+        const normalPhysical = (normalMinutes / 60) * 15.0 * 0.3;
+        const overtimePhysical = (overtimeMinutes / 60) * 30.0 * 0.3;
+        physicalDelta = Number(((normalPhysical + overtimePhysical) * physicalResistance).toFixed(1));
+      }
+      summaryMessage = "Recreational Directive: Growth fun with 70% dampened fatigue buildup. Overtime permitted without penalty.";
     }
-    summaryMessage = "Recreational Directive: Full attribute growth with 70% dampened fatigue buildup.";
   }
   // ---------------------------------------------------------------------------
   // CASE 3: GYM WORKOUT / PHYSICAL EXERTION
