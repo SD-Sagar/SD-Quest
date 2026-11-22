@@ -48,6 +48,7 @@ import {
   ChevronUp,
   X,
   Target,
+  Flame,
   Search,
   Lock,
   Zap,
@@ -250,6 +251,15 @@ export function CustomPlanManager({
     "dumbbells" | "dumbbells_single" | "barbell" | "ez_bar" | "cable_pulley" | "leg_developer"
   >("dumbbells");
   const [isPlateCalcExpanded, setIsPlateCalcExpanded] = useState<boolean>(true);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+  const [isBellyExpanded, setIsBellyExpanded] = useState<boolean>(false);
+
+  // Auto-collapse Arsenal Forge on mobile initially to prevent scroll depth bloat
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      setIsPlateCalcExpanded(false);
+    }
+  }, []);
 
   // Exercise Codex Modal state (preview without launching)
   const [selectedExerciseForModal, setSelectedExerciseForModal] = useState<MasterExercise | null>(null);
@@ -325,6 +335,7 @@ export function CustomPlanManager({
     triggerHaptic("light");
     setTargetWeightCalc(newWeight);
     if (focusedExerciseId) {
+      setHasUnsavedChanges(true);
       setDayRoutines((prev) => ({
         ...prev,
         [selectedDay]: prev[selectedDay].map((routine) =>
@@ -375,6 +386,7 @@ export function CustomPlanManager({
     if (!routine) return;
     const defWeight = getDefaultRoutineWeight(routine);
 
+    setHasUnsavedChanges(true);
     setDayRoutines((prev) => ({
       ...prev,
       [selectedDay]: prev[selectedDay].map((r) =>
@@ -395,6 +407,7 @@ export function CustomPlanManager({
 
     const updated = [...currentList];
     updated[index] = { ...routine, target_weight_kg: newWeight };
+    setHasUnsavedChanges(true);
     setDayRoutines((prev) => ({ ...prev, [selectedDay]: updated }));
 
     setFocusedExerciseId(routine.id);
@@ -496,6 +509,7 @@ export function CustomPlanManager({
     try {
       await saveCustomPlanAction(dayRoutines);
       setSavedSuccess(true);
+      setHasUnsavedChanges(false);
       setTimeout(() => setSavedSuccess(false), 3000);
     } catch (err) {
       console.error("Failed to save custom plan:", err);
@@ -571,6 +585,7 @@ export function CustomPlanManager({
       phase: isBelly ? "belly" : "core",
     };
 
+    setHasUnsavedChanges(true);
     setDayRoutines((prev) => ({
       ...prev,
       [selectedDay]: [...prev[selectedDay], newRoutine],
@@ -625,6 +640,7 @@ export function CustomPlanManager({
       phase: isBelly ? "belly" : "core",
     };
 
+    setHasUnsavedChanges(true);
     setDayRoutines((prev) => ({
       ...prev,
       [selectedDay]: [...prev[selectedDay], newRoutine],
@@ -647,6 +663,7 @@ export function CustomPlanManager({
 
   const handleRemoveExercise = (index: number) => {
     triggerHaptic("light");
+    setHasUnsavedChanges(true);
     setDayRoutines((prev) => ({
       ...prev,
       [selectedDay]: prev[selectedDay].filter((_, i) => i !== index),
@@ -670,6 +687,7 @@ export function CustomPlanManager({
     }
 
     updated[index] = { ...current, sets: newSets, reps_target: newReps };
+    setHasUnsavedChanges(true);
     setDayRoutines((prev) => ({ ...prev, [selectedDay]: updated }));
   };
 
@@ -686,6 +704,7 @@ export function CustomPlanManager({
     }
 
     updated[index] = { ...current, reps_target: newReps };
+    setHasUnsavedChanges(true);
     setDayRoutines((prev) => ({ ...prev, [selectedDay]: updated }));
   };
 
@@ -696,6 +715,7 @@ export function CustomPlanManager({
     const newWeight = Math.min(100, Math.max(0, Number((current.target_weight_kg + delta).toFixed(1))));
 
     updated[index] = { ...current, target_weight_kg: newWeight };
+    setHasUnsavedChanges(true);
     setDayRoutines((prev) => ({ ...prev, [selectedDay]: updated }));
   };
 
@@ -931,18 +951,18 @@ export function CustomPlanManager({
           </div>
         </div>
 
-        {/* Action Buttons to Add Exercises */}
-        <div className="flex flex-wrap gap-2 pt-1 border-t border-cyan-500/20">
+        {/* Responsive 2-Column Tactical Action Bar */}
+        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-cyan-500/20 font-solo">
           <button
             type="button"
             onClick={() => {
               triggerHaptic("medium");
               setIsCreatingNewModal(true);
             }}
-            className="solo-btn py-2 px-3 text-xs"
+            className="solo-btn py-2 px-2.5 text-[11px] sm:text-xs flex items-center justify-center gap-1.5 truncate"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>CREATE BRAND-NEW MOVEMENT</span>
+            <Plus className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">FORGE MOVEMENT</span>
           </button>
 
           <button
@@ -951,10 +971,12 @@ export function CustomPlanManager({
               triggerHaptic("light");
               setIsAddingFromCatalog(!isAddingFromCatalog);
             }}
-            className="solo-btn-secondary py-2 px-3 text-xs"
+            className={`solo-btn-secondary py-2 px-2.5 text-[11px] sm:text-xs flex items-center justify-center gap-1.5 truncate ${
+              isAddingFromCatalog ? "border-cyan-400 text-cyan-300 bg-cyan-950/60" : ""
+            }`}
           >
-            <Search className="w-3.5 h-3.5 text-cyan-400" />
-            <span>PICK MOVEMENTS FROM CODEX</span>
+            <Search className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className="truncate">{isAddingFromCatalog ? "HIDE CODEX" : "PICK FROM CODEX"}</span>
           </button>
         </div>
       </div>
@@ -1200,7 +1222,8 @@ export function CustomPlanManager({
             </p>
           </div>
         ) : (
-          currentList.map((routine, idx) => {
+          (() => {
+            const renderRoutineCard = (routine: CustomExerciseRoutine, idx: number, isBelly = false) => {
             const match = MASTER_EXERCISE_CATALOG.find(
               (m) => m.name.toLowerCase() === routine.name.toLowerCase()
             );
@@ -1586,7 +1609,76 @@ export function CustomPlanManager({
                 )}
               </div>
             );
-          })
+          };
+
+          const coreRoutines = currentList.filter((r) => r.phase !== "belly");
+          const bellyRoutines = currentList.filter((r) => r.phase === "belly");
+
+          if (bellyRoutines.length > 0) {
+            return (
+              <div className="space-y-4">
+                {/* Phase 1: Core Custom Movements */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-1 font-hud">
+                    <span className="text-[10px] font-mono font-bold tracking-wider text-cyan-400 uppercase flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                      PHASE 1: CUSTOM SPLIT MOVEMENTS ({coreRoutines.length})
+                    </span>
+                    <span className="text-[9.5px] font-mono text-slate-400">
+                      {splitDetail.target}
+                    </span>
+                  </div>
+                  {coreRoutines.map((routine, idx) => renderRoutineCard(routine, idx, false))}
+                </div>
+
+                {/* Phase 2: Custom Abdominal Protocol (Collapsible Anti-Scroll Accordion) */}
+                <div className="rounded-2xl border border-cyan-500/30 bg-[#070b14]/90 overflow-hidden shadow-lg transition-all font-hud">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setIsBellyExpanded(!isBellyExpanded);
+                    }}
+                    className="w-full p-3 sm:p-4 flex items-center justify-between gap-2.5 text-left bg-gradient-to-r from-cyan-950/40 via-slate-900/80 to-transparent hover:bg-cyan-950/60 transition group"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-cyan-950/80 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
+                        <Flame className="w-4 h-4 text-cyan-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-white font-solo tracking-wide group-hover:text-cyan-300 transition block">
+                          PHASE 2: CUSTOM BELLY PROTOCOL ({bellyRoutines.length} MOVEMENTS)
+                        </span>
+                        <span className="text-[10px] sm:text-[10.5px] text-slate-400 truncate block mt-0.5">
+                          {bellyRoutines.map((b) => b.name).join(", ")}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full">
+                        {bellyRoutines.length} EXERCISES
+                      </span>
+                      <div className="w-6 h-6 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-slate-400 group-hover:text-cyan-300 transition">
+                        {isBellyExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </div>
+                    </div>
+                  </button>
+
+                  {isBellyExpanded && (
+                    <div className="p-3 sm:p-4 pt-2 border-t border-cyan-500/20 bg-[#05070d]/60 animate-in fade-in duration-150 space-y-3">
+                      {bellyRoutines.map((routine, idx) =>
+                        renderRoutineCard(routine, coreRoutines.length + idx, true)
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          }
+
+          return currentList.map((routine, idx) => renderRoutineCard(routine, idx, false));
+        })()
         )}
       </div>
 
@@ -2107,6 +2199,21 @@ export function CustomPlanManager({
           }
         }}
       />
+
+      {/* Mobile Floating Sticky Save Pill */}
+      {hasUnsavedChanges && (
+        <div className="fixed bottom-20 right-4 z-40 md:hidden animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={handleSavePlan}
+            className="px-4 py-2.5 rounded-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-mono font-black text-xs uppercase shadow-[0_0_20px_rgba(0,229,255,0.4)] border border-cyan-400 flex items-center gap-2 active:scale-95 transition"
+          >
+            <Save className="w-4 h-4 text-cyan-200" />
+            <span>{isSaving ? "SAVING..." : "SAVE ROUTINE"}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

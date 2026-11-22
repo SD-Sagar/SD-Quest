@@ -39,6 +39,8 @@ import {
   Check,
   Zap,
   Crown,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 interface QuestListProps {
@@ -93,6 +95,7 @@ export function QuestList({
   const [isPending, startTransition] = useTransition();
   const [completedWorkouts, setCompletedWorkouts] = useState<any[]>([]);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [isCompletedExpanded, setIsCompletedExpanded] = useState(false);
 
   // Recovery Nap & Offline Sleep Modal State
   const [isManualSleepModalOpen, setIsManualSleepModalOpen] = useState(false);
@@ -1250,8 +1253,9 @@ export function QuestList({
             )
           ))}
 
-        {/* REGULAR QUESTS LIST */}
-        {displayQuests.map((quest) => {
+        {/* REGULAR QUESTS LIST (Active Directives First + Collapsible Completed Directives) */}
+        {(() => {
+          const renderQuestCard = (quest: Quest) => {
             const isCompleted = quest.status === "completed";
             const isCurrentQuestActive = isQuestActive && activeQuestInRedux?.id === quest.id;
             const isPrimaryDomainMainQuest = primaryDomainQuest?.id === quest.id;
@@ -1521,7 +1525,52 @@ export function QuestList({
                 </div>
               </div>
             );
-          })}
+          };
+
+          if (viewMode === "today") {
+            const pending = displayQuests.filter((q) => q.status !== "completed");
+            const completed = displayQuests.filter((q) => q.status === "completed");
+
+            return (
+              <div className="space-y-3">
+                {pending.map(renderQuestCard)}
+
+                {/* Collapsible Completed Section for Clean Anti-Scroll Mobile UX */}
+                {completed.length > 0 && (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setIsCompletedExpanded(!isCompletedExpanded);
+                      }}
+                      className="w-full py-2 px-3 rounded-xl bg-slate-950/70 border border-slate-800/80 hover:border-cyan-500/40 text-slate-400 hover:text-cyan-300 font-mono text-xs flex items-center justify-between transition group shadow-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-[11px] font-bold uppercase tracking-wider group-hover:text-white transition">
+                          {completed.length} COMPLETED DIRECTIVE{completed.length !== 1 ? "S" : ""}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-500 group-hover:text-cyan-400 transition">
+                        <span>{isCompletedExpanded ? "HIDE ARCHIVE" : "VIEW COMPLETED"}</span>
+                        {isCompletedExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </div>
+                    </button>
+
+                    {isCompletedExpanded && (
+                      <div className="space-y-2 mt-2 pl-1 border-l-2 border-emerald-500/30 animate-in fade-in duration-150">
+                        {completed.map(renderQuestCard)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          return displayQuests.map(renderQuestCard);
+        })()}
       </div>
 
       {/* MANUAL SLEEP & RECOVERY NAP MODAL */}

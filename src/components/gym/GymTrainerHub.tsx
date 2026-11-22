@@ -1508,48 +1508,48 @@ export function GymTrainerHub({
                   ))}
                 </div>
 
-            {/* Equipment Type Mode Selector */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-              {[
-                { id: "dumbbells" as const, label: "DB (PAIR)" },
-                { id: "dumbbells_single" as const, label: "1× DB (SINGLE)" },
-                { id: "barbell" as const, label: "BARBELL" },
-                { id: "ez_bar" as const, label: "EZ-BAR" },
-                { id: "cable_pulley" as const, label: "CABLE PULLEY" },
-                { id: "leg_developer" as const, label: "LEG DEVELOPER" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic("light");
-                    setArsenalEquipType(tab.id);
-                    if (focusedExerciseId) {
-                      const focusedEx = curatedSessionList.find((e) => e.id === focusedExerciseId);
-                      if (focusedEx) {
-                        const prof = resolveExerciseEquipmentProfile(focusedEx, 0, defaultInv);
-                        const isMatch =
-                          (tab.id === "dumbbells" && prof.equipmentType === "dumbbells" && prof.dumbbellCount !== 1) ||
-                          (tab.id === "dumbbells_single" && prof.dumbbellCount === 1) ||
-                          (tab.id === "barbell" && (prof.equipmentType === "barbell" || prof.equipmentType === "bench_and_barbell")) ||
-                          (tab.id === "ez_bar" && prof.equipmentType === "ez_bar") ||
-                          (tab.id === "leg_developer" && prof.equipmentType === "leg_developer") ||
-                          (tab.id === "cable_pulley" && prof.equipmentType === "cable_pulley");
-                        if (!isMatch) {
-                          setFocusedExerciseId(null);
+                {/* Equipment Type Mode Selector */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                  {[
+                    { id: "dumbbells" as const, label: "DB (PAIR)" },
+                    { id: "dumbbells_single" as const, label: "1× DB (SINGLE)" },
+                    { id: "barbell" as const, label: "BARBELL" },
+                    { id: "ez_bar" as const, label: "EZ-BAR" },
+                    { id: "cable_pulley" as const, label: "CABLE PULLEY" },
+                    { id: "leg_developer" as const, label: "LEG DEVELOPER" },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setArsenalEquipType(tab.id);
+                        if (focusedExerciseId) {
+                          const focusedEx = curatedSessionList.find((e) => e.id === focusedExerciseId);
+                          if (focusedEx) {
+                            const prof = resolveExerciseEquipmentProfile(focusedEx, 0, defaultInv);
+                            const isMatch =
+                              (tab.id === "dumbbells" && prof.equipmentType === "dumbbells" && prof.dumbbellCount !== 1) ||
+                              (tab.id === "dumbbells_single" && prof.dumbbellCount === 1) ||
+                              (tab.id === "barbell" && (prof.equipmentType === "barbell" || prof.equipmentType === "bench_and_barbell")) ||
+                              (tab.id === "ez_bar" && prof.equipmentType === "ez_bar") ||
+                              (tab.id === "leg_developer" && prof.equipmentType === "leg_developer") ||
+                              (tab.id === "cable_pulley" && prof.equipmentType === "cable_pulley");
+                            if (!isMatch) {
+                              setFocusedExerciseId(null);
+                            }
+                          }
                         }
-                      }
-                    }
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-[10px] font-mono font-bold tracking-wider shrink-0 transition ${arsenalEquipType === tab.id
-                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400 shadow-[0_0_10px_rgba(0,229,255,0.2)]"
-                    : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white"
-                    }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-mono font-bold tracking-wider shrink-0 transition ${arsenalEquipType === tab.id
+                        ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400 shadow-[0_0_10px_rgba(0,229,255,0.2)]"
+                        : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white"
+                        }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
 
                 {/* Preset Chips */}
                 <div className="flex flex-wrap gap-1.5 sm:gap-2">

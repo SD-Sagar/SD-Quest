@@ -22,6 +22,7 @@ import {
   Droplets,
   Moon,
   Coins,
+  X,
 } from "lucide-react";
 
 interface CharacterHUDProps {
@@ -47,6 +48,7 @@ export function CharacterHUD({
 }: CharacterHUDProps) {
   const [isStatModalOpen, setIsStatModalOpen] = useState(false);
   const [isAttributesExpanded, setIsAttributesExpanded] = useState(false);
+  const [selectedStatusDrawer, setSelectedStatusDrawer] = useState<any | null>(null);
   const age = calculateAge(profile.dob);
   const unallocatedPoints = profile.unallocated_stat_points || 0;
   const poisonInfo = getRemainingPoisonTime(profile.poison_expires_at);
@@ -397,8 +399,57 @@ export function CharacterHUD({
             </span>
           </div>
 
+          {/* Mobile Horizontal Pill Strip (Anti-Scroll Mobile First) */}
+          <div className="sm:hidden flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {activeEffects.map((effect) => {
+              const isDebuff = effect.type === "debuff";
+              return (
+                <button
+                  key={effect.id}
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    if (effect.onClick) {
+                      effect.onClick();
+                    } else if (effect.href) {
+                      window.location.href = effect.href;
+                    } else {
+                      setSelectedStatusDrawer(effect);
+                    }
+                  }}
+                  className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 shrink-0 transition active:scale-95 ${
+                    isDebuff
+                      ? "bg-red-950/70 border-red-500/60 text-red-200 shadow-[0_0_8px_rgba(239,68,68,0.3)]"
+                      : "bg-cyan-950/70 border-cyan-500/50 text-cyan-200 shadow-[0_0_8px_rgba(0,229,255,0.2)]"
+                  }`}
+                  title="Tap to inspect status modifier"
+                >
+                  {effect.icon}
+                  <span className="text-[10px] font-mono font-bold uppercase truncate max-w-[130px]">
+                    {effect.title.split("//")[0]?.trim()}
+                  </span>
+                  {effect.badge && (
+                    <span
+                      className={`text-[8.5px] font-mono font-bold px-1 py-0.2 rounded uppercase ${
+                        isDebuff ? "bg-red-900/90 text-red-100" : "bg-cyan-900/90 text-cyan-100"
+                      }`}
+                    >
+                      {effect.badge}
+                    </span>
+                  )}
+                  {effect.timer && (
+                    <span className="text-[8px] font-mono opacity-80">
+                      {effect.timer}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Desktop/Tablet Full 2-Column Matrix */}
           <div
-            className={`grid gap-2 ${
+            className={`hidden sm:grid gap-2 ${
               activeEffects.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"
             }`}
           >
@@ -500,6 +551,103 @@ export function CharacterHUD({
               return <div key={effect.id}>{cardContent}</div>;
             })}
           </div>
+
+          {/* Mobile Status Detail Drawer Modal */}
+          {selectedStatusDrawer && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="relative w-full max-w-sm bg-[#090d18] border border-cyan-500/50 rounded-2xl p-5 shadow-[0_0_30px_rgba(0,229,255,0.25)] space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`p-1.5 rounded-lg shrink-0 ${
+                        selectedStatusDrawer.type === "debuff"
+                          ? "bg-red-950 border border-red-500/60 text-red-400"
+                          : "bg-cyan-950 border border-cyan-500/60 text-cyan-300"
+                      }`}
+                    >
+                      {selectedStatusDrawer.icon}
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                        STATUS MODIFIER INTEL
+                      </span>
+                      <h4 className="text-xs font-bold text-white font-hud">
+                        {selectedStatusDrawer.title}
+                      </h4>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setSelectedStatusDrawer(null);
+                    }}
+                    className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+                  <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                    {selectedStatusDrawer.description}
+                  </p>
+                  <div className="flex items-center gap-2 pt-1 font-mono text-xs">
+                    {selectedStatusDrawer.badge && (
+                      <span
+                        className={`px-2 py-0.5 rounded border text-[10px] font-bold ${
+                          selectedStatusDrawer.type === "debuff"
+                            ? "bg-red-950 text-red-300 border-red-500/60"
+                            : "bg-cyan-950 text-cyan-300 border-cyan-500/60"
+                        }`}
+                      >
+                        {selectedStatusDrawer.badge}
+                      </span>
+                    )}
+                    {selectedStatusDrawer.timer && (
+                      <span className="text-slate-400 text-[10px]">
+                        Duration: {selectedStatusDrawer.timer}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {selectedStatusDrawer.href && (
+                    <Link
+                      href={selectedStatusDrawer.href}
+                      className="flex-1 py-2 rounded-xl bg-cyan-950 hover:bg-cyan-900 border border-cyan-400 text-cyan-300 font-mono text-xs font-bold text-center uppercase tracking-wider transition"
+                    >
+                      RESOLVE NOW →
+                    </Link>
+                  )}
+                  {selectedStatusDrawer.onClick && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cb = selectedStatusDrawer.onClick;
+                        setSelectedStatusDrawer(null);
+                        cb();
+                      }}
+                      className="flex-1 py-2 rounded-xl bg-cyan-950 hover:bg-cyan-900 border border-cyan-400 text-cyan-300 font-mono text-xs font-bold text-center uppercase tracking-wider transition"
+                    >
+                      ACTIVATE ACTION →
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setSelectedStatusDrawer(null);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs font-bold uppercase transition"
+                  >
+                    DISMISS
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
