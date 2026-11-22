@@ -110,6 +110,13 @@ export default function CharacterCreationPage() {
     setError(null);
 
     try {
+      const [wakeH, wakeM] = (initialWakeUpTime || "07:30").split(":").map(Number);
+      const clientWakeDate = new Date();
+      clientWakeDate.setHours(isNaN(wakeH) ? 7 : wakeH, isNaN(wakeM) ? 30 : wakeM, 0, 0);
+      if (clientWakeDate.getTime() > Date.now()) {
+        clientWakeDate.setDate(clientWakeDate.getDate() - 1);
+      }
+
       const result = await initializeCharacterAction({
         name: name.trim() || "Awakened Hunter",
         activeMainQuest,
@@ -138,6 +145,7 @@ export default function CharacterCreationPage() {
         monthlyBudgetInr: Number(monthlyBudgetInr),
         initialSleepHours: Number(initialSleepHours) || 7.5,
         initialWakeUpTime: initialWakeUpTime || "07:30",
+        initialWakeUpIso: clientWakeDate.toISOString(),
       });
 
       if (result.error) {

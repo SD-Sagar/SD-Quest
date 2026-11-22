@@ -206,19 +206,26 @@ export class PlayerRepository {
     dob: string;
     initialSleepHours?: number;
     initialWakeUpTime?: string;
+    initialWakeUpIso?: string;
   }): Promise<Profile> {
     const supabase = await createClient();
 
     // Calculate initial circadian calibration
     const initialHours = Math.max(4, Math.min(14, Number(profileData.initialSleepHours) || 7.5));
-    const initialWake = profileData.initialWakeUpTime || "07:30";
-    const [wakeH, wakeM] = initialWake.split(":").map(Number);
-
     const now = new Date();
-    const wakeUpDate = new Date();
-    wakeUpDate.setHours(isNaN(wakeH) ? 7 : wakeH, isNaN(wakeM) ? 30 : wakeM, 0, 0);
-    if (wakeUpDate.getTime() > now.getTime()) {
-      wakeUpDate.setDate(wakeUpDate.getDate() - 1);
+    let wakeUpDate: Date;
+
+    if (profileData.initialWakeUpIso) {
+      const parsed = new Date(profileData.initialWakeUpIso);
+      wakeUpDate = !isNaN(parsed.getTime()) ? parsed : new Date();
+    } else {
+      const initialWake = profileData.initialWakeUpTime || "07:30";
+      const [wakeH, wakeM] = initialWake.split(":").map(Number);
+      wakeUpDate = new Date();
+      wakeUpDate.setHours(isNaN(wakeH) ? 7 : wakeH, isNaN(wakeM) ? 30 : wakeM, 0, 0);
+      if (wakeUpDate.getTime() > now.getTime()) {
+        wakeUpDate.setDate(wakeUpDate.getDate() - 1);
+      }
     }
     const sleepDurationMs = Math.round(initialHours * 60) * 60 * 1000;
     const sleepStartDate = new Date(wakeUpDate.getTime() - sleepDurationMs);
