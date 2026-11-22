@@ -155,6 +155,9 @@ export async function initializeCharacterAction(params: {
   fitnessObjective: string;
   activeMainQuest?: string;
   enableGym?: boolean;
+  // Circadian Sleep Calibration
+  initialSleepHours?: number;
+  initialWakeUpTime?: string;
   // Home Gym Arsenal
   hasBench: boolean;
   dumbbellHandleWeightKg: number;
@@ -197,6 +200,8 @@ export async function initializeCharacterAction(params: {
       fitness_objective: params.fitnessObjective,
       active_main_quest: params.activeMainQuest || "fitness",
       enable_gym: params.enableGym !== undefined ? params.enableGym : true,
+      initialSleepHours: params.initialSleepHours,
+      initialWakeUpTime: params.initialWakeUpTime,
     });
 
     // 2. Initialize Equipment Inventory

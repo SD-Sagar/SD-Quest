@@ -200,8 +200,37 @@ export class PlayerRepository {
     return profile;
   }
 
-  static async createProfile(profileData: Partial<Profile> & { id: string; name: string; dob: string }): Promise<Profile> {
+  static async createProfile(profileData: Partial<Profile> & {
+    id: string;
+    name: string;
+    dob: string;
+    initialSleepHours?: number;
+    initialWakeUpTime?: string;
+  }): Promise<Profile> {
     const supabase = await createClient();
+
+    // Calculate initial circadian calibration
+    const initialHours = Math.max(4, Math.min(14, Number(profileData.initialSleepHours) || 7.5));
+    const initialWake = profileData.initialWakeUpTime || "07:30";
+    const [wakeH, wakeM] = initialWake.split(":").map(Number);
+
+    const now = new Date();
+    const wakeUpDate = new Date();
+    wakeUpDate.setHours(isNaN(wakeH) ? 7 : wakeH, isNaN(wakeM) ? 30 : wakeM, 0, 0);
+    if (wakeUpDate.getTime() > now.getTime()) {
+      wakeUpDate.setDate(wakeUpDate.getDate() - 1);
+    }
+    const sleepDurationMs = Math.round(initialHours * 60) * 60 * 1000;
+    const sleepStartDate = new Date(wakeUpDate.getTime() - sleepDurationMs);
+    const rollingSleepMins = Math.round(initialHours * 60);
+
+    const initialSessionState = {
+      last_sleep_completed_at: wakeUpDate.toISOString(),
+      last_sleep_started_at: sleepStartDate.toISOString(),
+      rolling_sleep_minutes: rollingSleepMins,
+      is_sleeping: false,
+    };
+
     const insertPayload: Record<string, any> = {
       id: profileData.id,
       name: profileData.name,
@@ -225,6 +254,12 @@ export class PlayerRepository {
       condition: "normal",
       active_main_quest: profileData.active_main_quest || "fitness",
       enable_gym: profileData.enable_gym !== undefined ? profileData.enable_gym : true,
+      last_sleep_completed_at: wakeUpDate.toISOString(),
+      last_sleep_started_at: sleepStartDate.toISOString(),
+      rolling_sleep_minutes: rollingSleepMins,
+      mental_fatigue: 0,
+      physical_fatigue: 0,
+      active_session_state: initialSessionState,
     };
 
     let { data, error } = await supabase
@@ -235,6 +270,8 @@ export class PlayerRepository {
 
     if (error && error.message.toLowerCase().includes("column")) {
       delete insertPayload.enable_gym;
+      delete insertPayload.last_sleep_started_at;
+      delete insertPayload.rolling_sleep_minutes;
       const retry = await supabase
         .from("profiles")
         .insert(insertPayload)

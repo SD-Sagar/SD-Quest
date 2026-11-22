@@ -36,19 +36,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#07080b] text-slate-100 flex items-center justify-center p-4 selection:bg-cyan-500 selection:text-black relative">
+    <div className="min-h-[100dvh] bg-[#07080b] text-slate-100 flex items-center justify-center p-3.5 sm:p-4 selection:bg-cyan-500 selection:text-black relative">
       {/* Background Mana Aura Glow */}
       <div className="fixed top-1/4 left-1/2 -translate-x-1/2 w-[550px] h-[350px] bg-gradient-to-b from-cyan-600/15 via-purple-600/10 to-transparent blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-md hunter-panel rounded-3xl border border-cyan-500/40 p-6 sm:p-8 shadow-2xl relative z-10 space-y-6">
+      <div className="w-full max-w-sm sm:max-w-md hunter-panel rounded-3xl border border-cyan-500/40 p-4 sm:p-7 shadow-2xl relative z-10 space-y-4 sm:space-y-5">
         {/* Title Plate */}
-        <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono font-bold uppercase tracking-widest">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             HUNTER AUTHENTICATION GATE
           </div>
-          <BrandLogo variant="full" size="lg" />
-          <p className="text-xs text-slate-400 font-medium">
+          <div className="flex justify-center py-0.5">
+            <BrandLogo variant="full" size="md" />
+          </div>
+          <p className="text-[11px] text-slate-400 font-medium">
             YOUR LIFE. YOUR QUEST. YOUR RULES.
           </p>
         </div>
@@ -62,7 +64,7 @@ export default function LoginPage() {
               setMode("login");
               setError(null);
             }}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
+            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition ${
               mode === "login"
                 ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
                 : "text-slate-400 hover:text-white"
@@ -77,7 +79,7 @@ export default function LoginPage() {
               setMode("signup");
               setError(null);
             }}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
+            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition ${
               mode === "signup"
                 ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm"
                 : "text-slate-400 hover:text-white"
@@ -89,16 +91,16 @@ export default function LoginPage() {
 
         {/* Error notification */}
         {error && (
-          <div className="p-3 rounded-2xl bg-red-950/60 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
+          <div className="p-2.5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1 font-mono">
               Hunter Email Address
             </label>
             <div className="relative">
@@ -107,14 +109,14 @@ export default function LoginPage() {
                 type="email"
                 required
                 placeholder="hunter@sdquest.com"
-                className="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 pl-10"
+                className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 pl-9 transition"
               />
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+              <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1 font-mono">
               Secret Password
             </label>
             <div className="relative">
@@ -124,23 +126,23 @@ export default function LoginPage() {
                 required
                 minLength={6}
                 placeholder="••••••••••••"
-                className="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 pl-10"
+                className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 pl-9 transition"
               />
-              <Key className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+              <Key className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
             </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-950 transition flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-950 transition flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99]"
           >
             <span>{loading ? "COMMUNICATING WITH SYSTEM..." : mode === "login" ? "ENTER SYSTEM GATE" : "INITIATE AWAKENING"}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        <p className="text-[11px] text-slate-500 text-center font-mono">
+        <p className="text-[10px] text-slate-500 text-center font-mono">
           Decades-long encrypted personal ledger. Strictly user-isolated via Supabase RLS.
         </p>
       </div>

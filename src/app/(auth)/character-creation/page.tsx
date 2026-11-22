@@ -25,6 +25,8 @@ import {
   LogOut,
   Minus,
   Plus,
+  Moon,
+  Clock,
 } from "lucide-react";
 import { FitnessExperience } from "@/types";
 
@@ -63,6 +65,8 @@ export default function CharacterCreationPage() {
   const [isCalisthenicsOnly, setIsCalisthenicsOnly] = useState(false);
 
   // Step 3: Baseline Routine Habits & Fuel (Professional & clean)
+  const [initialSleepHours, setInitialSleepHours] = useState<number | string>(7.5);
+  const [initialWakeUpTime, setInitialWakeUpTime] = useState("07:30");
   const [monthlyBudgetInr, setMonthlyBudgetInr] = useState<number | string>(4500);
   const [dailyWaterLitres, setDailyWaterLitres] = useState<number | string>(3.5);
   const [dailyStepTarget, setDailyStepTarget] = useState<number | string>(8000);
@@ -132,6 +136,8 @@ export default function CharacterCreationPage() {
         plate1kgCount: enableGym && !isCalisthenicsOnly ? Number(plate1kgCount) : 0,
         boiledEggsWeeklyDays: Number(boiledEggsWeeklyDays),
         monthlyBudgetInr: Number(monthlyBudgetInr),
+        initialSleepHours: Number(initialSleepHours) || 7.5,
+        initialWakeUpTime: initialWakeUpTime || "07:30",
       });
 
       if (result.error) {
@@ -167,16 +173,16 @@ export default function CharacterCreationPage() {
   const totalDisplayPhases = !enableGym ? 3 : 4;
 
   return (
-    <div className="min-h-screen bg-[#07080b] text-slate-100 flex items-center justify-center p-3 sm:p-4 selection:bg-cyan-500 selection:text-black relative">
+    <div className="min-h-[100dvh] bg-[#07080b] text-slate-100 flex items-center justify-center p-3 sm:p-4 selection:bg-cyan-500 selection:text-black relative">
       <div className="fixed top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-gradient-to-b from-cyan-600/10 via-purple-600/10 to-transparent blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-2xl hunter-panel rounded-3xl border border-cyan-500/40 p-5 sm:p-8 shadow-2xl relative z-10 space-y-5 text-slate-200">
+      <div className="w-full max-w-2xl hunter-panel rounded-3xl border border-cyan-500/40 p-4 sm:p-7 shadow-2xl relative z-10 space-y-4 sm:space-y-5 text-slate-200">
         {/* Top Utility Bar */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
           <form action={logoutAction}>
             <button
               type="submit"
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-red-400 font-mono font-bold transition bg-slate-900/80 hover:bg-red-950/40 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-red-500/40 group"
+              className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-red-400 font-mono font-bold transition bg-slate-900/80 hover:bg-red-950/40 px-2.5 py-1 rounded-lg border border-slate-800 hover:border-red-500/40 group"
               title="Sign out and return to login screen"
             >
               <LogOut className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
@@ -184,7 +190,7 @@ export default function CharacterCreationPage() {
             </button>
           </form>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-sm shadow-cyan-400" />
             <span className="text-[10px] sm:text-[11px] font-mono font-black tracking-widest text-cyan-400 uppercase">
               THE SYSTEM // AWAKENING CEREMONY
@@ -193,16 +199,16 @@ export default function CharacterCreationPage() {
         </div>
 
         {/* Header */}
-        <div className="text-center space-y-1 pb-2">
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mana-text-glow">
+        <div className="text-center space-y-1 pb-1">
+          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight mana-text-glow">
             FORGE YOUR HUNTER PROFILE
           </h1>
-          <p className="text-xs text-slate-400">
-            Phase {currentDisplayPhase} of {totalDisplayPhases} • Set baseline identity, quest domain &amp; daily habits
+          <p className="text-[11px] sm:text-xs text-slate-400">
+            Phase {currentDisplayPhase} of {totalDisplayPhases} • Set baseline identity, quest domain &amp; habits
           </p>
 
           {/* Progress Indicator Dots */}
-          <div className="flex items-center justify-center gap-2 pt-2">
+          <div className="flex items-center justify-center gap-2 pt-1">
             {(enableGym ? [1, 2, 3, 4] : [1, 3, 4]).map((s) => (
               <div
                 key={s}
@@ -219,7 +225,7 @@ export default function CharacterCreationPage() {
         </div>
 
         {error && (
-          <div className="p-3.5 rounded-2xl bg-red-950/60 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
+          <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
             <span>{error}</span>
           </div>
@@ -227,14 +233,14 @@ export default function CharacterCreationPage() {
 
         {/* STEP 1: IDENTITY, MAIN QUEST & BIOMETRICS */}
         {step === 1 && (
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
               <Shield className="w-4 h-4" />
               <span>STEP 1: HUNTER IDENTITY &amp; MAIN QUEST DOMAIN</span>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1 font-mono">
                 Hunter Name / Alias *
               </label>
               <input
@@ -243,14 +249,14 @@ export default function CharacterCreationPage() {
                 placeholder="Enter your name or hunter alias"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500 font-bold"
+                className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-bold"
               />
             </div>
 
             {/* Choose Primary Main Quest Focus */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                Select Your Active Main Quest (Can be changed anytime)
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">
+                Active Main Quest Domain
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
@@ -272,14 +278,14 @@ export default function CharacterCreationPage() {
                           setEnableGym(true);
                         }
                       }}
-                      className={`p-3 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
+                      className={`p-2.5 rounded-xl border text-center transition flex flex-col sm:flex-row items-center justify-center gap-1.5 ${
                         isSelected
                           ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/60 shadow-sm"
                           : "bg-slate-900/80 text-slate-400 border-slate-800 hover:text-white"
                       }`}
                     >
-                      <Icon className="w-5 h-5 shrink-0" />
-                      <span className="text-xs font-bold">{item.label}</span>
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="text-[11px] sm:text-xs font-bold">{item.label}</span>
                     </button>
                   );
                 })}
@@ -288,35 +294,33 @@ export default function CharacterCreationPage() {
 
             {/* Dynamic Gym Prompt for Non-Fitness Quests */}
             {activeMainQuest !== "fitness" ? (
-              <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 mt-0.5 shrink-0">
-                    <Dumbbell className="w-5 h-5" />
-                  </div>
-                  <div className="space-y-0.5 flex-1">
+              <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Dumbbell className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <div className="space-y-0.5">
                     <span className="text-xs font-bold text-white block">
-                      Include Gym &amp; Physical Training in Your Routine?
+                      Include Gym Training Routine?
                     </span>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Your primary quest is <span className="text-cyan-400 font-bold uppercase">{activeMainQuest}</span>. Would you like the System to also schedule workouts &amp; habits? (Changeable anytime in Settings).
-                    </p>
+                    <span className="text-[10px] text-slate-400 block font-mono">
+                      Workouts &amp; strength progression alongside {activeMainQuest}
+                    </span>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 pt-1">
+                <div className="grid grid-cols-2 gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => {
                       triggerHaptic("light");
                       setEnableGym(true);
                     }}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold font-mono transition flex items-center justify-center gap-1.5 ${
+                    className={`py-1.5 px-3 rounded-lg border text-xs font-bold font-mono transition flex items-center justify-center gap-1.5 ${
                       enableGym
                         ? "bg-cyan-500/20 text-cyan-300 border-cyan-500 shadow-sm"
                         : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
                     }`}
                   >
                     <Check className="w-3.5 h-3.5" />
-                    <span>YES, INCLUDE GYM</span>
+                    <span>YES</span>
                   </button>
                   <button
                     type="button"
@@ -324,27 +328,27 @@ export default function CharacterCreationPage() {
                       triggerHaptic("light");
                       setEnableGym(false);
                     }}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold font-mono transition flex items-center justify-center gap-1.5 ${
+                    className={`py-1.5 px-3 rounded-lg border text-xs font-bold font-mono transition flex items-center justify-center gap-1.5 ${
                       !enableGym
                         ? "bg-slate-800 text-slate-200 border-slate-600 shadow-sm"
                         : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
                     }`}
                   >
                     <X className="w-3.5 h-3.5" />
-                    <span>NO, SKIP GYM</span>
+                    <span>NO</span>
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="p-3 rounded-2xl bg-cyan-950/30 border border-cyan-500/30 flex items-center gap-2.5 text-xs text-cyan-300 font-mono">
+              <div className="p-2.5 rounded-xl bg-cyan-950/30 border border-cyan-500/30 flex items-center gap-2 text-xs text-cyan-300 font-mono">
                 <Dumbbell className="w-4 h-4 text-cyan-400 shrink-0" />
-                <span>Primary Quest: Full Physical Awakening &amp; Gym Arsenal Activated</span>
+                <span>Primary Quest: Full Physical Conditioning &amp; Arsenal Activated</span>
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1 font-mono">
                   Date of Birth (Dynamic Age) *
                 </label>
                 <input
@@ -352,21 +356,21 @@ export default function CharacterCreationPage() {
                   required
                   value={dob}
                   onChange={(e) => setDob(e.target.value)}
-                  className="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                  className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
                 />
-                <span className="text-[10px] text-cyan-400 font-mono mt-1 block">
-                  Chronological Age: {age} Years Old (Ages dynamically)
+                <span className="text-[10px] text-cyan-400 font-mono mt-0.5 block">
+                  Age: {age} Years Old (Ages dynamically)
                 </span>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
-                  Biological Sex (For BMR &amp; Energy Kinetics)
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1 font-mono">
+                  Biological Sex (Energy Kinetics)
                 </label>
                 <select
                   value={sex}
                   onChange={(e) => setSex(e.target.value as any)}
-                  className="w-full rounded-2xl bg-slate-900 border border-slate-700 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
                 >
                   <option value="male">Male</option>
                   <option value="female">Female</option>
@@ -1031,12 +1035,94 @@ export default function CharacterCreationPage() {
           </div>
         )}
 
-        {/* STEP 3: BASELINE ROUTINE HABITS & FUEL */}
+        {/* STEP 3: BASELINE ROUTINE HABITS, FUEL & CIRCADIAN CALIBRATION */}
         {step === 3 && (
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
               <Utensils className="w-4 h-4" />
-              <span>STEP 3: BASELINE ROUTINE HABITS &amp; FUEL</span>
+              <span>STEP 3: BASELINE ROUTINE HABITS &amp; CIRCADIAN CALIBRATION</span>
+            </div>
+
+            {/* MANDATORY CIRCADIAN SLEEP INITIALIZATION */}
+            <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-cyan-500/40 space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                  <Moon className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>Circadian Sleep Baseline</span>
+                </div>
+                <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/70 border border-cyan-500/30 px-2 py-0.5 rounded-full self-start sm:self-auto">
+                  AWAKENING TELEMETRY
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Initializes your biological 26h awake timer and grants verified restorative sleep credit so physical training and quests are unlocked immediately.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                {/* Last Night Sleep Duration */}
+                <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase block">
+                    Last Night Sleep Duration
+                  </span>
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setInitialSleepHours((prev) => Math.max(4, Math.round(((Number(prev) || 7.5) - 0.5) * 10) / 10));
+                      }}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 active:scale-95"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="4"
+                        max="14"
+                        value={initialSleepHours}
+                        onChange={(e) => setInitialSleepHours(e.target.value)}
+                        onBlur={() => {
+                          if (initialSleepHours === "" || isNaN(Number(initialSleepHours))) {
+                            setInitialSleepHours(7.5);
+                          } else {
+                            setInitialSleepHours(Math.max(4, Math.min(14, Math.round(Number(initialSleepHours) * 10) / 10)));
+                          }
+                        }}
+                        className="w-12 text-center text-sm font-mono font-bold text-cyan-400 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <span className="text-xs font-mono text-slate-400">Hours</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setInitialSleepHours((prev) => Math.min(14, Math.round(((Number(prev) || 7.5) + 0.5) * 10) / 10));
+                      }}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 active:scale-95"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Wake-Up Time */}
+                <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase block">
+                    Wake-Up Time Today
+                  </span>
+                  <div className="flex items-center h-8 px-2 bg-slate-900 rounded-lg border border-slate-700/60 focus-within:border-cyan-500">
+                    <Clock className="w-3.5 h-3.5 text-cyan-400 mr-2 shrink-0" />
+                    <input
+                      type="time"
+                      value={initialWakeUpTime}
+                      onChange={(e) => setInitialWakeUpTime(e.target.value)}
+                      className="w-full text-xs font-mono font-bold text-white bg-transparent focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1286,6 +1372,10 @@ export default function CharacterCreationPage() {
               <div className="flex justify-between border-b border-slate-800 pb-2">
                 <span className="text-slate-400">Main Quest:</span>
                 <span className="font-bold text-cyan-400 uppercase">{activeMainQuest}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-800 pb-2">
+                <span className="text-slate-400">Circadian Baseline:</span>
+                <span className="font-bold text-cyan-300">{initialSleepHours}h Sleep (Woke at {initialWakeUpTime})</span>
               </div>
               <div className="flex justify-between border-b border-slate-800 pb-2">
                 <span className="text-slate-400">Gym Module:</span>

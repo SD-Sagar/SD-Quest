@@ -742,11 +742,11 @@ export function calculateCircadianAwakeStatus(params: {
   const isCurrentlySleeping = Boolean(params.isCurrentlySleeping);
   const currentSleepMins = params.currentSleepDurationMinutes || 0;
   let rollingMins = params.rollingSleepMinutes;
-  if (rollingMins === undefined || rollingMins === null) {
+  if (rollingMins === undefined || rollingMins === null || (rollingMins === 0 && !params.lastSleepCompletedAt && !params.lastSleepStartedAt)) {
     if (params.lastSleepCompletedAt) {
       rollingMins = 480; // Fallback for completed restorative sleep
     } else {
-      rollingMins = 0;
+      rollingMins = 450; // Healthy 7.5h baseline for newly awakened hunters (never lock out day-1 users)
     }
   }
   const cumulativeSleepMinutes = rollingMins + (isCurrentlySleeping ? currentSleepMins : 0);
