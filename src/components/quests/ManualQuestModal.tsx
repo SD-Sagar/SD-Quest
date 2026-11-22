@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createQuestAction } from "@/server/actions/quest.actions";
 import { triggerHaptic } from "@/lib/utils";
 import { calculateFairQuestXp, calculateFairStatYield } from "@/lib/calculations/rpg";
-import { Plus, X, Shield, Clock, Calendar, Sparkles, AlertCircle } from "lucide-react";
+import { Plus, Minus, X, Shield, Clock, Calendar, Sparkles, AlertCircle } from "lucide-react";
 import { QuestCategory, QuestClassification, HunterRank, AttributeType } from "@/types";
 
 interface ManualQuestModalProps {
@@ -56,7 +56,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
   const [recurrence, setRecurrence] = useState<"none" | "daily" | "weekly" | "weekdays">("none");
   const [selectedDays, setSelectedDays] = useState<number[]>([1]); // Monday default for weekly
 
-  const [durationMinutes, setDurationMinutes] = useState(45);
+  const [durationMinutes, setDurationMinutes] = useState<number | string>(45);
   const [priority, setPriority] = useState<"low" | "medium" | "high" | "urgent">("medium");
   const [difficulty, setDifficulty] = useState<HunterRank>("Recruit");
   const [selectedAttributes, setSelectedAttributes] = useState<AttributeType[]>([
@@ -124,8 +124,9 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
     }
   };
 
-  const calculatedRewards = calculateFairStatYield(durationMinutes, difficulty, selectedAttributes);
-  const calculatedXp = calculateFairQuestXp(durationMinutes, difficulty, priority);
+  const numDuration = Math.max(5, Math.min(480, Number(durationMinutes) || 45));
+  const calculatedRewards = calculateFairStatYield(numDuration, difficulty, selectedAttributes);
+  const calculatedXp = calculateFairQuestXp(numDuration, difficulty, priority);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,7 +160,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
         classification,
         start_date: startDate,
         deadline: fullDeadline,
-        estimated_duration_minutes: durationMinutes,
+        estimated_duration_minutes: numDuration,
         recurrence,
         recurrence_days:
           recurrence === "daily"
@@ -412,7 +413,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                 </span>
                 {hasTimeWindow && (
                   <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 border border-cyan-500/40 px-1.5 py-0.2 rounded">
-                    Auto-calc: {durationMinutes}m
+                    Auto-calc: {numDuration}m
                   </span>
                 )}
               </label>
@@ -517,14 +518,41 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
               <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                 Duration (Min)
               </label>
-              <input
-                type="number"
-                min={5}
-                max={480}
-                value={durationMinutes}
-                onChange={(e) => setDurationMinutes(parseInt(e.target.value, 10) || 15)}
-                className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-xs text-white font-mono"
-              />
+              <div className="flex items-center bg-slate-950 border border-slate-700 rounded-xl p-0.5 focus-within:border-cyan-400">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setDurationMinutes((prev) => Math.max(5, (Number(prev) || 45) - 5));
+                  }}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition shrink-0"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <input
+                  type="number"
+                  min={5}
+                  max={480}
+                  step={5}
+                  value={durationMinutes}
+                  onChange={(e) => setDurationMinutes(e.target.value)}
+                  onBlur={() => {
+                    const val = Math.min(480, Math.max(5, Number(durationMinutes) || 45));
+                    setDurationMinutes(val);
+                  }}
+                  className="w-full text-center bg-transparent py-1 text-xs font-mono font-bold text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setDurationMinutes((prev) => Math.min(480, (Number(prev) || 45) + 5));
+                  }}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             <div>

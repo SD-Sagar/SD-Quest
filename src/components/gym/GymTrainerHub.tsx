@@ -121,7 +121,7 @@ export function GymTrainerHub({
   const [arsenalEquipType, setArsenalEquipType] = useState<
     "dumbbells" | "dumbbells_single" | "barbell" | "ez_bar" | "cable_pulley" | "leg_developer"
   >("dumbbells");
-  const [targetWeightCalc, setTargetWeightCalc] = useState(15.0);
+  const [targetWeightCalc, setTargetWeightCalc] = useState<number | string>(15.0);
   const [exerciseWeightMap, setExerciseWeightMap] = useState<Record<string, number>>({});
   const [focusedExerciseId, setFocusedExerciseId] = useState<string | null>(null);
   const [appliedFeedback, setAppliedFeedback] = useState<string | null>(null);
@@ -270,29 +270,30 @@ export function GymTrainerHub({
     wasWorkoutActiveRef.current = activeWorkoutUi.isActive;
   }, [activeWorkoutUi.isActive]);
 
+  const targetWeightNum = Number(targetWeightCalc) || 0;
   let currentPlateSolver = {
-    achievableWeightKg: targetWeightCalc,
+    achievableWeightKg: targetWeightNum,
     isExact: true,
     platesPerSide: [] as { weightKg: number; count: number }[],
-    summaryString: `${targetWeightCalc.toFixed(1)} kg`,
+    summaryString: `${targetWeightNum.toFixed(1)} kg`,
   };
 
   if (arsenalEquipType === "dumbbells") {
-    currentPlateSolver = calculateDumbbellPlates(targetWeightCalc, defaultInv, true);
+    currentPlateSolver = calculateDumbbellPlates(targetWeightNum, defaultInv, true);
   } else if (arsenalEquipType === "dumbbells_single") {
-    currentPlateSolver = calculateDumbbellPlates(targetWeightCalc, defaultInv, false);
+    currentPlateSolver = calculateDumbbellPlates(targetWeightNum, defaultInv, false);
   } else if (arsenalEquipType === "barbell") {
-    currentPlateSolver = calculateBarbellPlates(targetWeightCalc, defaultInv, "straight");
+    currentPlateSolver = calculateBarbellPlates(targetWeightNum, defaultInv, "straight");
   } else if (arsenalEquipType === "ez_bar") {
-    currentPlateSolver = calculateBarbellPlates(targetWeightCalc, defaultInv, "ez");
+    currentPlateSolver = calculateBarbellPlates(targetWeightNum, defaultInv, "ez");
   } else if (arsenalEquipType === "leg_developer") {
-    currentPlateSolver = calculateLegDeveloperPlates(targetWeightCalc, defaultInv);
+    currentPlateSolver = calculateLegDeveloperPlates(targetWeightNum, defaultInv);
   } else if (arsenalEquipType === "cable_pulley") {
     currentPlateSolver = {
-      achievableWeightKg: targetWeightCalc,
+      achievableWeightKg: targetWeightNum,
       isExact: true,
       platesPerSide: [],
-      summaryString: `${targetWeightCalc.toFixed(1)} kg Cable / Pin Resistance`,
+      summaryString: `${targetWeightNum.toFixed(1)} kg Cable / Pin Resistance`,
     };
   }
 
@@ -377,11 +378,12 @@ export function GymTrainerHub({
     setIsPlateCalcExpanded(true);
   };
 
-  const handleArsenalWeightChange = (newWeight: number) => {
+  const handleArsenalWeightChange = (newWeight: number | string) => {
     triggerHaptic("light");
     setTargetWeightCalc(newWeight);
-    if (focusedExerciseId) {
-      setExerciseWeightMap((prev) => ({ ...prev, [focusedExerciseId]: newWeight }));
+    const num = Number(newWeight);
+    if (!isNaN(num) && focusedExerciseId) {
+      setExerciseWeightMap((prev) => ({ ...prev, [focusedExerciseId]: num }));
     }
   };
 
@@ -1492,9 +1494,9 @@ export function GymTrainerHub({
                       onClick={() => {
                         triggerHaptic("light");
                         setArsenalEquipType(tab.id);
-                        if (tab.id === "barbell" && targetWeightCalc < (defaultInv.barbell_weight_kg || 7.0)) {
+                        if (tab.id === "barbell" && (Number(targetWeightCalc) || 0) < (defaultInv.barbell_weight_kg || 7.0)) {
                           handleArsenalWeightChange(25.0);
-                        } else if (tab.id === "dumbbells" && targetWeightCalc > 30.0) {
+                        } else if (tab.id === "dumbbells" && (Number(targetWeightCalc) || 0) > 30.0) {
                           handleArsenalWeightChange(15.0);
                         }
                       }}
@@ -1569,7 +1571,7 @@ export function GymTrainerHub({
                       key={w}
                       type="button"
                       onClick={() => handleArsenalWeightChange(w)}
-                      className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-xs font-mono font-bold transition ${Math.abs(targetWeightCalc - w) < 0.1
+                      className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-xs font-mono font-bold transition ${Math.abs((Number(targetWeightCalc) || 0) - w) < 0.1
                         ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 shadow-sm"
                         : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white"
                         }`}
@@ -1589,7 +1591,8 @@ export function GymTrainerHub({
                       <button
                         type="button"
                         onClick={() => {
-                          const newW = Math.max(0, Math.round((targetWeightCalc - 1.0) * 10) / 10);
+                          const cur = Number(targetWeightCalc) || 0;
+                          const newW = Math.max(0, Math.round((cur - 1.0) * 10) / 10);
                           handleArsenalWeightChange(newW);
                         }}
                         className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-400 text-xs font-bold flex items-center justify-center transition"
@@ -1603,15 +1606,27 @@ export function GymTrainerHub({
                         max="120"
                         value={targetWeightCalc}
                         onChange={(e) => {
+                          setTargetWeightCalc(e.target.value);
                           const val = parseFloat(e.target.value);
-                          if (!isNaN(val)) handleArsenalWeightChange(val);
+                          if (!isNaN(val) && focusedExerciseId) {
+                            setExerciseWeightMap((prev) => ({ ...prev, [focusedExerciseId]: val }));
+                          }
+                        }}
+                        onBlur={() => {
+                          const val = parseFloat(String(targetWeightCalc));
+                          if (isNaN(val) || targetWeightCalc === "") {
+                            handleArsenalWeightChange(15.0);
+                          } else {
+                            handleArsenalWeightChange(Math.min(120, Math.max(0, Math.round(val * 10) / 10)));
+                          }
                         }}
                         className="w-16 px-2 py-1 text-center font-mono font-bold text-sm text-cyan-300 bg-slate-900 border border-cyan-500/40 rounded-lg focus:outline-none focus:border-cyan-400"
                       />
                       <button
                         type="button"
                         onClick={() => {
-                          const newW = Math.round((targetWeightCalc + 1.0) * 10) / 10;
+                          const cur = Number(targetWeightCalc) || 0;
+                          const newW = Math.round((cur + 1.0) * 10) / 10;
                           handleArsenalWeightChange(newW);
                         }}
                         className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-cyan-400 text-xs font-bold flex items-center justify-center transition"
