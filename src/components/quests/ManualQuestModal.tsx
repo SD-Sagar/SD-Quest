@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createQuestAction } from "@/server/actions/quest.actions";
 import { triggerHaptic } from "@/lib/utils";
 import { calculateFairQuestXp, calculateFairStatYield } from "@/lib/calculations/rpg";
-import { Plus, Minus, X, Shield, Clock, Calendar, Sparkles, AlertCircle } from "lucide-react";
+import { Plus, Minus, X, Shield, Clock, Calendar, Sparkles, AlertCircle, HelpCircle } from "lucide-react";
 import { QuestCategory, QuestClassification, HunterRank, AttributeType } from "@/types";
 
 interface ManualQuestModalProps {
@@ -64,6 +64,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
     "intelligence",
   ]);
   const [isFun, setIsFun] = useState(false);
+  const [showMobileMeditationInfo, setShowMobileMeditationInfo] = useState(false);
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
@@ -290,10 +291,12 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
           {/* DATE & CALENDAR SCHEDULING CONTROLS */}
           <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-cyan-500/30 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5 uppercase font-mono tracking-wider">
-                <Calendar className="w-4 h-4" />
-                DATE &amp; SCHEDULING CONTROLS
-              </span>
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-cyan-950/70 border border-cyan-500/40 text-cyan-400 shadow-[0_0_10px_rgba(0,229,255,0.2)]">
+                <Calendar className="w-4 h-4 text-cyan-400 drop-shadow-[0_0_6px_#00e5ff]" />
+                <span className="text-xs font-bold uppercase font-mono tracking-wider">
+                  DATE &amp; SCHEDULING CONTROLS
+                </span>
+              </div>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
@@ -355,23 +358,29 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">
                     From Date
                   </label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
-                  />
+                  <div className="relative flex items-center">
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
+                    />
+                    <Calendar className="w-4 h-4 text-cyan-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.6)]" />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">
                     To Date
                   </label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
-                  />
+                  <div className="relative flex items-center">
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
+                    />
+                    <Calendar className="w-4 h-4 text-cyan-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.6)]" />
+                  </div>
                 </div>
               </div>
             ) : (
@@ -380,12 +389,15 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">
                     Start Date
                   </label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
-                  />
+                  <div className="relative flex items-center">
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
+                    />
+                    <Calendar className="w-4 h-4 text-cyan-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.6)]" />
+                  </div>
                 </div>
 
                 <div>
@@ -395,7 +407,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                   <select
                     value={recurrence}
                     onChange={(e) => setRecurrence(e.target.value as any)}
-                    className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                    className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400"
                   >
                     <option value="none">One-Time Date Quest</option>
                     <option value="daily">Daily Habit (Every day)</option>
@@ -438,23 +450,29 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                     <label className="block text-[10px] font-mono text-slate-400 mb-1">
                       From Time
                     </label>
-                    <input
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => handleTimeWindowChange(e.target.value, endTime)}
-                      className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono"
-                    />
+                    <div className="relative flex items-center">
+                      <input
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => handleTimeWindowChange(e.target.value, endTime)}
+                        className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark]"
+                      />
+                      <Clock className="w-4 h-4 text-cyan-400/80 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.5)]" />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-[10px] font-mono text-slate-400 mb-1">
                       To Time
                     </label>
-                    <input
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => handleTimeWindowChange(startTime, e.target.value)}
-                      className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono"
-                    />
+                    <div className="relative flex items-center">
+                      <input
+                        type="time"
+                        value={endTime}
+                        onChange={(e) => handleTimeWindowChange(startTime, e.target.value)}
+                        className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark]"
+                      />
+                      <Clock className="w-4 h-4 text-cyan-400/80 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.5)]" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -503,23 +521,29 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                     <label className="block text-[10px] font-mono text-slate-400 mb-1">
                       Due Date
                     </label>
-                    <input
-                      type="date"
-                      value={deadlineDate}
-                      onChange={(e) => setDeadlineDate(e.target.value)}
-                      className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono"
-                    />
+                    <div className="relative flex items-center">
+                      <input
+                        type="date"
+                        value={deadlineDate}
+                        onChange={(e) => setDeadlineDate(e.target.value)}
+                        className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
+                      />
+                      <Calendar className="w-4 h-4 text-cyan-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.6)]" />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-[10px] font-mono text-slate-400 mb-1">
                       Due Time
                     </label>
-                    <input
-                      type="time"
-                      value={deadlineTime}
-                      onChange={(e) => setDeadlineTime(e.target.value)}
-                      className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white font-mono"
-                    />
+                    <div className="relative flex items-center">
+                      <input
+                        type="time"
+                        value={deadlineTime}
+                        onChange={(e) => setDeadlineTime(e.target.value)}
+                        className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 pr-9 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
+                      />
+                      <Clock className="w-4 h-4 text-cyan-400/80 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none drop-shadow-[0_0_6px_rgba(0,229,255,0.5)]" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -604,9 +628,26 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
 
           {/* Influenced Attributes */}
           <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-              Target Attributes Yielded
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                Target Attributes Yielded
+              </label>
+              {category === "meditation" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setShowMobileMeditationInfo((prev) => !prev);
+                  }}
+                  className="sm:hidden px-2 py-0.5 rounded-lg bg-cyan-950/90 border border-cyan-400 text-cyan-300 text-[10px] font-mono font-bold flex items-center gap-1.5 animate-pulse shadow-[0_0_10px_rgba(0,229,255,0.4)] hover:bg-cyan-900/60 transition"
+                  title="Toggle Meditation Protocol Info"
+                >
+                  <HelpCircle className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>{showMobileMeditationInfo ? "COLLAPSE ▲" : "PROTOCOL INFO (?) ▼"}</span>
+                </button>
+              )}
+            </div>
+
             {category === "sleep" ? (
               <div className="p-2.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-xs font-mono text-cyan-300 flex items-center gap-2">
                 <span>🌙</span>
@@ -615,18 +656,49 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
             ) : (
               <div className="space-y-2">
                 {category === "meditation" && (
-                  <div className="p-3 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 text-[11px] font-mono text-cyan-300 space-y-1">
-                    <div className="font-bold text-white flex items-center gap-1.5">
-                      <span>🧘</span>
-                      <span>MEDITATION &amp; MINDFULNESS STASIS</span>
+                  <>
+                    {/* PC View: Always visible */}
+                    <div className="hidden sm:block p-3 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 text-[11px] font-mono text-cyan-300 space-y-1">
+                      <div className="font-bold text-white flex items-center gap-1.5">
+                        <span>🧘</span>
+                        <span>MEDITATION &amp; MINDFULNESS STASIS</span>
+                      </div>
+                      <p className="text-slate-300 leading-relaxed">
+                        • <strong>+mentality, +discipline &amp; +endurance</strong> are mandatory locked attributes.<br/>
+                        • Mental fatigue purges at half the speed of pure fun.<br/>
+                        • If <strong>+intelligence</strong> is attached: Physical fatigue stays <strong>0%</strong>.<br/>
+                        • If physical posture stats (<strong>strength, vitality, agility</strong>) are attached: Non-linear posture fatigue builds to 85% at 30m (Level 1).
+                      </p>
                     </div>
-                    <p className="text-slate-300 leading-relaxed">
-                      • <strong>+mentality, +discipline &amp; +endurance</strong> are mandatory locked attributes.<br/>
-                      • Mental fatigue purges at half the speed of pure fun.<br/>
-                      • If <strong>+intelligence</strong> is attached: Physical fatigue stays <strong>0%</strong>.<br/>
-                      • If physical posture stats (<strong>strength, vitality, agility</strong>) are attached: Non-linear posture fatigue builds to 85% at 30m (Level 1).
-                    </p>
-                  </div>
+
+                    {/* Mobile View: Collapsible triggered by pulsing (?) */}
+                    {showMobileMeditationInfo && (
+                      <div className="sm:hidden p-3 rounded-2xl bg-cyan-950/95 border border-cyan-400/70 text-[11px] font-mono text-cyan-200 space-y-1.5 shadow-[0_0_15px_rgba(0,229,255,0.25)] relative animate-in fade-in duration-150">
+                        <div className="flex items-center justify-between font-bold text-white">
+                          <div className="flex items-center gap-1.5">
+                            <span>🧘</span>
+                            <span>MEDITATION PROTOCOL</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic("light");
+                              setShowMobileMeditationInfo(false);
+                            }}
+                            className="p-1 rounded-md text-slate-400 hover:text-white"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <p className="text-slate-300 text-[10.5px] leading-relaxed">
+                          • <strong>+mentality, +discipline &amp; +endurance</strong> are locked.<br/>
+                          • Mental fatigue purges at half the speed of pure fun.<br/>
+                          • If <strong>+intelligence</strong> is attached: Physical fatigue stays <strong>0%</strong>.<br/>
+                          • If physical posture stats (<strong>strength, vitality, agility</strong>) are attached: Non-linear posture strain builds to 85% at 30m (Level 1).
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
                 <div className="flex flex-wrap gap-1.5">
                   {ALL_ATTRIBUTES.map((attr) => {
