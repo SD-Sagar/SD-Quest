@@ -41,6 +41,7 @@ import {
   Crown,
   ChevronDown,
   ChevronUp,
+  Minus,
 } from "lucide-react";
 
 interface QuestListProps {
@@ -99,7 +100,7 @@ export function QuestList({
 
   // Recovery Nap & Offline Sleep Modal State
   const [isManualSleepModalOpen, setIsManualSleepModalOpen] = useState(false);
-  const [manualSleepMinutes, setManualSleepMinutes] = useState<number>(90);
+  const [manualSleepMinutes, setManualSleepMinutes] = useState<number | string>(90);
   const [manualSleepLoading, setManualSleepLoading] = useState(false);
 
   // Biological Sleep Directive Cooldown & State
@@ -1644,17 +1645,43 @@ export function QuestList({
                 Custom Duration (Minutes)
               </label>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={15}
-                  max={720}
-                  step={15}
-                  value={manualSleepMinutes}
-                  onChange={(e) => setManualSleepMinutes(Math.max(0, parseInt(e.target.value) || 0))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-cyan-400"
-                />
-                <span className="text-xs font-mono text-slate-400 shrink-0">
-                  = {(manualSleepMinutes / 60).toFixed(1)} Hours
+                <div className="flex items-center flex-1 bg-slate-950 border border-slate-800 rounded-xl p-0.5 focus-within:border-cyan-400">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setManualSleepMinutes((prev) => Math.max(15, (Number(prev) || 90) - 15));
+                    }}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <input
+                    type="number"
+                    min={15}
+                    max={720}
+                    step={15}
+                    value={manualSleepMinutes}
+                    onChange={(e) => setManualSleepMinutes(e.target.value)}
+                    onBlur={() => {
+                      const val = Math.min(720, Math.max(15, Number(manualSleepMinutes) || 90));
+                      setManualSleepMinutes(val);
+                    }}
+                    className="w-full text-center bg-transparent py-1.5 text-sm font-mono text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setManualSleepMinutes((prev) => Math.min(720, (Number(prev) || 90) + 15));
+                    }}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <span className="text-xs font-mono text-cyan-400 shrink-0 font-bold">
+                  = {((Number(manualSleepMinutes) || 0) / 60).toFixed(1)} Hours
                 </span>
               </div>
             </div>
@@ -1670,12 +1697,13 @@ export function QuestList({
               </button>
               <button
                 type="button"
-                disabled={manualSleepLoading || manualSleepMinutes <= 0}
+                disabled={manualSleepLoading || (Number(manualSleepMinutes) || 0) <= 0}
                 onClick={async () => {
-                  if (manualSleepMinutes <= 0) return;
+                  const mins = Number(manualSleepMinutes) || 0;
+                  if (mins <= 0) return;
                   setManualSleepLoading(true);
                   try {
-                    await logManualSleepSessionAction(manualSleepMinutes);
+                    await logManualSleepSessionAction(mins);
                     triggerHaptic("success");
                     confetti({ particleCount: 70, spread: 70 });
                     setIsManualSleepModalOpen(false);
@@ -1689,7 +1717,7 @@ export function QuestList({
                 className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-mono text-xs font-black uppercase tracking-wider transition flex items-center gap-1.5 shadow-md shadow-cyan-950 disabled:opacity-50"
               >
                 <Check className="w-3.5 h-3.5" />
-                <span>{manualSleepLoading ? "LOGGING REST..." : `CONFIRM ${(manualSleepMinutes / 60).toFixed(1)}H SLEEP`}</span>
+                <span>{manualSleepLoading ? "LOGGING REST..." : `CONFIRM ${((Number(manualSleepMinutes) || 0) / 60).toFixed(1)}H SLEEP`}</span>
               </button>
             </div>
           </div>

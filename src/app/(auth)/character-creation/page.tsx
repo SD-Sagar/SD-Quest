@@ -23,6 +23,8 @@ import {
   Check,
   X,
   LogOut,
+  Minus,
+  Plus,
 } from "lucide-react";
 import { FitnessExperience } from "@/types";
 
@@ -37,8 +39,8 @@ export default function CharacterCreationPage() {
   const [activeMainQuest, setActiveMainQuest] = useState("fitness");
   const [enableGym, setEnableGym] = useState(true);
   const [dob, setDob] = useState("2000-01-01");
-  const [heightCm, setHeightCm] = useState(175);
-  const [weightKg, setWeightKg] = useState(70);
+  const [heightCm, setHeightCm] = useState<number | string>(175);
+  const [weightKg, setWeightKg] = useState<number | string>(70);
   const [sex, setSex] = useState<"male" | "female" | "other">("male");
   const [fitnessExperience, setFitnessExperience] = useState<FitnessExperience>("beginner");
   const [fitnessObjective, setFitnessObjective] = useState("Hypertrophy & Lifelong Physical Conditioning");
@@ -46,25 +48,25 @@ export default function CharacterCreationPage() {
   // Step 2: Available Equipment (20-in-1 bench + rods + plates or calisthenics)
   const [hasBench, setHasBench] = useState(true);
   const [hasBarbell, setHasBarbell] = useState(true);
-  const [barbellWeight, setBarbellWeight] = useState(7.0);
+  const [barbellWeight, setBarbellWeight] = useState<number | string>(7.0);
   const [hasEzBar, setHasEzBar] = useState(true);
-  const [ezBarWeight, setEzBarWeight] = useState(5.0);
+  const [ezBarWeight, setEzBarWeight] = useState<number | string>(5.0);
   const [hasCablePulley, setHasCablePulley] = useState(true);
   const [hasLegDeveloper, setHasLegDeveloper] = useState(true);
-  const [handleWeight, setHandleWeight] = useState(2.0);
-  const [plate10kgCount, setPlate10kgCount] = useState(2); // 20 kg
-  const [plate5kgCount, setPlate5kgCount] = useState(8); // 40 kg
-  const [plate25kgCount, setPlate25kgCount] = useState(4); // 10 kg
-  const [plate2kgCount, setPlate2kgCount] = useState(4); // 8 kg
-  const [plate125kgCount, setPlate125kgCount] = useState(4); // 5 kg
-  const [plate1kgCount, setPlate1kgCount] = useState(4); // 4 kg
+  const [handleWeight, setHandleWeight] = useState<number | string>(2.0);
+  const [plate10kgCount, setPlate10kgCount] = useState<number | string>(2); // 20 kg
+  const [plate5kgCount, setPlate5kgCount] = useState<number | string>(8); // 40 kg
+  const [plate25kgCount, setPlate25kgCount] = useState<number | string>(4); // 10 kg
+  const [plate2kgCount, setPlate2kgCount] = useState<number | string>(4); // 8 kg
+  const [plate125kgCount, setPlate125kgCount] = useState<number | string>(4); // 5 kg
+  const [plate1kgCount, setPlate1kgCount] = useState<number | string>(4); // 4 kg
   const [isCalisthenicsOnly, setIsCalisthenicsOnly] = useState(false);
 
   // Step 3: Baseline Routine Habits & Fuel (Professional & clean)
-  const [monthlyBudgetInr, setMonthlyBudgetInr] = useState(4500);
-  const [dailyWaterLitres, setDailyWaterLitres] = useState(3.5);
-  const [dailyStepTarget, setDailyStepTarget] = useState(8000);
-  const [boiledEggsWeeklyDays, setBoiledEggsWeeklyDays] = useState(4);
+  const [monthlyBudgetInr, setMonthlyBudgetInr] = useState<number | string>(4500);
+  const [dailyWaterLitres, setDailyWaterLitres] = useState<number | string>(3.5);
+  const [dailyStepTarget, setDailyStepTarget] = useState<number | string>(8000);
+  const [boiledEggsWeeklyDays, setBoiledEggsWeeklyDays] = useState<number | string>(4);
 
   const [age, setAge] = useState(25);
   useEffect(() => {
@@ -73,12 +75,12 @@ export default function CharacterCreationPage() {
 
   const totalPlateWeight = isCalisthenicsOnly
     ? 0
-    : plate10kgCount * 10 +
-      plate5kgCount * 5 +
-      plate25kgCount * 2.5 +
-      plate2kgCount * 2 +
-      plate125kgCount * 1.25 +
-      plate1kgCount * 1;
+    : (Number(plate10kgCount) || 0) * 10 +
+      (Number(plate5kgCount) || 0) * 5 +
+      (Number(plate25kgCount) || 0) * 2.5 +
+      (Number(plate2kgCount) || 0) * 2 +
+      (Number(plate125kgCount) || 0) * 1.25 +
+      (Number(plate1kgCount) || 0) * 1;
 
   const handleNext = () => {
     triggerHaptic("light");
@@ -378,25 +380,91 @@ export default function CharacterCreationPage() {
                 <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
                   Height (CM)
                 </label>
-                <input
-                  type="number"
-                  value={heightCm}
-                  onChange={(e) => setHeightCm(parseInt(e.target.value) || 170)}
-                  className="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-xs text-white font-mono"
-                />
+                <div className="flex items-center bg-slate-900 border border-slate-700 rounded-2xl p-1 focus-within:border-cyan-500 transition">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setHeightCm((prev) => Math.max(100, (Number(prev) || 175) - 1));
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95 transition"
+                    title="Decrease height"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <input
+                    type="number"
+                    min="100"
+                    max="250"
+                    value={heightCm}
+                    onChange={(e) => setHeightCm(e.target.value)}
+                    onBlur={() => {
+                      if (heightCm === "" || isNaN(Number(heightCm))) {
+                        setHeightCm(175);
+                      } else {
+                        setHeightCm(Math.max(100, Math.min(250, Math.round(Number(heightCm)))));
+                      }
+                    }}
+                    className="w-full text-center text-sm font-bold font-mono text-white bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setHeightCm((prev) => Math.min(250, (Number(prev) || 175) + 1));
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95 transition"
+                    title="Increase height"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
                   Current Weight (KG)
                 </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={weightKg}
-                  onChange={(e) => setWeightKg(parseFloat(e.target.value) || 70)}
-                  className="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-xs text-white font-mono"
-                />
+                <div className="flex items-center bg-slate-900 border border-slate-700 rounded-2xl p-1 focus-within:border-cyan-500 transition">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setWeightKg((prev) => Math.max(30, Math.round(((Number(prev) || 70) - 0.5) * 10) / 10));
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95 transition"
+                    title="Decrease weight"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="30"
+                    max="250"
+                    value={weightKg}
+                    onChange={(e) => setWeightKg(e.target.value)}
+                    onBlur={() => {
+                      if (weightKg === "" || isNaN(Number(weightKg))) {
+                        setWeightKg(70);
+                      } else {
+                        setWeightKg(Math.max(30, Math.min(250, Math.round(Number(weightKg) * 10) / 10)));
+                      }
+                    }}
+                    className="w-full text-center text-sm font-bold font-mono text-white bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setWeightKg((prev) => Math.min(250, Math.round(((Number(prev) || 70) + 0.5) * 10) / 10));
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95 transition"
+                    title="Increase weight"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -470,10 +538,51 @@ export default function CharacterCreationPage() {
                   </div>
 
                   {/* Straight Barbell Rod */}
-                  <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                  <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-2">
                     <div>
                       <span className="text-xs font-bold text-white block">Straight Barbell Rod</span>
-                      <span className="text-[10px] text-slate-400 font-mono">Weight: {barbellWeight} KG</span>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-[10px] text-slate-400 font-mono">Weight:</span>
+                        <div className="flex items-center bg-slate-950 rounded-lg border border-slate-700 px-1 py-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic("light");
+                              setBarbellWeight((prev) => Math.max(1, Math.round(((Number(prev) || 7) - 0.5) * 10) / 10));
+                            }}
+                            className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-white"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="1"
+                            max="30"
+                            value={barbellWeight}
+                            onChange={(e) => setBarbellWeight(e.target.value)}
+                            onBlur={() => {
+                              if (barbellWeight === "" || isNaN(Number(barbellWeight))) {
+                                setBarbellWeight(7.0);
+                              } else {
+                                setBarbellWeight(Math.max(1, Math.min(30, Math.round(Number(barbellWeight) * 10) / 10)));
+                              }
+                            }}
+                            className="w-8 text-center text-[11px] font-mono font-bold text-cyan-400 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic("light");
+                              setBarbellWeight((prev) => Math.min(30, Math.round(((Number(prev) || 7) + 0.5) * 10) / 10));
+                            }}
+                            className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-white"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono">KG</span>
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -481,7 +590,7 @@ export default function CharacterCreationPage() {
                         triggerHaptic("light");
                         setHasBarbell(!hasBarbell);
                       }}
-                      className={`px-3 py-1 rounded-xl text-xs font-mono font-bold border transition ${
+                      className={`px-3 py-1 rounded-xl text-xs font-mono font-bold border transition shrink-0 ${
                         hasBarbell
                           ? "bg-emerald-500/20 text-emerald-300 border-emerald-400 shadow-sm"
                           : "bg-red-950/40 text-red-400 border-red-500/40"
@@ -492,10 +601,51 @@ export default function CharacterCreationPage() {
                   </div>
 
                   {/* Curly Rod (EZ Bar) */}
-                  <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                  <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-2">
                     <div>
                       <span className="text-xs font-bold text-white block">Curly Rod (EZ Bar)</span>
-                      <span className="text-[10px] text-slate-400 font-mono">Weight: {ezBarWeight} KG</span>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-[10px] text-slate-400 font-mono">Weight:</span>
+                        <div className="flex items-center bg-slate-950 rounded-lg border border-slate-700 px-1 py-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic("light");
+                              setEzBarWeight((prev) => Math.max(1, Math.round(((Number(prev) || 5) - 0.5) * 10) / 10));
+                            }}
+                            className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-white"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="1"
+                            max="30"
+                            value={ezBarWeight}
+                            onChange={(e) => setEzBarWeight(e.target.value)}
+                            onBlur={() => {
+                              if (ezBarWeight === "" || isNaN(Number(ezBarWeight))) {
+                                setEzBarWeight(5.0);
+                              } else {
+                                setEzBarWeight(Math.max(1, Math.min(30, Math.round(Number(ezBarWeight) * 10) / 10)));
+                              }
+                            }}
+                            className="w-8 text-center text-[11px] font-mono font-bold text-cyan-400 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic("light");
+                              setEzBarWeight((prev) => Math.min(30, Math.round(((Number(prev) || 5) + 0.5) * 10) / 10));
+                            }}
+                            className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-white"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono">KG</span>
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -503,7 +653,7 @@ export default function CharacterCreationPage() {
                         triggerHaptic("light");
                         setHasEzBar(!hasEzBar);
                       }}
-                      className={`px-3 py-1 rounded-xl text-xs font-mono font-bold border transition ${
+                      className={`px-3 py-1 rounded-xl text-xs font-mono font-bold border transition shrink-0 ${
                         hasEzBar
                           ? "bg-emerald-500/20 text-emerald-300 border-emerald-400 shadow-sm"
                           : "bg-red-950/40 text-red-400 border-red-500/40"
@@ -566,89 +716,313 @@ export default function CharacterCreationPage() {
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                      <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">
+                    {/* DB Handle */}
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                      <label className="text-[10px] text-slate-400 uppercase font-mono block">
                         DB Handle (KG)
                       </label>
-                      <input
-                        type="number"
-                        step="0.5"
-                        value={handleWeight}
-                        onChange={(e) => setHandleWeight(parseFloat(e.target.value) || 2)}
-                        className="w-full text-center text-sm font-black font-mono text-cyan-400 bg-transparent focus:outline-none"
-                      />
+                      <div className="flex items-center justify-between bg-slate-950/70 rounded-lg p-0.5 border border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setHandleWeight((prev) => Math.max(0, Math.round(((Number(prev) || 2) - 0.5) * 10) / 10));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          max="20"
+                          value={handleWeight}
+                          onChange={(e) => setHandleWeight(e.target.value)}
+                          onBlur={() => {
+                            if (handleWeight === "" || isNaN(Number(handleWeight))) {
+                              setHandleWeight(2.0);
+                            } else {
+                              setHandleWeight(Math.max(0, Math.min(20, Math.round(Number(handleWeight) * 10) / 10)));
+                            }
+                          }}
+                          className="w-10 text-center text-xs font-black font-mono text-cyan-400 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setHandleWeight((prev) => Math.min(20, Math.round(((Number(prev) || 2) + 0.5) * 10) / 10));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-cyan-500/40">
-                      <label className="text-[10px] text-cyan-300 uppercase font-mono block mb-1">
+                    {/* 10KG Plates */}
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-cyan-500/40 space-y-1">
+                      <label className="text-[10px] text-cyan-300 uppercase font-mono block">
                         10KG Plates
                       </label>
-                      <input
-                        type="number"
-                        value={plate10kgCount}
-                        onChange={(e) => setPlate10kgCount(parseInt(e.target.value, 10) || 0)}
-                        className="w-full text-center text-sm font-black font-mono text-white bg-transparent focus:outline-none"
-                      />
+                      <div className="flex items-center justify-between bg-slate-950/70 rounded-lg p-0.5 border border-cyan-500/20">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setPlate10kgCount((prev) => Math.max(0, (Number(prev) || 0) - 1));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          max="20"
+                          value={plate10kgCount}
+                          onChange={(e) => setPlate10kgCount(e.target.value)}
+                          onBlur={() => {
+                            if (plate10kgCount === "" || isNaN(Number(plate10kgCount))) {
+                              setPlate10kgCount(0);
+                            } else {
+                              setPlate10kgCount(Math.max(0, Math.min(20, Math.floor(Number(plate10kgCount)))));
+                            }
+                          }}
+                          className="w-8 text-center text-xs font-black font-mono text-white bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setPlate10kgCount((prev) => Math.min(20, (Number(prev) || 0) + 1));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                      <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">
+                    {/* 5KG Plates */}
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                      <label className="text-[10px] text-slate-400 uppercase font-mono block">
                         5KG Plates
                       </label>
-                      <input
-                        type="number"
-                        value={plate5kgCount}
-                        onChange={(e) => setPlate5kgCount(parseInt(e.target.value, 10) || 0)}
-                        className="w-full text-center text-sm font-black font-mono text-white bg-transparent focus:outline-none"
-                      />
+                      <div className="flex items-center justify-between bg-slate-950/70 rounded-lg p-0.5 border border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setPlate5kgCount((prev) => Math.max(0, (Number(prev) || 0) - 1));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          max="20"
+                          value={plate5kgCount}
+                          onChange={(e) => setPlate5kgCount(e.target.value)}
+                          onBlur={() => {
+                            if (plate5kgCount === "" || isNaN(Number(plate5kgCount))) {
+                              setPlate5kgCount(0);
+                            } else {
+                              setPlate5kgCount(Math.max(0, Math.min(20, Math.floor(Number(plate5kgCount)))));
+                            }
+                          }}
+                          className="w-8 text-center text-xs font-black font-mono text-white bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setPlate5kgCount((prev) => Math.min(20, (Number(prev) || 0) + 1));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                      <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">
+                    {/* 2.5KG Plates */}
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                      <label className="text-[10px] text-slate-400 uppercase font-mono block">
                         2.5KG Plates
                       </label>
-                      <input
-                        type="number"
-                        value={plate25kgCount}
-                        onChange={(e) => setPlate25kgCount(parseInt(e.target.value, 10) || 0)}
-                        className="w-full text-center text-sm font-black font-mono text-white bg-transparent focus:outline-none"
-                      />
+                      <div className="flex items-center justify-between bg-slate-950/70 rounded-lg p-0.5 border border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setPlate25kgCount((prev) => Math.max(0, (Number(prev) || 0) - 1));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          max="20"
+                          value={plate25kgCount}
+                          onChange={(e) => setPlate25kgCount(e.target.value)}
+                          onBlur={() => {
+                            if (plate25kgCount === "" || isNaN(Number(plate25kgCount))) {
+                              setPlate25kgCount(0);
+                            } else {
+                              setPlate25kgCount(Math.max(0, Math.min(20, Math.floor(Number(plate25kgCount)))));
+                            }
+                          }}
+                          className="w-8 text-center text-xs font-black font-mono text-white bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setPlate25kgCount((prev) => Math.min(20, (Number(prev) || 0) + 1));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                      <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">
+                    {/* 2KG Plates */}
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                      <label className="text-[10px] text-slate-400 uppercase font-mono block">
                         2KG Plates
                       </label>
-                      <input
-                        type="number"
-                        value={plate2kgCount}
-                        onChange={(e) => setPlate2kgCount(parseInt(e.target.value, 10) || 0)}
-                        className="w-full text-center text-sm font-black font-mono text-white bg-transparent focus:outline-none"
-                      />
+                      <div className="flex items-center justify-between bg-slate-950/70 rounded-lg p-0.5 border border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setPlate2kgCount((prev) => Math.max(0, (Number(prev) || 0) - 1));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          max="20"
+                          value={plate2kgCount}
+                          onChange={(e) => setPlate2kgCount(e.target.value)}
+                          onBlur={() => {
+                            if (plate2kgCount === "" || isNaN(Number(plate2kgCount))) {
+                              setPlate2kgCount(0);
+                            } else {
+                              setPlate2kgCount(Math.max(0, Math.min(20, Math.floor(Number(plate2kgCount)))));
+                            }
+                          }}
+                          className="w-8 text-center text-xs font-black font-mono text-white bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setPlate2kgCount((prev) => Math.min(20, (Number(prev) || 0) + 1));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                      <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">
+                    {/* 1.25KG Plates */}
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                      <label className="text-[10px] text-slate-400 uppercase font-mono block">
                         1.25KG Plates
                       </label>
-                      <input
-                        type="number"
-                        value={plate125kgCount}
-                        onChange={(e) => setPlate125kgCount(parseInt(e.target.value, 10) || 0)}
-                        className="w-full text-center text-sm font-black font-mono text-white bg-transparent focus:outline-none"
-                      />
+                      <div className="flex items-center justify-between bg-slate-950/70 rounded-lg p-0.5 border border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setPlate125kgCount((prev) => Math.max(0, (Number(prev) || 0) - 1));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          max="20"
+                          value={plate125kgCount}
+                          onChange={(e) => setPlate125kgCount(e.target.value)}
+                          onBlur={() => {
+                            if (plate125kgCount === "" || isNaN(Number(plate125kgCount))) {
+                              setPlate125kgCount(0);
+                            } else {
+                              setPlate125kgCount(Math.max(0, Math.min(20, Math.floor(Number(plate125kgCount)))));
+                            }
+                          }}
+                          className="w-8 text-center text-xs font-black font-mono text-white bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setPlate125kgCount((prev) => Math.min(20, (Number(prev) || 0) + 1));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                      <label className="text-[10px] text-slate-400 uppercase font-mono block mb-1">
+                    {/* 1KG Plates */}
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                      <label className="text-[10px] text-slate-400 uppercase font-mono block">
                         1KG Plates
                       </label>
-                      <input
-                        type="number"
-                        value={plate1kgCount}
-                        onChange={(e) => setPlate1kgCount(parseInt(e.target.value, 10) || 0)}
-                        className="w-full text-center text-sm font-black font-mono text-white bg-transparent focus:outline-none"
-                      />
+                      <div className="flex items-center justify-between bg-slate-950/70 rounded-lg p-0.5 border border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setPlate1kgCount((prev) => Math.max(0, (Number(prev) || 0) - 1));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          max="20"
+                          value={plate1kgCount}
+                          onChange={(e) => setPlate1kgCount(e.target.value)}
+                          onBlur={() => {
+                            if (plate1kgCount === "" || isNaN(Number(plate1kgCount))) {
+                              setPlate1kgCount(0);
+                            } else {
+                              setPlate1kgCount(Math.max(0, Math.min(20, Math.floor(Number(plate1kgCount)))));
+                            }
+                          }}
+                          className="w-8 text-center text-xs font-black font-mono text-white bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("light");
+                            setPlate1kgCount((prev) => Math.min(20, (Number(prev) || 0) + 1));
+                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -668,17 +1042,56 @@ export default function CharacterCreationPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Monthly Budget */}
               <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
-                  <DollarSign className="w-4 h-4 text-emerald-400" />
-                  <span>Monthly Food Budget (INR ₹)</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                    <DollarSign className="w-4 h-4 text-emerald-400" />
+                    <span>Monthly Food Budget</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-emerald-400">₹{monthlyBudgetInr}</span>
                 </div>
-                <input
-                  type="number"
-                  step="500"
-                  value={monthlyBudgetInr}
-                  onChange={(e) => setMonthlyBudgetInr(parseInt(e.target.value) || 4500)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-sm text-cyan-400 font-mono font-bold"
-                />
+                <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 focus-within:border-emerald-500/50">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setMonthlyBudgetInr((prev) => Math.max(500, (Number(prev) || 4500) - 250));
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 active:scale-95"
+                    title="Decrease budget"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <div className="flex-1 flex items-center justify-center">
+                    <span className="text-slate-500 font-mono text-xs mr-1">₹</span>
+                    <input
+                      type="number"
+                      step="250"
+                      min="500"
+                      max="100000"
+                      value={monthlyBudgetInr}
+                      onChange={(e) => setMonthlyBudgetInr(e.target.value)}
+                      onBlur={() => {
+                        if (monthlyBudgetInr === "" || isNaN(Number(monthlyBudgetInr))) {
+                          setMonthlyBudgetInr(4500);
+                        } else {
+                          setMonthlyBudgetInr(Math.max(500, Math.min(100000, Math.round(Number(monthlyBudgetInr)))));
+                        }
+                      }}
+                      className="w-24 text-center text-sm text-cyan-400 font-mono font-bold bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setMonthlyBudgetInr((prev) => Math.min(100000, (Number(prev) || 4500) + 250));
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 active:scale-95"
+                    title="Increase budget"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
                 <span className="text-[11px] text-slate-400 block">
                   High-protein staples &amp; cellular recovery allocation
                 </span>
@@ -686,17 +1099,56 @@ export default function CharacterCreationPage() {
 
               {/* Daily Water Target */}
               <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
-                  <Droplets className="w-4 h-4 text-cyan-400" />
-                  <span>Daily Hydration Target (Litres)</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                    <Droplets className="w-4 h-4 text-cyan-400" />
+                    <span>Daily Hydration Target</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-cyan-400">{dailyWaterLitres} L</span>
                 </div>
-                <input
-                  type="number"
-                  step="0.5"
-                  value={dailyWaterLitres}
-                  onChange={(e) => setDailyWaterLitres(parseFloat(e.target.value) || 3.5)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-sm text-cyan-400 font-mono font-bold"
-                />
+                <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 focus-within:border-cyan-500/50">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setDailyWaterLitres((prev) => Math.max(1, Math.round(((Number(prev) || 3.5) - 0.25) * 100) / 100));
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 active:scale-95"
+                    title="Decrease water"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <div className="flex-1 flex items-center justify-center">
+                    <input
+                      type="number"
+                      step="0.25"
+                      min="1"
+                      max="10"
+                      value={dailyWaterLitres}
+                      onChange={(e) => setDailyWaterLitres(e.target.value)}
+                      onBlur={() => {
+                        if (dailyWaterLitres === "" || isNaN(Number(dailyWaterLitres))) {
+                          setDailyWaterLitres(3.5);
+                        } else {
+                          setDailyWaterLitres(Math.max(1, Math.min(10, Math.round(Number(dailyWaterLitres) * 100) / 100)));
+                        }
+                      }}
+                      className="w-20 text-center text-sm text-cyan-400 font-mono font-bold bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="text-slate-500 font-mono text-xs ml-1">L</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setDailyWaterLitres((prev) => Math.min(10, Math.round(((Number(prev) || 3.5) + 0.25) * 100) / 100));
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 active:scale-95"
+                    title="Increase water"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
                 <span className="text-[11px] text-slate-400 block">
                   Metabolic kinetics &amp; cellular recovery hydration
                 </span>
@@ -704,17 +1156,56 @@ export default function CharacterCreationPage() {
 
               {/* Daily Step Target */}
               <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
-                  <Footprints className="w-4 h-4 text-amber-400" />
-                  <span>Daily Walking Target (Steps)</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                    <Footprints className="w-4 h-4 text-amber-400" />
+                    <span>Daily Walking Target</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-amber-400">{dailyStepTarget} steps</span>
                 </div>
-                <input
-                  type="number"
-                  step="500"
-                  value={dailyStepTarget}
-                  onChange={(e) => setDailyStepTarget(parseInt(e.target.value) || 8000)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-sm text-cyan-400 font-mono font-bold"
-                />
+                <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 focus-within:border-amber-500/50">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setDailyStepTarget((prev) => Math.max(1000, (Number(prev) || 8000) - 500));
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 active:scale-95"
+                    title="Decrease step target"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <div className="flex-1 flex items-center justify-center">
+                    <input
+                      type="number"
+                      step="500"
+                      min="1000"
+                      max="50000"
+                      value={dailyStepTarget}
+                      onChange={(e) => setDailyStepTarget(e.target.value)}
+                      onBlur={() => {
+                        if (dailyStepTarget === "" || isNaN(Number(dailyStepTarget))) {
+                          setDailyStepTarget(8000);
+                        } else {
+                          setDailyStepTarget(Math.max(1000, Math.min(50000, Math.round(Number(dailyStepTarget)))));
+                        }
+                      }}
+                      className="w-24 text-center text-sm text-cyan-400 font-mono font-bold bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="text-slate-500 font-mono text-xs ml-1">steps</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setDailyStepTarget((prev) => Math.min(50000, (Number(prev) || 8000) + 500));
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 active:scale-95"
+                    title="Increase step target"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
                 <span className="text-[11px] text-slate-400 block">
                   Baseline NEAT calorie expenditure &amp; endurance
                 </span>
@@ -722,18 +1213,55 @@ export default function CharacterCreationPage() {
 
               {/* Boiled Eggs Weekly Days */}
               <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
-                  <Utensils className="w-4 h-4 text-yellow-400" />
-                  <span>Boiled Eggs Protocol (Days / Week)</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                    <Utensils className="w-4 h-4 text-yellow-400" />
+                    <span>Boiled Eggs Protocol</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-yellow-400">{boiledEggsWeeklyDays} days/wk</span>
                 </div>
-                <input
-                  type="number"
-                  min="0"
-                  max="7"
-                  value={boiledEggsWeeklyDays}
-                  onChange={(e) => setBoiledEggsWeeklyDays(parseInt(e.target.value) || 4)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-sm text-cyan-400 font-mono font-bold"
-                />
+                <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 focus-within:border-yellow-500/50">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setBoiledEggsWeeklyDays((prev) => Math.max(0, (Number(prev) || 4) - 1));
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 active:scale-95"
+                    title="Decrease days"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <div className="flex-1 flex items-center justify-center">
+                    <input
+                      type="number"
+                      min="0"
+                      max="7"
+                      value={boiledEggsWeeklyDays}
+                      onChange={(e) => setBoiledEggsWeeklyDays(e.target.value)}
+                      onBlur={() => {
+                        if (boiledEggsWeeklyDays === "" || isNaN(Number(boiledEggsWeeklyDays))) {
+                          setBoiledEggsWeeklyDays(4);
+                        } else {
+                          setBoiledEggsWeeklyDays(Math.max(0, Math.min(7, Math.round(Number(boiledEggsWeeklyDays)))));
+                        }
+                      }}
+                      className="w-16 text-center text-sm text-cyan-400 font-mono font-bold bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="text-slate-500 font-mono text-xs ml-1">days</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setBoiledEggsWeeklyDays((prev) => Math.min(7, (Number(prev) || 4) + 1));
+                    }}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 active:scale-95"
+                    title="Increase days"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
                 <span className="text-[11px] text-slate-400 block">
                   Complete bio-available protein foundation
                 </span>

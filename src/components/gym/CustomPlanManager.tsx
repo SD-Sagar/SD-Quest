@@ -161,9 +161,9 @@ export function CustomPlanManager({
   const [newExMuscle, setNewExMuscle] = useState("Chest");
   const [newExAngle, setNewExAngle] = useState("Flat");
   const [newExEquipment, setNewExEquipment] = useState<ExerciseRequiredEquipment>("dumbbells");
-  const [newExWeight, setNewExWeight] = useState(10);
-  const [newExSets, setNewExSets] = useState(3);
-  const [newExReps, setNewExReps] = useState(10);
+  const [newExWeight, setNewExWeight] = useState<number | string>(10);
+  const [newExSets, setNewExSets] = useState<number | string>(3);
+  const [newExReps, setNewExReps] = useState<number | string>(10);
   const [newExRest, setNewExRest] = useState(60);
   const [newExSelectedAttrs, setNewExSelectedAttrs] = useState<AttributeType[]>([
     "strength",
@@ -2057,62 +2057,144 @@ export function CustomPlanManager({
 
               {/* Sets, Reps, Weight with Intelligent Rank Ceilings */}
               {(() => {
-                const modalCeiling = getRepCeilingForRankAndSets(playerRank, newExSets);
+                const modalCeiling = getRepCeilingForRankAndSets(playerRank, Number(newExSets) || 1);
                 return (
                   <div className="space-y-1.5">
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <label className="block text-[10px] text-slate-400 uppercase">Sets (Max {maxAllowedSets})</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max={maxAllowedSets}
-                          value={newExSets}
-                          onChange={(e) => {
-                            const val = Math.min(maxAllowedSets, Math.max(1, Number(e.target.value) || 1));
-                            setNewExSets(val);
-                            const ceil = getRepCeilingForRankAndSets(playerRank, val);
-                            if (newExReps > ceil.maxReps) {
-                              setNewExReps(ceil.maxReps);
-                            }
-                          }}
-                          className="w-full rounded-xl bg-[#070b14] border border-cyan-500/30 px-3 py-1.5 text-white text-xs font-mono"
-                        />
+                        <div className="flex items-center bg-[#070b14] border border-cyan-500/30 rounded-xl p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic("light");
+                              const next = Math.max(1, (Number(newExSets) || 1) - 1);
+                              setNewExSets(next);
+                            }}
+                            className="w-6 h-6 flex items-center justify-center rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            max={maxAllowedSets}
+                            value={newExSets}
+                            onChange={(e) => setNewExSets(e.target.value)}
+                            onBlur={() => {
+                              const val = Math.min(maxAllowedSets, Math.max(1, Number(newExSets) || 1));
+                              setNewExSets(val);
+                              const ceil = getRepCeilingForRankAndSets(playerRank, val);
+                              if (Number(newExReps) > ceil.maxReps) {
+                                setNewExReps(ceil.maxReps);
+                              }
+                            }}
+                            className="w-full text-center bg-transparent py-1 text-white text-xs font-mono font-bold focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic("light");
+                              const next = Math.min(maxAllowedSets, (Number(newExSets) || 1) + 1);
+                              setNewExSets(next);
+                              const ceil = getRepCeilingForRankAndSets(playerRank, next);
+                              if (Number(newExReps) > ceil.maxReps) {
+                                setNewExReps(ceil.maxReps);
+                              }
+                            }}
+                            className="w-6 h-6 flex items-center justify-center rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-[10px] text-slate-400 uppercase">
                           Reps {modalCeiling.isRestricted && <span className="text-cyan-400 font-bold">(Max {modalCeiling.maxReps})</span>}
                         </label>
-                        <input
-                          type="number"
-                          min="1"
-                          max={modalCeiling.maxReps}
-                          value={newExReps}
-                          onChange={(e) => {
-                            const val = Math.min(modalCeiling.maxReps, Math.max(1, Number(e.target.value) || 1));
-                            setNewExReps(val);
-                          }}
-                          className="w-full rounded-xl bg-[#070b14] border border-cyan-500/30 px-3 py-1.5 text-white text-xs font-mono"
-                        />
+                        <div className="flex items-center bg-[#070b14] border border-cyan-500/30 rounded-xl p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic("light");
+                              const next = Math.max(1, (Number(newExReps) || 1) - 1);
+                              setNewExReps(next);
+                            }}
+                            className="w-6 h-6 flex items-center justify-center rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            max={modalCeiling.maxReps}
+                            value={newExReps}
+                            onChange={(e) => setNewExReps(e.target.value)}
+                            onBlur={() => {
+                              const val = Math.min(modalCeiling.maxReps, Math.max(1, Number(newExReps) || 1));
+                              setNewExReps(val);
+                            }}
+                            className="w-full text-center bg-transparent py-1 text-white text-xs font-mono font-bold focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic("light");
+                              const next = Math.min(modalCeiling.maxReps, (Number(newExReps) || 1) + 1);
+                              setNewExReps(next);
+                            }}
+                            className="w-6 h-6 flex items-center justify-center rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-[10px] text-slate-400 uppercase">
                           {newExEquipment === "bodyweight" ? "Resistance" : "Weight (kg)"}
                         </label>
                         {newExEquipment === "bodyweight" ? (
-                          <div className="w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-1.5 text-emerald-400 text-xs font-mono font-bold">
+                          <div className="w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-1.5 text-emerald-400 text-xs font-mono font-bold text-center">
                             BODYWEIGHT
                           </div>
                         ) : (
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.5"
-                            value={newExWeight}
-                            onChange={(e) => setNewExWeight(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
-                            className="w-full rounded-xl bg-[#070b14] border border-cyan-500/30 px-3 py-1.5 text-white text-xs font-mono"
-                          />
+                          <div className="flex items-center bg-[#070b14] border border-cyan-500/30 rounded-xl p-0.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                triggerHaptic("light");
+                                const next = Math.max(0, Math.round(((Number(newExWeight) || 0) - 1.0) * 10) / 10);
+                                setNewExWeight(next);
+                              }}
+                              className="w-6 h-6 flex items-center justify-center rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <input
+                              type="number"
+                              min="0"
+                              max="120"
+                              step="0.5"
+                              value={newExWeight}
+                              onChange={(e) => setNewExWeight(e.target.value)}
+                              onBlur={() => {
+                                const val = Math.min(120, Math.max(0, Math.round((Number(newExWeight) || 0) * 10) / 10));
+                                setNewExWeight(val);
+                              }}
+                              className="w-full text-center bg-transparent py-1 text-white text-xs font-mono font-bold focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                triggerHaptic("light");
+                                const next = Math.min(120, Math.round(((Number(newExWeight) || 0) + 1.0) * 10) / 10);
+                                setNewExWeight(next);
+                              }}
+                              className="w-6 h-6 flex items-center justify-center rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
