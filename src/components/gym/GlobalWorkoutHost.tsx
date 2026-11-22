@@ -8,6 +8,7 @@ import {
   maximizeQuestSession,
   minimizeQuestSession,
   endQuestSession,
+  updateQuestLiveFatigue,
 } from "@/store/slices/questUiSlice";
 import { getActiveSessionAction, clearActiveSessionAction } from "@/server/actions/player.actions";
 import { ActiveWorkoutModal } from "./ActiveWorkoutModal";
@@ -31,8 +32,6 @@ export function GlobalWorkoutHost() {
 
   const questUiState = useAppSelector((state) => state.questUi);
   const [questElapsedSeconds, setQuestElapsedSeconds] = useState(0);
-  const [baseMental, setBaseMental] = useState(() => questUiState.initialMentalFatigue ?? 0);
-  const [basePhysical, setBasePhysical] = useState(() => questUiState.initialPhysicalFatigue ?? 0);
   const [surgeRemainingSecs, setSurgeRemainingSecs] = useState(0);
 
   // Live cellular hydration surge listener
@@ -73,13 +72,6 @@ export function GlobalWorkoutHost() {
         const session = await getActiveSessionAction();
         if (!isMounted || !session) return;
 
-        if (session.mental_fatigue !== undefined || session.current_profile_mental !== undefined) {
-          setBaseMental(Number(session.mental_fatigue ?? session.current_profile_mental) || 0);
-        }
-        if (session.physical_fatigue !== undefined || session.current_profile_physical !== undefined) {
-          setBasePhysical(Number(session.physical_fatigue ?? session.current_profile_physical) || 0);
-        }
-
         const isWorkout =
           session.type === "workout" ||
           Boolean(session.exercises) ||
@@ -104,19 +96,69 @@ export function GlobalWorkoutHost() {
     };
   }, [isWorkoutActive, isQuestActive, dispatch]);
 
-  // 2. Live timer ticker for active quest in Redux
+  // 2. Authoritative live ticker for active quest in Redux (Single source of truth)
   useEffect(() => {
-    if (!isQuestActive || !questStartedAtTimestamp) return;
+    if (!isQuestActive || !questStartedAtTimestamp || !activeQuest) return;
 
-    const updateTimer = () => {
+    const tick = () => {
       const now = Date.now();
-      setQuestElapsedSeconds(Math.max(0, Math.floor((now - questStartedAtTimestamp) / 1000)));
+      const elapsedSecs = Math.max(0, Math.floor((now - questStartedAtTimestamp) / 1000));
+      setQuestElapsedSeconds(elapsedSecs);
+
+      const targetMins = activeQuest.estimated_duration_minutes || 60;
+      const isMeditationQuest =
+        activeQuest.category === "meditation" ||
+        activeQuest.description?.includes("[MEDITATION_PROTOCOL]") ||
+        activeQuest.title.toLowerCase().includes("meditat");
+
+      const linkedAttrs = Object.keys(activeQuest.attribute_rewards || {});
+
+      const liveFatigue = calculateSessionFatigueDelta({
+        durationMinutes: elapsedSecs / 60,
+        targetMinutes: targetMins,
+        isFun: activeQuest.is_fun,
+        linkedAttributes: linkedAttrs as AttributeType[],
+        category: activeQuest.category,
+        currentMentalFatigue: questUiState.initialMentalFatigue,
+        currentPhysicalFatigue: questUiState.initialPhysicalFatigue,
+        isMeditation: isMeditationQuest,
+        hunterLevel: questUiState.hunterLevel || 1,
+        priority: activeQuest.priority,
+        difficulty: activeQuest.difficulty,
+        isHydrationSurge: surgeRemainingSecs > 0,
+      });
+
+      const startedAtIso = new Date(questStartedAtTimestamp).toISOString();
+      const passiveDecay = calculatePassiveFatigueDecay(
+        startedAtIso,
+        questUiState.initialMentalFatigue,
+        questUiState.initialPhysicalFatigue,
+        undefined,
+        { hunterLevel: questUiState.hunterLevel || 1 }
+      );
+
+      const totalMental = Math.max(0, Math.min(100, Number((passiveDecay.newMentalFatigue + liveFatigue.mentalDelta).toFixed(2))));
+      const totalPhysical = Math.max(0, Math.min(100, Number((passiveDecay.newPhysicalFatigue + liveFatigue.physicalDelta).toFixed(2))));
+
+      dispatch(updateQuestLiveFatigue({
+        currentPhysicalFatigue: totalPhysical,
+        currentMentalFatigue: totalMental,
+      }));
     };
 
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [isQuestActive, questStartedAtTimestamp]);
+  }, [
+    isQuestActive,
+    questStartedAtTimestamp,
+    activeQuest,
+    questUiState.initialMentalFatigue,
+    questUiState.initialPhysicalFatigue,
+    questUiState.hunterLevel,
+    surgeRemainingSecs,
+    dispatch,
+  ]);
 
   // Handlers for Quest Minimized Capsule
   const handleResumeQuest = () => {
@@ -186,37 +228,16 @@ export function GlobalWorkoutHost() {
     );
     const isPureFunQuest = Boolean(activeQuest.is_fun && (!funHasGrowth || linkedAttrs.length === 0));
 
-    // Pure mathematical projection: perfectly matches final log formula
-    const liveFatigue = calculateSessionFatigueDelta({
-      durationMinutes: questElapsedSeconds / 60,
-      targetMinutes: targetMins,
-      isFun: activeQuest.is_fun,
-      linkedAttributes: linkedAttrs as AttributeType[],
-      category: activeQuest.category,
-      currentMentalFatigue: baseMental,
-      currentPhysicalFatigue: basePhysical,
-      isMeditation: isMeditationQuest,
-      hunterLevel: questUiState.hunterLevel || 1,
-      priority: activeQuest.priority,
-      difficulty: activeQuest.difficulty,
-      isHydrationSurge: surgeRemainingSecs > 0,
-    });
-
     const overtimeSecs = Math.max(0, questElapsedSeconds - targetMins * 60);
     const liveDrainXp = Math.round(overtimeSecs * 0.50);
     const overtimeBlocks = Math.floor((elapsedMins - targetMins) / 5);
     const meditationSurgePercent = overtimeBlocks * 10;
 
-    const startedAtIso = questStartedAtTimestamp ? new Date(questStartedAtTimestamp).toISOString() : undefined;
-    const passiveDecay = calculatePassiveFatigueDecay(
-      startedAtIso,
-      baseMental,
-      basePhysical,
-      undefined,
-      { hunterLevel: questUiState.hunterLevel || 1 }
-    );
-    const totalMental = Math.max(0, Math.min(100, passiveDecay.newMentalFatigue + liveFatigue.mentalDelta));
-    const totalPhysical = Math.max(0, Math.min(100, passiveDecay.newPhysicalFatigue + liveFatigue.physicalDelta));
+    const totalMental = questUiState.currentMentalFatigue;
+    const totalPhysical = questUiState.currentPhysicalFatigue;
+    const isMentalPurge =
+      isMeditationQuest ||
+      (activeQuest.is_fun && (!funHasGrowth || linkedAttrs.length === 0));
 
     return (
       <div
@@ -248,7 +269,7 @@ export function GlobalWorkoutHost() {
               <span className={`text-[9.5px] font-mono px-1 rounded flex items-center gap-0.5 ${
                 totalMental >= 85
                   ? "text-red-300 bg-red-950/80 border border-red-500 animate-pulse"
-                  : liveFatigue.mentalDelta < 0
+                  : isMentalPurge
                   ? "text-emerald-400 bg-emerald-950/60 border border-emerald-500/30"
                   : "text-cyan-300 bg-cyan-950/50 border border-cyan-500/30"
               }`}>
@@ -258,9 +279,9 @@ export function GlobalWorkoutHost() {
               <span className={`text-[9.5px] font-mono px-1 rounded flex items-center gap-0.5 ${
                 totalPhysical >= 85
                   ? "text-red-300 bg-red-950/80 border border-red-500 animate-pulse"
-                  : liveFatigue.physicalDelta > 0
+                  : totalPhysical >= 50
                   ? "text-amber-300 bg-amber-950/60 border border-amber-500/30"
-                  : "text-slate-400 bg-slate-900 border border-slate-800"
+                  : "text-cyan-300 bg-cyan-950/50 border border-cyan-500/30"
               }`}>
                 PHY: {totalPhysical.toFixed(1)}%
               </span>

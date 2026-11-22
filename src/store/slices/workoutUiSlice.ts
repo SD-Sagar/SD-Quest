@@ -47,6 +47,8 @@ export interface ActiveWorkoutUiState {
   currentMentalFatigue: number;
   initialPhysicalFatigue: number;
   initialMentalFatigue: number;
+  currentSetAccumulatedPhysical: number;
+  currentSetAccumulatedMental: number;
   totalPlannedSets: number;
   totalPlannedTonnage: number;
   completedSetsCount: number;
@@ -90,6 +92,8 @@ const initialState: ActiveWorkoutUiState = {
   currentMentalFatigue: 0,
   initialPhysicalFatigue: 0,
   initialMentalFatigue: 0,
+  currentSetAccumulatedPhysical: 0,
+  currentSetAccumulatedMental: 0,
   totalPlannedSets: 0,
   totalPlannedTonnage: 0,
   completedSetsCount: 0,
@@ -239,11 +243,15 @@ export const workoutUiSlice = createSlice({
       }
       state.setupTimerActive = false;
       state.status = "lifting";
+      state.currentSetAccumulatedPhysical = 0;
+      state.currentSetAccumulatedMental = 0;
     },
 
     confirmStartExercise: (state) => {
       state.setupTimerActive = false;
       state.status = "lifting";
+      state.currentSetAccumulatedPhysical = 0;
+      state.currentSetAccumulatedMental = 0;
     },
 
     tickSetupTimer: (state, action: PayloadAction<{ isHydrationSurge?: boolean } | undefined>) => {
@@ -262,6 +270,35 @@ export const workoutUiSlice = createSlice({
 
       state.currentPhysicalFatigue = Math.max(0, Number((state.currentPhysicalFatigue - physicalRecoveryPerSec).toFixed(3)));
       state.currentMentalFatigue = Math.max(0, Number((state.currentMentalFatigue - mentalRecoveryPerSec).toFixed(3)));
+    },
+
+    tickLiftingSet: (state, action: PayloadAction<{ isHydrationSurge?: boolean } | undefined>) => {
+      if (state.status !== "lifting" || state.restTimerActive) return;
+      const exercise = state.exercises[state.currentExerciseIndex];
+      if (!exercise) return;
+      const currentSet = exercise.sets[state.currentSetIndex];
+      if (!currentSet) return;
+
+      const targetSetDelta = calculateSetFatigueDelta({
+        setIndex: state.completedSetsCount,
+        totalSets: state.totalPlannedSets || 12,
+        weightKg: currentSet.weightKg,
+        reps: currentSet.reps,
+        plannedWeightKg: currentSet.weightKg,
+        plannedReps: currentSet.reps,
+        hunterLevel: state.playerLevel || 1,
+      });
+
+      // Cellular hydration surge buffers fatigue accumulation during lifting (0.75x accumulation)
+      const hydrationBuff = action.payload?.isHydrationSurge ? 0.75 : 1.0;
+      const setDuration = 40; // baseline planned set duration in seconds
+      const physIncrement = (targetSetDelta.physicalDelta / setDuration) * hydrationBuff;
+      const mentIncrement = (targetSetDelta.mentalDelta / setDuration) * hydrationBuff;
+
+      state.currentPhysicalFatigue = Math.min(100, Number((state.currentPhysicalFatigue + physIncrement).toFixed(3)));
+      state.currentMentalFatigue = Math.min(100, Number((state.currentMentalFatigue + mentIncrement).toFixed(3)));
+      state.currentSetAccumulatedPhysical = (state.currentSetAccumulatedPhysical || 0) + physIncrement;
+      state.currentSetAccumulatedMental = (state.currentSetAccumulatedMental || 0) + mentIncrement;
     },
 
     adjustSetupTimer: (state, action: PayloadAction<number>) => {
@@ -296,14 +333,25 @@ export const workoutUiSlice = createSlice({
           hunterLevel: state.playerLevel || 1,
         });
 
-        state.currentPhysicalFatigue = Math.min(
-          100,
-          Math.max(0, Number((state.currentPhysicalFatigue + fatigueDelta.physicalDelta).toFixed(2)))
-        );
-        state.currentMentalFatigue = Math.min(
-          100,
-          Math.max(0, Number((state.currentMentalFatigue + fatigueDelta.mentalDelta).toFixed(2)))
-        );
+        // Top up only if logged early before live accumulation reached full set delta (ZERO sudden double-jump)
+        const remainingPhys = Math.max(0, fatigueDelta.physicalDelta - (state.currentSetAccumulatedPhysical || 0));
+        const remainingMent = Math.max(0, fatigueDelta.mentalDelta - (state.currentSetAccumulatedMental || 0));
+
+        if (remainingPhys > 0) {
+          state.currentPhysicalFatigue = Math.min(
+            100,
+            Math.max(0, Number((state.currentPhysicalFatigue + remainingPhys).toFixed(2)))
+          );
+        }
+        if (remainingMent > 0) {
+          state.currentMentalFatigue = Math.min(
+            100,
+            Math.max(0, Number((state.currentMentalFatigue + remainingMent).toFixed(2)))
+          );
+        }
+
+        state.currentSetAccumulatedPhysical = 0;
+        state.currentSetAccumulatedMental = 0;
         state.completedSetsCount += 1;
 
         if (state.currentSetIndex + 1 < exercise.sets.length) {
@@ -487,6 +535,7 @@ export const {
   confirmStartExercise,
   tickSetupTimer,
   adjustSetupTimer,
+  tickLiftingSet,
   addSetToCurrentExercise,
   completeActiveSet,
   skipExerciseWithPenalty,

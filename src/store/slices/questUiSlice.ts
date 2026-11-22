@@ -8,6 +8,8 @@ export interface ActiveQuestUiState {
   startedAtTimestamp: number | null;
   initialPhysicalFatigue: number;
   initialMentalFatigue: number;
+  currentPhysicalFatigue: number;
+  currentMentalFatigue: number;
   hunterLevel: number;
 }
 
@@ -18,6 +20,8 @@ const initialState: ActiveQuestUiState = {
   startedAtTimestamp: null,
   initialPhysicalFatigue: 0,
   initialMentalFatigue: 0,
+  currentPhysicalFatigue: 0,
+  currentMentalFatigue: 0,
   hunterLevel: 1,
 };
 
@@ -41,6 +45,8 @@ export const questUiSlice = createSlice({
       state.startedAtTimestamp = action.payload.startedAtTimestamp || Date.now();
       state.initialPhysicalFatigue = action.payload.initialPhysicalFatigue ?? 0;
       state.initialMentalFatigue = action.payload.initialMentalFatigue ?? 0;
+      state.currentPhysicalFatigue = action.payload.initialPhysicalFatigue ?? 0;
+      state.currentMentalFatigue = action.payload.initialMentalFatigue ?? 0;
       state.hunterLevel = action.payload.hunterLevel ?? 1;
     },
     minimizeQuestSession: (state) => {
@@ -56,7 +62,16 @@ export const questUiSlice = createSlice({
       state.startedAtTimestamp = null;
       state.initialPhysicalFatigue = 0;
       state.initialMentalFatigue = 0;
+      state.currentPhysicalFatigue = 0;
+      state.currentMentalFatigue = 0;
       state.hunterLevel = 1;
+    },
+    updateQuestLiveFatigue: (
+      state,
+      action: PayloadAction<{ currentPhysicalFatigue: number; currentMentalFatigue: number }>
+    ) => {
+      state.currentPhysicalFatigue = Number(action.payload.currentPhysicalFatigue.toFixed(2));
+      state.currentMentalFatigue = Number(action.payload.currentMentalFatigue.toFixed(2));
     },
     restoreQuestSession: (state, action: PayloadAction<any>) => {
       const data = action.payload;
@@ -80,14 +95,19 @@ export const questUiSlice = createSlice({
         is_fun: data.is_fun || false,
       };
 
+      const basePhys = Number(data.current_profile_physical ?? data.physical_fatigue ?? data.initialPhysicalFatigue ?? 0);
+      const baseMent = Number(data.current_profile_mental ?? data.mental_fatigue ?? data.initialMentalFatigue ?? 0);
+
       state.isActive = true;
       state.isMinimized = true;
       state.quest = quest;
       state.startedAtTimestamp = data.started_at
         ? new Date(data.started_at).getTime()
         : data.startedAtTimestamp || Date.now();
-      state.initialPhysicalFatigue = Number(data.physical_fatigue ?? data.initialPhysicalFatigue ?? 0);
-      state.initialMentalFatigue = Number(data.mental_fatigue ?? data.initialMentalFatigue ?? 0);
+      state.initialPhysicalFatigue = basePhys;
+      state.initialMentalFatigue = baseMent;
+      state.currentPhysicalFatigue = basePhys;
+      state.currentMentalFatigue = baseMent;
       state.hunterLevel = Number(data.hunter_level ?? data.hunterLevel ?? 1);
     },
   },
@@ -99,6 +119,7 @@ export const {
   maximizeQuestSession,
   endQuestSession,
   restoreQuestSession,
+  updateQuestLiveFatigue,
 } = questUiSlice.actions;
 
 export default questUiSlice.reducer;

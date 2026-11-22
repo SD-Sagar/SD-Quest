@@ -6,9 +6,6 @@ import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { triggerHaptic, calculateAge } from "@/lib/utils";
 import { calculateStepsCalories } from "@/lib/calculations/gym";
-import { calculateSessionFatigueDelta, calculatePassiveFatigueDecay } from "@/lib/calculations/fatigue";
-import { maximizeSession } from "@/store/slices/workoutUiSlice";
-import { maximizeQuestSession } from "@/store/slices/questUiSlice";
 import { CharacterHUD } from "@/components/character/CharacterHUD";
 import { WaterMeter } from "@/components/hydration/WaterMeter";
 import { WalkingMeter } from "@/components/activity/WalkingMeter";
@@ -41,9 +38,6 @@ import {
   ChevronUp,
   Settings,
   Activity,
-  Clock,
-  Dumbbell,
-  ArrowRight,
 } from "lucide-react";
 
 interface TodayDashboardViewProps {
@@ -105,29 +99,6 @@ export function TodayDashboardView({
   const isGymEnabled = profile.enable_gym !== undefined ? profile.enable_gym : (profile.active_main_quest === "fitness");
   const isSunday = dayName === "Sunday";
   const todaySplitInfo = SPLIT_INFO[dayName] || SPLIT_INFO.Monday;
-  
-  // Active session status from Redux
-  const isWorkoutActive = useAppSelector((state) => state.workoutUi.isActive);
-  const workoutTitle = useAppSelector((state) => state.workoutUi.title);
-  const currentSetIndex = useAppSelector((state) => state.workoutUi.currentSetIndex);
-  const workoutPhysicalFatigue = useAppSelector((state) => state.workoutUi.currentPhysicalFatigue);
-  const workoutMentalFatigue = useAppSelector((state) => state.workoutUi.currentMentalFatigue);
-
-  const isQuestActive = useAppSelector((state) => state.questUi.isActive);
-  const activeQuest = useAppSelector((state) => state.questUi.quest);
-  const questStartedAtTimestamp = useAppSelector((state) => state.questUi.startedAtTimestamp);
-
-  const [questElapsedSecs, setQuestElapsedSecs] = useState(0);
-
-  useEffect(() => {
-    if (!isQuestActive || !questStartedAtTimestamp) return;
-    const tick = () => {
-      setQuestElapsedSecs(Math.max(0, Math.floor((Date.now() - questStartedAtTimestamp) / 1000)));
-    };
-    tick();
-    const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
-  }, [isQuestActive, questStartedAtTimestamp]);
 
   // Reactive states for zero-refresh dynamic telemetry updates
   const [liveWorkouts, setLiveWorkouts] = useState(todaysWorkouts);
@@ -267,120 +238,6 @@ export function TodayDashboardView({
             </Link>
           </div>
         </div>
-
-        {/* Active Directive Live Telemetry Banner (Only visible if active session in progress) */}
-        {isMounted && (isWorkoutActive || (isQuestActive && activeQuest)) && (
-          <div className="mb-4 p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-cyan-950/70 via-blue-950/50 to-slate-950/80 border border-cyan-400/50 shadow-[0_0_20px_rgba(0,229,255,0.2)] flex items-center justify-between gap-3 text-white animate-in fade-in duration-200">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-cyan-950/90 border border-cyan-400 flex items-center justify-center text-cyan-300 shadow-[0_0_12px_#00e5ff] shrink-0 animate-pulse">
-                {isWorkoutActive ? <Dumbbell className="w-5 h-5 text-cyan-300" /> : <Clock className="w-5 h-5 text-cyan-300" />}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold">
-                    ACTIVE SYSTEM DIRECTIVE IN PROGRESS
-                  </span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-                </div>
-                <div className="text-xs sm:text-sm font-bold text-white truncate font-solo">
-                  {isWorkoutActive ? workoutTitle : activeQuest?.title}
-                </div>
-                <div className="flex items-center gap-2 mt-0.5 text-[11px] font-mono text-slate-300 flex-wrap">
-                  {isWorkoutActive ? (
-                    <>
-                      <span className="text-cyan-300">Set #{currentSetIndex + 1}</span>
-                      <span>•</span>
-                      <span className="text-amber-300">PHY: {workoutPhysicalFatigue.toFixed(1)}%</span>
-                      <span>•</span>
-                      <span className="text-cyan-300">MNT: {workoutMentalFatigue.toFixed(1)}%</span>
-                    </>
-                  ) : (
-                    (() => {
-                      const targetMins = activeQuest?.estimated_duration_minutes || 60;
-                      const elapsedMins = Math.floor(questElapsedSecs / 60);
-                      const isMeditation = activeQuest?.category === "meditation" || activeQuest?.description?.includes("[MEDITATION_PROTOCOL]");
-                      const linkedAttrs = Object.keys(activeQuest?.attribute_rewards || {});
-                      const funHasGrowth = linkedAttrs.some(a => a === "intelligence" || a === "strength" || a === "endurance" || a === "agility" || a === "vitality");
-                      const isPureFun = Boolean(activeQuest?.is_fun && (!funHasGrowth || linkedAttrs.length === 0));
-                      const baseMental = Number(profile.mental_fatigue) || 0;
-                      const basePhysical = Number(profile.physical_fatigue) || 0;
-                      const isSurgeActive = Boolean(
-                        profile.last_hydration_surge_at &&
-                        Date.now() - new Date(profile.last_hydration_surge_at).getTime() < 300000
-                      );
-                      const liveFatigue = calculateSessionFatigueDelta({
-                        durationMinutes: questElapsedSecs / 60,
-                        targetMinutes: targetMins,
-                        isFun: activeQuest?.is_fun,
-                        linkedAttributes: linkedAttrs as AttributeType[],
-                        category: activeQuest?.category,
-                        currentMentalFatigue: baseMental,
-                        currentPhysicalFatigue: basePhysical,
-                        isMeditation,
-                        hunterLevel: profile.current_level,
-                        priority: activeQuest?.priority,
-                        difficulty: activeQuest?.difficulty,
-                        isHydrationSurge: isSurgeActive,
-                      });
-                      const questStartedIso = questStartedAtTimestamp ? new Date(questStartedAtTimestamp).toISOString() : undefined;
-                      const passiveDecay = calculatePassiveFatigueDecay(
-                        questStartedIso,
-                        baseMental,
-                        basePhysical,
-                        undefined,
-                        {
-                          hunterLevel: profile.current_level,
-                          rank: profile.rank,
-                          lastHydrationSurgeAt: profile.last_hydration_surge_at,
-                        }
-                      );
-                      const totalMental = Math.max(0, Math.min(100, passiveDecay.newMentalFatigue + liveFatigue.mentalDelta));
-                      const totalPhysical = Math.max(0, Math.min(100, passiveDecay.newPhysicalFatigue + liveFatigue.physicalDelta));
-                      const isOvertime = elapsedMins > targetMins;
-                      const liveDrainXp = Math.round(Math.max(0, questElapsedSecs - targetMins * 60) * 0.50);
-                      const overtimeBlocks = Math.floor((elapsedMins - targetMins) / 5);
-                      const surgePercent = overtimeBlocks * 10;
-                      return (
-                        <>
-                          <span className="text-cyan-300 font-bold">{Math.floor(questElapsedSecs / 60)}m {questElapsedSecs % 60}s</span>
-                          <span>•</span>
-                          <span className={totalMental >= 85 ? "text-red-400 font-bold animate-pulse" : liveFatigue.mentalDelta < 0 ? "text-emerald-400" : "text-cyan-300"}>
-                            MNT: {totalMental.toFixed(1)}%
-                          </span>
-                          <span>•</span>
-                          <span className={totalPhysical >= 85 ? "text-red-400 font-bold animate-pulse" : "text-amber-300"}>
-                            PHY: {totalPhysical.toFixed(1)}%
-                          </span>
-                          {isPureFun && isOvertime && liveDrainXp > 0 && (
-                            <span className="text-red-400 font-bold animate-pulse">⚡ -{liveDrainXp} XP DRAIN</span>
-                          )}
-                          {isMeditation && isOvertime && overtimeBlocks > 0 && (
-                            <span className="text-cyan-300 font-bold animate-pulse">🧘 +{surgePercent}% EXP SURGE</span>
-                          )}
-                        </>
-                      );
-                    })()
-                  )}
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic("heavy");
-                if (isWorkoutActive) {
-                  dispatch(maximizeSession());
-                } else {
-                  dispatch(maximizeQuestSession());
-                }
-              }}
-              className="solo-btn py-2 px-3 sm:px-4 text-[10px] sm:text-xs font-solo font-bold shrink-0 shadow-[0_0_15px_rgba(0,229,255,0.4)] flex items-center gap-1.5"
-            >
-              <span>RESUME</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
 
         {/* 12-Column Grid Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">

@@ -13,13 +13,12 @@ import {
   spendGraceCoinAction,
 } from "@/server/actions/player.actions";
 import { useAppDispatch, useAppSelector } from "@/store";
-import { endQuestSession, minimizeQuestSession } from "@/store/slices/questUiSlice";
+import { endQuestSession, minimizeQuestSession, updateQuestLiveFatigue } from "@/store/slices/questUiSlice";
 import { triggerHaptic } from "@/lib/utils";
 import confetti from "canvas-confetti";
 import { Play, Pause, X, CheckCircle2, Zap, Flame, Shield, Minimize2, AlertTriangle, Moon } from "lucide-react";
 import { Quest, AttributeType } from "@/types";
 import { ActiveFatigueDock } from "@/components/character/ActiveFatigueDock";
-import { calculateSessionFatigueDelta, calculatePassiveFatigueDecay } from "@/lib/calculations/fatigue";
 
 interface LiveQuestStopwatchProps {
   quest: Quest;
@@ -168,6 +167,17 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
             Math.floor((Date.now() - new Date(sessionStart).getTime()) / 1000)
           );
           setSeconds(elapsed);
+          if (
+            (reduxQuestState.currentPhysicalFatigue === 0 && initialPhy > 0) ||
+            (reduxQuestState.currentMentalFatigue === 0 && initialMnt > 0)
+          ) {
+            dispatch(
+              updateQuestLiveFatigue({
+                currentPhysicalFatigue: initialPhy,
+                currentMentalFatigue: initialMnt,
+              })
+            );
+          }
         }
       } catch (e) {
         console.error("Failed to init universal session timestamp:", e);
@@ -206,50 +216,11 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
   const isOvertime = diffMinutes > 0;
   const hoursSlept = Number((minutes / 60).toFixed(2));
 
-  // Live fatigue delta projection matching exactly final log completion formula
-  const liveQuestFatigue = useMemo(() => {
-    return calculateSessionFatigueDelta({
-      durationMinutes: seconds / 60,
-      targetMinutes: estimatedMinutes,
-      isFun: quest.is_fun,
-      linkedAttributes: linkedAttrs,
-      category: quest.category,
-      currentMentalFatigue: baseProfileMental,
-      currentPhysicalFatigue: baseProfilePhysical,
-      isMeditation: isMeditationQuest,
-      hunterLevel: hunterLevel,
-      priority: quest.priority,
-      difficulty: quest.difficulty,
-      isHydrationSurge: surgeRemainingSecs > 0,
-    });
-  }, [
-    seconds,
-    estimatedMinutes,
-    quest.is_fun,
-    linkedAttrs,
-    quest.category,
-    baseProfileMental,
-    baseProfilePhysical,
-    isMeditationQuest,
-    hunterLevel,
-    quest.priority,
-    quest.difficulty,
-    surgeRemainingSecs,
-  ]);
-
-  // Biological passive recovery during the session (identical to server completion engine)
-  const passiveDecay = useMemo(() => {
-    return calculatePassiveFatigueDecay(
-      startTimeIso,
-      baseProfileMental,
-      baseProfilePhysical,
-      undefined,
-      { hunterLevel }
-    );
-  }, [startTimeIso, baseProfileMental, baseProfilePhysical, hunterLevel, seconds]);
-
-  const currentLiveMental = Math.max(0, Math.min(100, passiveDecay.newMentalFatigue + liveQuestFatigue.mentalDelta));
-  const currentLivePhysical = Math.max(0, Math.min(100, passiveDecay.newPhysicalFatigue + liveQuestFatigue.physicalDelta));
+  // Unified single source of truth from Redux (maintained by GlobalWorkoutHost)
+  const currentLiveMental =
+    reduxQuestState.currentMentalFatigue ?? baseProfileMental;
+  const currentLivePhysical =
+    reduxQuestState.currentPhysicalFatigue ?? baseProfilePhysical;
 
   // Live EXP Drain calculation for unshielded pure fun (-0.50 XP/sec)
   const overtimeSeconds = Math.max(0, seconds - estimatedMinutes * 60);

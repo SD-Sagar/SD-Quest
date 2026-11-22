@@ -7,6 +7,7 @@ import {
   confirmStartExercise,
   tickSetupTimer,
   adjustSetupTimer,
+  tickLiftingSet,
   completeActiveSet,
   skipExerciseWithPenalty,
   abandonSession,
@@ -263,6 +264,15 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
     }, 1000);
     return () => clearInterval(interval);
   }, [session.status, dispatch]);
+
+  // Active lifting set live fatigue increment ticker (matches capacity, weight, reps & level)
+  useEffect(() => {
+    if (!session.isActive || session.status !== "lifting" || session.restTimerActive) return;
+    const interval = setInterval(() => {
+      dispatch(tickLiftingSet({ isHydrationSurge: surgeActiveRef.current }));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [session.isActive, session.status, session.restTimerActive, dispatch]);
 
   // Sync skipping target to input
   useEffect(() => {
@@ -1078,9 +1088,9 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in duration-200 overflow-y-auto">
       <div className="w-full max-w-lg hunter-panel rounded-3xl border border-cyan-500/50 p-5 sm:p-7 shadow-2xl relative space-y-5 my-auto">
         {/* Header HUD */}
-        <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-          <div>
-            <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase tracking-widest block">
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-3 gap-2 flex-wrap">
+          <div className="min-w-0">
+            <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase tracking-widest block truncate">
               {session.isSingleExercise
                 ? "FOCUSED TRIAL"
                 : currentExercise?.phase === "belly"
@@ -1088,11 +1098,11 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
                 : "PHASE 1: CORE SPLIT"}{" "}
               • {session.dayName}
             </span>
-            <h2 className="text-lg font-black text-white tracking-tight">
+            <h2 className="text-lg font-black text-white tracking-tight truncate">
               {currentExercise?.definition.name}
             </h2>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap justify-end">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
             <ActiveFatigueDock
               initialMental={session.currentMentalFatigue}
               initialPhysical={session.currentPhysicalFatigue}
@@ -1121,7 +1131,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
             <button
               type="button"
               onClick={() => setShowAbandonConfirmModal(true)}
-              className="p-1.5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-400 hover:bg-red-900/60"
+              className="p-1.5 rounded-xl bg-red-950/60 border border-red-500/40 text-red-400 hover:bg-red-900/60 transition"
               title="Emergency stop"
             >
               <OctagonAlert className="w-4 h-4" />
