@@ -6,7 +6,7 @@ import { Profile, PlayerAttributes, AttributeType } from "@/types";
 import { calculateAge, triggerHaptic } from "@/lib/utils";
 import { getRemainingPoisonTime } from "@/lib/calculations/nutrition";
 import { StatAllocationModal } from "./StatAllocationModal";
-import { getFatigueStatus, calculateCircadianAwakeStatus, calculateSessionFatigueDelta } from "@/lib/calculations/fatigue";
+import { getFatigueStatus, calculateCircadianAwakeStatus, calculateSessionFatigueDelta, calculatePassiveFatigueDecay } from "@/lib/calculations/fatigue";
 import { useLiveFatigue } from "@/lib/hooks/useLiveFatigue";
 import { useAppSelector } from "@/store";
 import {
@@ -88,6 +88,11 @@ export function CharacterHUD({
     const targetMins = q.estimated_duration_minutes || 60;
     const isMeditation = q.category === "meditation" || q.description?.includes("[MEDITATION_PROTOCOL]");
     const linkedAttrs = Object.keys(q.attribute_rewards || {}) as AttributeType[];
+    const isSurgeActive = Boolean(
+      (typeof window !== "undefined" && localStorage.getItem("sd_last_hydration_surge_at") &&
+       Date.now() - new Date(localStorage.getItem("sd_last_hydration_surge_at")!).getTime() < 300000) ||
+      (profile.last_hydration_surge_at && Date.now() - new Date(profile.last_hydration_surge_at).getTime() < 300000)
+    );
     return calculateSessionFatigueDelta({
       durationMinutes: questElapsedSeconds / 60,
       targetMinutes: targetMins,
@@ -104,6 +109,7 @@ export function CharacterHUD({
       mentality: attributes.mentality,
       priority: q.priority,
       difficulty: q.difficulty,
+      isHydrationSurge: isSurgeActive,
     });
   }, [
     isQuestActive,
@@ -112,6 +118,7 @@ export function CharacterHUD({
     profile.mental_fatigue,
     profile.physical_fatigue,
     profile.current_level,
+    profile.last_hydration_surge_at,
     attributes.endurance,
     attributes.vitality,
     attributes.discipline,
@@ -164,8 +171,16 @@ export function CharacterHUD({
     mentalFatigue = activeWorkout.currentMentalFatigue;
     physicalFatigue = activeWorkout.currentPhysicalFatigue;
   } else if (isQuestActive && liveQuestDelta) {
-    mentalFatigue = Math.max(0, Math.min(100, (Number(profile.mental_fatigue) || 0) + liveQuestDelta.mentalDelta));
-    physicalFatigue = Math.max(0, Math.min(100, (Number(profile.physical_fatigue) || 0) + liveQuestDelta.physicalDelta));
+    const questStartedIso = activeQuestState.startedAtTimestamp ? new Date(activeQuestState.startedAtTimestamp).toISOString() : undefined;
+    const passiveDecay = calculatePassiveFatigueDecay(
+      questStartedIso,
+      Number(profile.mental_fatigue) || 0,
+      Number(profile.physical_fatigue) || 0,
+      undefined,
+      recoveryStats
+    );
+    mentalFatigue = Math.max(0, Math.min(100, passiveDecay.newMentalFatigue + liveQuestDelta.mentalDelta));
+    physicalFatigue = Math.max(0, Math.min(100, passiveDecay.newPhysicalFatigue + liveQuestDelta.physicalDelta));
   }
 
   const displayMental = `${Number(mentalFatigue).toFixed(1)}%`;

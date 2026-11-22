@@ -39,7 +39,12 @@ body {
   padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
 }
 
-/* Solo Leveling Cyan Date & Time Picker Indicator */
+/* Solo Leveling Cyan Date & Time Picker Indicator - Single unified clickable icon */
+input[type="date"],
+input[type="time"] {
+  background-image: none !important;
+}
+
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
   cursor: pointer;

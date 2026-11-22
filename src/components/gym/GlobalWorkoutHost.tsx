@@ -14,7 +14,7 @@ import { ActiveWorkoutModal } from "./ActiveWorkoutModal";
 import { LiveQuestStopwatch } from "@/components/quests/LiveQuestStopwatch";
 import { triggerHaptic } from "@/lib/utils";
 import { Dumbbell, Clock, Maximize2, X } from "lucide-react";
-import { calculateSessionFatigueDelta } from "@/lib/calculations/fatigue";
+import { calculateSessionFatigueDelta, calculatePassiveFatigueDecay } from "@/lib/calculations/fatigue";
 import { AttributeType } from "@/types";
 
 export function GlobalWorkoutHost() {
@@ -73,8 +73,12 @@ export function GlobalWorkoutHost() {
         const session = await getActiveSessionAction();
         if (!isMounted || !session) return;
 
-        if (session.mental_fatigue !== undefined) setBaseMental(Number(session.mental_fatigue) || 0);
-        if (session.physical_fatigue !== undefined) setBasePhysical(Number(session.physical_fatigue) || 0);
+        if (session.mental_fatigue !== undefined || session.current_profile_mental !== undefined) {
+          setBaseMental(Number(session.mental_fatigue ?? session.current_profile_mental) || 0);
+        }
+        if (session.physical_fatigue !== undefined || session.current_profile_physical !== undefined) {
+          setBasePhysical(Number(session.physical_fatigue ?? session.current_profile_physical) || 0);
+        }
 
         const isWorkout =
           session.type === "workout" ||
@@ -192,6 +196,7 @@ export function GlobalWorkoutHost() {
       currentMentalFatigue: baseMental,
       currentPhysicalFatigue: basePhysical,
       isMeditation: isMeditationQuest,
+      hunterLevel: questUiState.hunterLevel || 1,
       priority: activeQuest.priority,
       difficulty: activeQuest.difficulty,
       isHydrationSurge: surgeRemainingSecs > 0,
@@ -201,6 +206,17 @@ export function GlobalWorkoutHost() {
     const liveDrainXp = Math.round(overtimeSecs * 0.50);
     const overtimeBlocks = Math.floor((elapsedMins - targetMins) / 5);
     const meditationSurgePercent = overtimeBlocks * 10;
+
+    const startedAtIso = questStartedAtTimestamp ? new Date(questStartedAtTimestamp).toISOString() : undefined;
+    const passiveDecay = calculatePassiveFatigueDecay(
+      startedAtIso,
+      baseMental,
+      basePhysical,
+      undefined,
+      { hunterLevel: questUiState.hunterLevel || 1 }
+    );
+    const totalMental = Math.max(0, Math.min(100, passiveDecay.newMentalFatigue + liveFatigue.mentalDelta));
+    const totalPhysical = Math.max(0, Math.min(100, passiveDecay.newPhysicalFatigue + liveFatigue.physicalDelta));
 
     return (
       <div
@@ -230,23 +246,23 @@ export function GlobalWorkoutHost() {
             {/* Live Dual Fatigue Telemetry */}
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <span className={`text-[9.5px] font-mono px-1 rounded flex items-center gap-0.5 ${
-                (baseMental + liveFatigue.mentalDelta) >= 85
+                totalMental >= 85
                   ? "text-red-300 bg-red-950/80 border border-red-500 animate-pulse"
                   : liveFatigue.mentalDelta < 0
                   ? "text-emerald-400 bg-emerald-950/60 border border-emerald-500/30"
                   : "text-cyan-300 bg-cyan-950/50 border border-cyan-500/30"
               }`}>
-                MNT: {Math.max(0, Math.min(100, baseMental + liveFatigue.mentalDelta)).toFixed(1)}%
+                MNT: {totalMental.toFixed(1)}%
               </span>
 
               <span className={`text-[9.5px] font-mono px-1 rounded flex items-center gap-0.5 ${
-                (basePhysical + liveFatigue.physicalDelta) >= 85
+                totalPhysical >= 85
                   ? "text-red-300 bg-red-950/80 border border-red-500 animate-pulse"
                   : liveFatigue.physicalDelta > 0
                   ? "text-amber-300 bg-amber-950/60 border border-amber-500/30"
                   : "text-slate-400 bg-slate-900 border border-slate-800"
               }`}>
-                PHY: {Math.max(0, Math.min(100, basePhysical + liveFatigue.physicalDelta)).toFixed(1)}%
+                PHY: {totalPhysical.toFixed(1)}%
               </span>
 
               {surgeRemainingSecs > 0 && (

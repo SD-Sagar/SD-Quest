@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store";
 import {
@@ -229,31 +229,40 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
     return () => clearInterval(interval);
   }, [session.isActive, session.status, session.startedAtTimestamp]);
 
+  const surgeActiveRef = useRef(surgeRemainingSecs > 0);
+  surgeActiveRef.current = surgeRemainingSecs > 0;
+
+  const restSecondsRef = useRef(session.restTimerSeconds);
+  restSecondsRef.current = session.restTimerSeconds;
+
+  const setupSecondsRef = useRef(session.setupTimerSeconds);
+  setupSecondsRef.current = session.setupTimerSeconds;
+
   // Rest countdown ticker & sound alert (boosted by 2x if cellular hydration surge active)
   useEffect(() => {
     if (!session.restTimerActive) return;
     const interval = setInterval(() => {
-      if (session.restTimerSeconds === 1) {
+      if (restSecondsRef.current === 1) {
         playTimerCompleteSound();
         triggerHaptic("heavy");
       }
-      dispatch(tickTimer({ isHydrationSurge: surgeRemainingSecs > 0 }));
+      dispatch(tickTimer({ isHydrationSurge: surgeActiveRef.current }));
     }, 1000);
     return () => clearInterval(interval);
-  }, [session.restTimerActive, session.restTimerSeconds, surgeRemainingSecs, dispatch]);
+  }, [session.restTimerActive, dispatch]);
 
-  // Setup countdown ticker
+  // Setup countdown ticker & continuous biological cooldown while awaiting workout start
   useEffect(() => {
-    if (!session.setupTimerActive) return;
+    if (session.status !== "setup") return;
     const interval = setInterval(() => {
-      if (session.setupTimerSeconds === 1) {
+      if (setupSecondsRef.current === 1) {
         playTimerCompleteSound();
         triggerHaptic("medium");
       }
-      dispatch(tickSetupTimer({ isHydrationSurge: surgeRemainingSecs > 0 }));
+      dispatch(tickSetupTimer({ isHydrationSurge: surgeActiveRef.current }));
     }, 1000);
     return () => clearInterval(interval);
-  }, [session.setupTimerActive, session.setupTimerSeconds, surgeRemainingSecs, dispatch]);
+  }, [session.status, dispatch]);
 
   // Sync skipping target to input
   useEffect(() => {
@@ -978,10 +987,22 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in duration-200">
         <div className="w-full max-w-md solo-notification-modal rounded-xl p-6 sm:p-7 shadow-2xl relative space-y-5 text-center text-white">
-          <div className="flex items-center justify-between">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-cyan-950/80 border border-cyan-400 text-cyan-300 text-[10px] font-solo font-bold tracking-widest uppercase">
-              <Zap className="w-3.5 h-3.5 text-cyan-400" />
-              [ PHASE 3: COMPULSORY SKIPPING PROTOCOL ]
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-cyan-950/80 border border-cyan-400 text-cyan-300 text-[10px] font-solo font-bold tracking-widest uppercase">
+                <Zap className="w-3.5 h-3.5 text-cyan-400" />
+                [ PHASE 3: COMPULSORY SKIPPING PROTOCOL ]
+              </div>
+              <ActiveFatigueDock
+                initialMental={session.currentMentalFatigue}
+                initialPhysical={session.currentPhysicalFatigue}
+              />
+              {surgeRemainingSecs > 0 && (
+                <span className="flex items-center gap-1 text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-400 px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_#00e5ff]">
+                  <span>💧</span>
+                  <span>SURGE {Math.floor(surgeRemainingSecs / 60)}:{String(surgeRemainingSecs % 60).padStart(2, "0")}</span>
+                </span>
+              )}
             </div>
             <button
               type="button"
@@ -989,7 +1010,7 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
                 triggerHaptic("light");
                 dispatch(minimizeSession());
               }}
-              className="px-2 py-0.5 rounded-lg bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[10px] font-mono hover:bg-cyan-900/60 transition flex items-center gap-1"
+              className="px-2 py-0.5 rounded-lg bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[10px] font-mono hover:bg-cyan-900/60 transition flex items-center gap-1 shrink-0"
               title="Minimize to floating capsule"
             >
               <Minimize2 className="w-3 h-3" />

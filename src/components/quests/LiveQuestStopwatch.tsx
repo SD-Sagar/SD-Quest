@@ -7,6 +7,7 @@ import {
   saveActiveSessionAction,
   clearActiveSessionAction,
   getActiveSessionAction,
+  getCurrentHunterTelemetryAction,
   completeSleepSessionAction,
   applySleepDeprivationAction,
   spendGraceCoinAction,
@@ -18,7 +19,7 @@ import confetti from "canvas-confetti";
 import { Play, Pause, X, CheckCircle2, Zap, Flame, Shield, Minimize2, AlertTriangle, Moon } from "lucide-react";
 import { Quest, AttributeType } from "@/types";
 import { ActiveFatigueDock } from "@/components/character/ActiveFatigueDock";
-import { calculateSessionFatigueDelta } from "@/lib/calculations/fatigue";
+import { calculateSessionFatigueDelta, calculatePassiveFatigueDecay } from "@/lib/calculations/fatigue";
 
 interface LiveQuestStopwatchProps {
   quest: Quest;
@@ -110,13 +111,26 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
 
     async function initSession() {
       try {
-        const active = await getActiveSessionAction();
+        const [active, telemetry] = await Promise.all([
+          getActiveSessionAction(),
+          getCurrentHunterTelemetryAction(),
+        ]);
         let sessionStart = startTimeIso || (quest.started_at ? quest.started_at : new Date().toISOString());
 
+        let initialMnt = baseProfileMental;
+        let initialPhy = baseProfilePhysical;
+        let initLvl = hunterLevel;
+
+        if (telemetry) {
+          if (telemetry.mentalFatigue !== undefined) initialMnt = telemetry.mentalFatigue;
+          if (telemetry.physicalFatigue !== undefined) initialPhy = telemetry.physicalFatigue;
+          if (telemetry.hunterLevel !== undefined) initLvl = telemetry.hunterLevel;
+        }
+
         if (active) {
-          if (active.mental_fatigue !== undefined) setBaseProfileMental(Number(active.mental_fatigue) || 0);
-          if (active.physical_fatigue !== undefined) setBaseProfilePhysical(Number(active.physical_fatigue) || 0);
-          if (active.hunter_level !== undefined) setHunterLevel(Number(active.hunter_level) || 1);
+          if (active.mental_fatigue !== undefined) initialMnt = Number(active.mental_fatigue) || initialMnt;
+          if (active.physical_fatigue !== undefined) initialPhy = Number(active.physical_fatigue) || initialPhy;
+          if (active.hunter_level !== undefined) initLvl = Number(active.hunter_level) || initLvl;
           if (active.grace_coin_consumed || active.grace_coin_consumed_for_session === quest.id) {
             setGraceCoinShield(true);
           }
@@ -138,13 +152,16 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
             linked_attributes: Object.keys(quest.attribute_rewards || {}),
             category: quest.category,
             quest_data: quest,
-            mental_fatigue: baseProfileMental,
-            physical_fatigue: baseProfilePhysical,
-            hunter_level: hunterLevel,
+            mental_fatigue: initialMnt,
+            physical_fatigue: initialPhy,
+            hunter_level: initLvl,
           });
         }
 
         if (isMounted) {
+          setBaseProfileMental(initialMnt);
+          setBaseProfilePhysical(initialPhy);
+          setHunterLevel(initLvl);
           setStartTimeIso(sessionStart);
           const elapsed = Math.max(
             0,
@@ -220,8 +237,19 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
     surgeRemainingSecs,
   ]);
 
-  const currentLiveMental = Math.max(0, Math.min(100, baseProfileMental + liveQuestFatigue.mentalDelta));
-  const currentLivePhysical = Math.max(0, Math.min(100, baseProfilePhysical + liveQuestFatigue.physicalDelta));
+  // Biological passive recovery during the session (identical to server completion engine)
+  const passiveDecay = useMemo(() => {
+    return calculatePassiveFatigueDecay(
+      startTimeIso,
+      baseProfileMental,
+      baseProfilePhysical,
+      undefined,
+      { hunterLevel }
+    );
+  }, [startTimeIso, baseProfileMental, baseProfilePhysical, hunterLevel, seconds]);
+
+  const currentLiveMental = Math.max(0, Math.min(100, passiveDecay.newMentalFatigue + liveQuestFatigue.mentalDelta));
+  const currentLivePhysical = Math.max(0, Math.min(100, passiveDecay.newPhysicalFatigue + liveQuestFatigue.physicalDelta));
 
   // Live EXP Drain calculation for unshielded pure fun (-0.50 XP/sec)
   const overtimeSeconds = Math.max(0, seconds - estimatedMinutes * 60);

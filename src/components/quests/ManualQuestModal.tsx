@@ -362,6 +362,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
+                    onClick={(e) => { try { (e.target as any).showPicker?.(); } catch {} }}
                     className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
                   />
                 </div>
@@ -373,6 +374,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
+                    onClick={(e) => { try { (e.target as any).showPicker?.(); } catch {} }}
                     className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
                   />
                 </div>
@@ -387,6 +389,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
+                    onClick={(e) => { try { (e.target as any).showPicker?.(); } catch {} }}
                     className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
                   />
                 </div>
@@ -510,6 +513,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                       type="date"
                       value={deadlineDate}
                       onChange={(e) => setDeadlineDate(e.target.value)}
+                      onClick={(e) => { try { (e.target as any).showPicker?.(); } catch {} }}
                       className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
                     />
                   </div>
@@ -521,6 +525,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                       type="time"
                       value={deadlineTime}
                       onChange={(e) => setDeadlineTime(e.target.value)}
+                      onClick={(e) => { try { (e.target as any).showPicker?.(); } catch {} }}
                       className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
                     />
                   </div>

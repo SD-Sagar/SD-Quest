@@ -123,7 +123,38 @@ export async function getActiveSessionAction() {
 
   if (!user) return null;
   const profile = await PlayerRepository.getProfile(user.id);
-  return profile?.active_session_state || null;
+  const sessionState = profile?.active_session_state || null;
+  if (sessionState) {
+    return {
+      ...sessionState,
+      current_profile_mental: profile?.mental_fatigue ?? 0,
+      current_profile_physical: profile?.physical_fatigue ?? 0,
+      last_fatigue_update_at: profile?.last_fatigue_update_at || sessionState.last_fatigue_update_at,
+      hunter_level: profile?.current_level ?? sessionState.hunter_level ?? 1,
+    };
+  }
+  return null;
+}
+
+export async function getCurrentHunterTelemetryAction() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return null;
+  const profile = await PlayerRepository.getProfile(user.id);
+  const attributes = await PlayerRepository.getAttributes(user.id);
+  return {
+    mentalFatigue: Number(profile?.mental_fatigue) || 0,
+    physicalFatigue: Number(profile?.physical_fatigue) || 0,
+    lastFatigueUpdateAt: profile?.last_fatigue_update_at ?? null,
+    hunterLevel: profile?.current_level ?? 1,
+    rank: profile?.rank ?? "Recruit",
+    lastHydrationSurgeAt: profile?.last_hydration_surge_at ?? null,
+    attributes: attributes || null,
+    activeSession: profile?.active_session_state || null,
+  };
 }
 
 export async function clearActiveSessionAction() {

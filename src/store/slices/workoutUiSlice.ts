@@ -247,20 +247,21 @@ export const workoutUiSlice = createSlice({
     },
 
     tickSetupTimer: (state, action: PayloadAction<{ isHydrationSurge?: boolean } | undefined>) => {
-      if (!state.setupTimerActive) return;
+      if (state.status !== "setup") return;
       if (state.setupTimerSeconds > 0) {
         state.setupTimerSeconds -= 1;
-
-        // Natural biological cooldown during equipment setup / awaiting phase
-        const surgeMultiplier = action.payload?.isHydrationSurge ? 1.5 : 1.0;
-        const physicalRecoveryPerSec = 0.0033 * surgeMultiplier;
-        const mentalRecoveryPerSec = 0.0016 * surgeMultiplier;
-
-        state.currentPhysicalFatigue = Math.max(0, Number((state.currentPhysicalFatigue - physicalRecoveryPerSec).toFixed(3)));
-        state.currentMentalFatigue = Math.max(0, Number((state.currentMentalFatigue - mentalRecoveryPerSec).toFixed(3)));
       } else {
         state.setupTimerActive = false;
       }
+
+      // Continuous natural biological cooldown during equipment setup / awaiting phase
+      // Matches standard dynamic biological rate (0.00611 physical / 0.00500 mental per sec)
+      const surgeMultiplier = action.payload?.isHydrationSurge ? 1.5 : 1.0;
+      const physicalRecoveryPerSec = 0.00611 * surgeMultiplier;
+      const mentalRecoveryPerSec = 0.00500 * surgeMultiplier;
+
+      state.currentPhysicalFatigue = Math.max(0, Number((state.currentPhysicalFatigue - physicalRecoveryPerSec).toFixed(3)));
+      state.currentMentalFatigue = Math.max(0, Number((state.currentMentalFatigue - mentalRecoveryPerSec).toFixed(3)));
     },
 
     adjustSetupTimer: (state, action: PayloadAction<number>) => {
@@ -390,10 +391,8 @@ export const workoutUiSlice = createSlice({
         const surgeMultiplier = action.payload?.isHydrationSurge ? 2.0 : 1.0;
         const recoveryPerSec = baseRecoveryPerSec * surgeMultiplier;
 
-        // Do not recover below the hunter's initial starting fatigue (or 0)
-        const fatigueFloor = Math.max(0, state.initialPhysicalFatigue);
         state.currentPhysicalFatigue = Math.max(
-          fatigueFloor,
+          0,
           Number((state.currentPhysicalFatigue - recoveryPerSec).toFixed(3))
         );
       } else {

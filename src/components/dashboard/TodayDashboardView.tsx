@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { triggerHaptic, calculateAge } from "@/lib/utils";
 import { calculateStepsCalories } from "@/lib/calculations/gym";
-import { calculateSessionFatigueDelta } from "@/lib/calculations/fatigue";
+import { calculateSessionFatigueDelta, calculatePassiveFatigueDecay } from "@/lib/calculations/fatigue";
 import { maximizeSession } from "@/store/slices/workoutUiSlice";
 import { maximizeQuestSession } from "@/store/slices/questUiSlice";
 import { CharacterHUD } from "@/components/character/CharacterHUD";
@@ -304,6 +304,10 @@ export function TodayDashboardView({
                       const isPureFun = Boolean(activeQuest?.is_fun && (!funHasGrowth || linkedAttrs.length === 0));
                       const baseMental = Number(profile.mental_fatigue) || 0;
                       const basePhysical = Number(profile.physical_fatigue) || 0;
+                      const isSurgeActive = Boolean(
+                        profile.last_hydration_surge_at &&
+                        Date.now() - new Date(profile.last_hydration_surge_at).getTime() < 300000
+                      );
                       const liveFatigue = calculateSessionFatigueDelta({
                         durationMinutes: questElapsedSecs / 60,
                         targetMinutes: targetMins,
@@ -316,9 +320,22 @@ export function TodayDashboardView({
                         hunterLevel: profile.current_level,
                         priority: activeQuest?.priority,
                         difficulty: activeQuest?.difficulty,
+                        isHydrationSurge: isSurgeActive,
                       });
-                      const totalMental = Math.max(0, Math.min(100, baseMental + liveFatigue.mentalDelta));
-                      const totalPhysical = Math.max(0, Math.min(100, basePhysical + liveFatigue.physicalDelta));
+                      const questStartedIso = questStartedAtTimestamp ? new Date(questStartedAtTimestamp).toISOString() : undefined;
+                      const passiveDecay = calculatePassiveFatigueDecay(
+                        questStartedIso,
+                        baseMental,
+                        basePhysical,
+                        undefined,
+                        {
+                          hunterLevel: profile.current_level,
+                          rank: profile.rank,
+                          lastHydrationSurgeAt: profile.last_hydration_surge_at,
+                        }
+                      );
+                      const totalMental = Math.max(0, Math.min(100, passiveDecay.newMentalFatigue + liveFatigue.mentalDelta));
+                      const totalPhysical = Math.max(0, Math.min(100, passiveDecay.newPhysicalFatigue + liveFatigue.physicalDelta));
                       const isOvertime = elapsedMins > targetMins;
                       const liveDrainXp = Math.round(Math.max(0, questElapsedSecs - targetMins * 60) * 0.50);
                       const overtimeBlocks = Math.floor((elapsedMins - targetMins) / 5);
