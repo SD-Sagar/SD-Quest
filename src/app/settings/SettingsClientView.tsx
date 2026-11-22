@@ -49,6 +49,20 @@ export function SettingsClientView({
     profile.enable_gym !== undefined ? profile.enable_gym : (profile.active_main_quest === "fitness")
   );
 
+  // Telemetry & Fatigue Display Mode states
+  const [questFatigueMode, setQuestFatigueMode] = useState<"log" | "live">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("sd_fatigue_mode_quests") as any) || "live";
+    }
+    return "live";
+  });
+  const [gymFatigueMode, setGymFatigueMode] = useState<"log" | "live">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("sd_fatigue_mode_gym") as any) || "log";
+    }
+    return "log";
+  });
+
   // Gym Arsenal states
   const [hasBench, setHasBench] = useState(equipment?.has_bench ?? true);
   const [hasBarbell, setHasBarbell] = useState(equipment?.has_barbell ?? false);
@@ -108,6 +122,10 @@ export function SettingsClientView({
       });
 
       if (res.success) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("sd_fatigue_mode_quests", questFatigueMode);
+          localStorage.setItem("sd_fatigue_mode_gym", gymFatigueMode);
+        }
         setSuccessMsg(true);
         triggerHaptic("success");
         router.refresh();
@@ -203,6 +221,70 @@ export function SettingsClientView({
                 onChange={(e) => setFitnessObjective(e.target.value)}
                 className="w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Telemetry & Fatigue Display Engine Configuration */}
+        <div className="hunter-panel rounded-3xl border border-cyan-500/30 p-5 sm:p-6 space-y-4">
+          <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider">
+            <Layers className="w-4 h-4" />
+            <span>TELEMETRY &amp; FATIGUE DISPLAY ENGINE</span>
+          </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Configure whether fatigue meters stream live in active/minimized capsules or log purely upon objective completion. Both modes evaluate identical biological formulas without divergence.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white font-mono">QUEST TELEMETRY HUD</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setQuestFatigueMode((prev) => (prev === "live" ? "log" : "live"));
+                  }}
+                  className={`px-2.5 py-1 rounded-xl text-[10px] font-mono font-bold transition ${
+                    questFatigueMode === "live"
+                      ? "bg-cyan-500/25 text-cyan-300 border border-cyan-400 shadow-[0_0_10px_rgba(0,229,255,0.3)]"
+                      : "bg-slate-950 text-slate-400 border border-slate-700 hover:text-white"
+                  }`}
+                >
+                  {questFatigueMode === "live" ? "● LIVE STREAMING" : "LOG-BASED"}
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400 font-mono">
+                {questFatigueMode === "live"
+                  ? "Streams live fatigue & overtime XP counters in floating capsules and active stopwatch."
+                  : "Fatigue delta calculated and applied upon quest submission."}
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white font-mono">GYM FATIGUE HUD</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setGymFatigueMode((prev) => (prev === "live" ? "log" : "live"));
+                  }}
+                  className={`px-2.5 py-1 rounded-xl text-[10px] font-mono font-bold transition ${
+                    gymFatigueMode === "live"
+                      ? "bg-cyan-500/25 text-cyan-300 border border-cyan-400 shadow-[0_0_10px_rgba(0,229,255,0.3)]"
+                      : "bg-slate-950 text-slate-400 border border-slate-700 hover:text-white"
+                  }`}
+                >
+                  {gymFatigueMode === "live" ? "● LIVE STREAMING" : "LOG-BASED"}
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400 font-mono">
+                {gymFatigueMode === "live"
+                  ? "Displays live exertion meters in floating capsule and resting views."
+                  : "Fatigue updates strictly during rest timer upon set completion."}
+              </p>
             </div>
           </div>
         </div>

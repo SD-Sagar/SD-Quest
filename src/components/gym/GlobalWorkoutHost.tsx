@@ -14,6 +14,8 @@ import { ActiveWorkoutModal } from "./ActiveWorkoutModal";
 import { LiveQuestStopwatch } from "@/components/quests/LiveQuestStopwatch";
 import { triggerHaptic } from "@/lib/utils";
 import { Dumbbell, Clock, Maximize2, X } from "lucide-react";
+import { calculateSessionFatigueDelta } from "@/lib/calculations/fatigue";
+import { AttributeType } from "@/types";
 
 export function GlobalWorkoutHost() {
   const dispatch = useAppDispatch();
@@ -123,7 +125,7 @@ export function GlobalWorkoutHost() {
   }
 
   // ---------------------------------------------------------------------------
-  // C. QUEST PIPELINE: Universal Minimized Floating Capsule
+  // C. QUEST PIPELINE: Universal Minimized Floating Capsule with Live Fatigue
   // ---------------------------------------------------------------------------
   if (isQuestActive && isQuestMinimized && activeQuest) {
     const elapsedMins = Math.floor(questElapsedSeconds / 60);
@@ -132,22 +134,50 @@ export function GlobalWorkoutHost() {
     const targetMins = activeQuest.estimated_duration_minutes || 60;
     const isOvertime = elapsedMins > targetMins;
 
+    const isMeditationQuest =
+      activeQuest.category === "meditation" ||
+      activeQuest.description?.includes("[MEDITATION_PROTOCOL]") ||
+      activeQuest.title.toLowerCase().includes("meditat");
+
+    const linkedAttrs = Object.keys(activeQuest.attribute_rewards || {});
+    const funHasGrowth = linkedAttrs.some(
+      (a) => a === "intelligence" || a === "strength" || a === "endurance" || a === "agility" || a === "vitality"
+    );
+    const isPureFunQuest = Boolean(activeQuest.is_fun && (!funHasGrowth || linkedAttrs.length === 0));
+
+    // Pure mathematical projection: perfectly matches final log formula
+    const liveFatigue = calculateSessionFatigueDelta({
+      durationMinutes: questElapsedSeconds / 60,
+      targetMinutes: targetMins,
+      isFun: activeQuest.is_fun,
+      linkedAttributes: linkedAttrs as AttributeType[],
+      category: activeQuest.category,
+      currentMentalFatigue: 0,
+      currentPhysicalFatigue: 0,
+      isMeditation: isMeditationQuest,
+    });
+
+    const overtimeSecs = Math.max(0, questElapsedSeconds - targetMins * 60);
+    const liveDrainXp = Math.round(overtimeSecs * 0.50);
+    const overtimeBlocks = Math.floor((elapsedMins - targetMins) / 5);
+    const meditationSurgePercent = overtimeBlocks * 10;
+
     return (
       <div
         style={{ position: "fixed" }}
-        className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[9999] w-[92%] sm:w-[95%] max-w-lg solo-notification-modal is-floating rounded-xl p-2.5 sm:p-3 shadow-2xl flex items-center justify-between gap-2.5 text-white animate-in slide-in-from-bottom-3 font-hud"
+        className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[9999] w-[94%] sm:w-[95%] max-w-lg solo-notification-modal is-floating rounded-2xl p-2.5 sm:p-3 shadow-2xl flex items-center justify-between gap-2.5 text-white animate-in slide-in-from-bottom-3 font-hud border border-cyan-500/40 backdrop-blur-md"
       >
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-cyan-950/80 border border-cyan-400 flex items-center justify-center text-cyan-300 shadow-[0_0_10px_#00e5ff] shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-cyan-950/80 border border-cyan-400 flex items-center justify-center text-cyan-300 shadow-[0_0_10px_#00e5ff] shrink-0">
             <Clock className="w-4 h-4 animate-pulse text-cyan-300" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-solo font-bold text-cyan-400 tracking-wider uppercase truncate">
-                DIRECTIVE ACTIVE • {activeQuest.title}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-solo font-bold text-cyan-400 tracking-wider uppercase truncate max-w-[140px] sm:max-w-[200px]">
+                {activeQuest.title}
               </span>
               <span
-                className={`text-[9.5px] font-mono px-1.5 py-0.5 rounded border shrink-0 ${
+                className={`text-[9.5px] font-mono px-1.5 py-0.2 rounded border shrink-0 ${
                   isOvertime
                     ? "bg-amber-950/80 text-amber-300 border-amber-500/50 animate-pulse"
                     : "bg-cyan-950/50 text-cyan-300 border-cyan-500/30"
@@ -156,8 +186,42 @@ export function GlobalWorkoutHost() {
                 ⏱ {timeFormatted} {isOvertime ? `(+${elapsedMins - targetMins}m)` : ""}
               </span>
             </div>
-            <div className="text-[11px] font-mono text-slate-300 truncate">
-              {activeQuest.is_fun ? "🎮 Recreational Mode" : "Disciplined Directive"} • Target: {targetMins}m
+
+            {/* Live Dual Fatigue Telemetry */}
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <span className={`text-[9.5px] font-mono px-1 rounded flex items-center gap-0.5 ${
+                liveFatigue.mentalDelta < 0
+                  ? "text-emerald-400 bg-emerald-950/60 border border-emerald-500/30"
+                  : liveFatigue.mentalDelta >= 85
+                  ? "text-red-300 bg-red-950/80 border border-red-500 animate-pulse"
+                  : "text-cyan-300 bg-cyan-950/50 border border-cyan-500/30"
+              }`}>
+                MNT: {liveFatigue.mentalDelta > 0 ? `+${Math.round(liveFatigue.mentalDelta)}%` : `${Math.round(liveFatigue.mentalDelta)}%`}
+              </span>
+
+              <span className={`text-[9.5px] font-mono px-1 rounded flex items-center gap-0.5 ${
+                liveFatigue.physicalDelta >= 85
+                  ? "text-red-300 bg-red-950/80 border border-red-500 animate-pulse"
+                  : liveFatigue.physicalDelta > 0
+                  ? "text-amber-300 bg-amber-950/60 border border-amber-500/30"
+                  : "text-slate-400 bg-slate-900 border border-slate-800"
+              }`}>
+                PHY: {liveFatigue.physicalDelta > 0 ? `+${Math.round(liveFatigue.physicalDelta)}%` : "0%"}
+              </span>
+
+              {/* Overtime Live XP Drain for Pure Fun */}
+              {isPureFunQuest && isOvertime && liveDrainXp > 0 && (
+                <span className="text-[9.5px] font-mono font-bold text-red-400 bg-red-950/80 border border-red-500/60 px-1 rounded animate-pulse">
+                  ⚡ -{liveDrainXp} XP
+                </span>
+              )}
+
+              {/* Overtime Live EXP Surge for Meditation */}
+              {isMeditationQuest && isOvertime && overtimeBlocks > 0 && (
+                <span className="text-[9.5px] font-mono font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-400/60 px-1 rounded animate-pulse">
+                  🧘 +{meditationSurgePercent}% EXP
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -166,10 +230,11 @@ export function GlobalWorkoutHost() {
           <button
             type="button"
             onClick={handleResumeQuest}
-            className="solo-btn py-1.5 px-3 text-[10px] font-solo flex items-center gap-1 shadow-[0_0_10px_rgba(0,229,255,0.4)]"
+            className="solo-btn py-1.5 px-2.5 sm:px-3 text-[10px] font-solo flex items-center gap-1 shadow-[0_0_10px_rgba(0,229,255,0.4)]"
           >
             <Maximize2 className="w-3.5 h-3.5 text-cyan-300" />
-            <span>RESUME UI ▲</span>
+            <span className="hidden sm:inline">RESUME UI</span>
+            <span className="sm:hidden">UI ▲</span>
           </button>
           <button
             type="button"

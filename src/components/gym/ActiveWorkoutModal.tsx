@@ -258,6 +258,21 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
             <div className="text-[11px] font-mono text-slate-300 truncate">
               {currentExercise?.definition.name || "Workout in progress"} • Set {session.currentSetIndex + 1}/{currentExercise?.sets.length || 0} • ~{accurateCal.activeCaloriesBurned} kcal (Active)
             </div>
+            {/* Live Dual Fatigue Telemetry */}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className={`text-[9.5px] font-mono px-1 rounded ${
+                session.currentPhysicalFatigue >= 85
+                  ? "text-red-300 bg-red-950/80 border border-red-500 animate-pulse"
+                  : session.currentPhysicalFatigue >= 60
+                  ? "text-amber-300 bg-amber-950/60 border border-amber-500/30"
+                  : "text-cyan-300 bg-cyan-950/50 border border-cyan-500/30"
+              }`}>
+                PHY: {Math.round(session.currentPhysicalFatigue)}%
+              </span>
+              <span className="text-[9.5px] font-mono px-1 rounded text-cyan-300 bg-cyan-950/50 border border-cyan-500/30">
+                MNT: {Math.round(session.currentMentalFatigue)}%
+              </span>
+            </div>
           </div>
         </div>
 

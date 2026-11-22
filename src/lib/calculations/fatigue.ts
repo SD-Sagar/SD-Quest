@@ -282,6 +282,7 @@ export interface SessionFatigueParams {
   actualFinalPhysicalFatigue?: number;
   actualFinalMentalFatigue?: number;
   graceCoinSpent?: boolean;
+  isMeditation?: boolean;
 }
 
 /**
