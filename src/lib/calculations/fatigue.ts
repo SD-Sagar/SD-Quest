@@ -410,12 +410,12 @@ export function calculateSessionFatigueDelta(params: SessionFatigueParams): Sess
       // Builds ~70% slower (0.3x rate). NO overtime drain debuff!
       const normalMental = (normalMinutes / 540) * 75.0 * 0.3;
       const overtimeMental = (overtimeMinutes / 5) * 2.0 * 0.3;
-      mentalDelta = Number(((normalMental + overtimeMental) * mentalResistance).toFixed(1));
+      mentalDelta = Number(((normalMental + overtimeMental) * mentalResistance).toFixed(3));
 
       if (domain === "physical" || domain === "hybrid") {
         const normalPhysical = (normalMinutes / 60) * 15.0 * 0.3;
         const overtimePhysical = (overtimeMinutes / 60) * 30.0 * 0.3;
-        physicalDelta = Number(((normalPhysical + overtimePhysical) * physicalResistance).toFixed(1));
+        physicalDelta = Number(((normalPhysical + overtimePhysical) * physicalResistance).toFixed(3));
       }
       summaryMessage = "Recreational Directive: Growth fun with 70% dampened fatigue buildup. Overtime permitted without penalty.";
     }
@@ -443,13 +443,14 @@ export function calculateSessionFatigueDelta(params: SessionFatigueParams): Sess
         basePhysical += (overtimeMinutes / 5) * 2.0;
       }
 
-      // Testing floor for very fast test workouts (< 5 min)
-      const finalPhysical = Math.max(durationMinutes < 5 ? 4.0 : 1.0, basePhysical * physicalResistance);
-      physicalDelta = Number(finalPhysical.toFixed(1));
+      // Smooth progression for live & short workouts
+      const dynamicFloor = Math.min(4.0, (durationMinutes / 5) * 4.0);
+      const finalPhysical = Math.max(dynamicFloor, basePhysical * physicalResistance);
+      physicalDelta = Number(finalPhysical.toFixed(3));
 
       // CNS (Central Nervous System) Fatigue: Heavy workout or overtime spills over into Mental Fatigue
       if (overtimeMinutes >= 15 || workloadRatio > 1.15) {
-        mentalDelta = Number((((overtimeMinutes / 5) * 1.5 + (workloadRatio > 1.15 ? 10 : 0)) * mentalResistance).toFixed(1));
+        mentalDelta = Number((((overtimeMinutes / 5) * 1.5 + (workloadRatio > 1.15 ? 10 : 0)) * mentalResistance).toFixed(3));
       }
     }
 
@@ -471,18 +472,18 @@ export function calculateSessionFatigueDelta(params: SessionFatigueParams): Sess
     // Overtime rate: +2% for every 5 minutes (+0.40% / min)
     const overtimeMental = (overtimeMinutes / 5) * 2.0 * difficultyMultiplier;
 
-    mentalDelta = Number(((normalMental + overtimeMental) * mentalResistance).toFixed(1));
+    mentalDelta = Number(((normalMental + overtimeMental) * mentalResistance).toFixed(3));
 
     // Sedentary Posture & Eye Strain Spillover: Working long overtime (> 30 min) causes physical fatigue
     if (overtimeMinutes >= 30) {
-      physicalDelta = Number(((overtimeMinutes / 30) * 4.0 * physicalResistance).toFixed(1));
+      physicalDelta = Number(((overtimeMinutes / 30) * 4.0 * physicalResistance).toFixed(3));
     }
 
     // Dual/Mixed Quests: If tagged with physical attributes as well, calculate physical fatigue
     if (domain === "hybrid") {
       const normalPhys = (normalMinutes / 60) * 10.0 * difficultyMultiplier;
       const overtimePhys = (overtimeMinutes / 5) * 1.5;
-      physicalDelta = Math.max(physicalDelta, Number(((normalPhys + overtimePhys) * physicalResistance).toFixed(1)));
+      physicalDelta = Math.max(physicalDelta, Number(((normalPhys + overtimePhys) * physicalResistance).toFixed(3)));
     }
 
     summaryMessage = overtimeMinutes > 0
@@ -639,12 +640,11 @@ export function calculatePassiveFatigueDecay(
   const diffMs = Math.max(0, now - then);
   const hoursElapsed = diffMs / (1000 * 60 * 60);
 
-  // Less than 3 seconds, ignore jitter
-  if (diffMs < 3000) {
+  if (diffMs <= 0) {
     return {
       newMentalFatigue: currentMental,
       newPhysicalFatigue: currentPhysical,
-      hoursElapsed,
+      hoursElapsed: 0,
     };
   }
 
@@ -653,8 +653,8 @@ export function calculatePassiveFatigueDecay(
   const mentalRecovery = secondsElapsed * rates.mentalRatePerSec;
   const physicalRecovery = secondsElapsed * rates.physicalRatePerSec;
 
-  const newMentalFatigue = Math.max(0, Number((currentMental - mentalRecovery).toFixed(2)));
-  const newPhysicalFatigue = Math.max(0, Number((currentPhysical - physicalRecovery).toFixed(2)));
+  const newMentalFatigue = Math.max(0, Number((currentMental - mentalRecovery).toFixed(3)));
+  const newPhysicalFatigue = Math.max(0, Number((currentPhysical - physicalRecovery).toFixed(3)));
 
   return {
     newMentalFatigue,

@@ -319,37 +319,7 @@ export const workoutUiSlice = createSlice({
         currentSet.rpe = action.payload.rpe;
         currentSet.completed = true;
 
-        // Calculate compounding fatigue delta for this completed set
-        const plannedWeight = exercise.sets[0]?.weightKg || action.payload.actualWeightKg;
-        const plannedReps = exercise.definition.default_reps_min || action.payload.actualReps;
-
-        const fatigueDelta = calculateSetFatigueDelta({
-          setIndex: state.completedSetsCount,
-          totalSets: state.totalPlannedSets || 12,
-          weightKg: action.payload.actualWeightKg,
-          reps: action.payload.actualReps,
-          plannedWeightKg: plannedWeight,
-          plannedReps: plannedReps,
-          hunterLevel: state.playerLevel || 1,
-        });
-
-        // Top up only if logged early before live accumulation reached full set delta (ZERO sudden double-jump)
-        const remainingPhys = Math.max(0, fatigueDelta.physicalDelta - (state.currentSetAccumulatedPhysical || 0));
-        const remainingMent = Math.max(0, fatigueDelta.mentalDelta - (state.currentSetAccumulatedMental || 0));
-
-        if (remainingPhys > 0) {
-          state.currentPhysicalFatigue = Math.min(
-            100,
-            Math.max(0, Number((state.currentPhysicalFatigue + remainingPhys).toFixed(2)))
-          );
-        }
-        if (remainingMent > 0) {
-          state.currentMentalFatigue = Math.min(
-            100,
-            Math.max(0, Number((state.currentMentalFatigue + remainingMent).toFixed(2)))
-          );
-        }
-
+        // Log button purely commits the set and stops live increments (zero sudden extra fatigue)
         state.currentSetAccumulatedPhysical = 0;
         state.currentSetAccumulatedMental = 0;
         state.completedSetsCount += 1;
