@@ -390,6 +390,34 @@ export class WorkoutRepository {
       console.warn("Biological fatigue telemetry update non-fatal error:", fatigueErr);
     }
 
+    // 5.6 Bi-directional bridge: Synchronize skipping completion to Quest Board
+    if ((params.skippingCompleted || 0) >= (params.skippingTarget || 100) && (params.skippingCompleted || 0) >= 100) {
+      try {
+        const todayStr = new Date().toISOString().split("T")[0];
+        // Find matching daily skipping quest
+        const { data: skipQuests } = await supabase
+          .from("quests")
+          .select("id, title, status, last_completed_date")
+          .eq("user_id", params.userId)
+          .ilike("title", "%skip%");
+
+        if (skipQuests && skipQuests.length > 0) {
+          const targetIds = skipQuests.map((q) => q.id);
+          await supabase
+            .from("quests")
+            .update({
+              status: "completed",
+              completed_at: new Date().toISOString(),
+              last_completed_date: todayStr,
+              updated_at: new Date().toISOString(),
+            })
+            .in("id", targetIds);
+        }
+      } catch (skipBridgeErr) {
+        console.warn("Failed to bridge gym skipping completion to quest board:", skipBridgeErr);
+      }
+    }
+
     // 6. Clear cross-device active session in Supabase
     await PlayerRepository.clearActiveSession(params.userId);
 

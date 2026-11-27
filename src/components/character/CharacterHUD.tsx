@@ -511,6 +511,7 @@ export function CharacterHUD({
                         )}
                       </span>
                       <span
+                        suppressHydrationWarning
                         className={`text-[10px] font-mono block truncate ${
                           isDebuff ? "text-slate-300" : "text-cyan-300/90"
                         }`}
@@ -800,7 +801,10 @@ export function CharacterHUD({
               <span className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400 block truncate">
                 CIRCADIAN
               </span>
-              <span className={`text-[11px] sm:text-xs font-mono font-black truncate block ${circadian.isCurrentlySleeping ? "text-cyan-300 animate-pulse" : circadian.isExhaustionLockout ? "text-red-400 animate-pulse" : "text-white"}`}>
+              <span
+                suppressHydrationWarning
+                className={`text-[11px] sm:text-xs font-mono font-black truncate block ${circadian.isCurrentlySleeping ? "text-cyan-300 animate-pulse" : circadian.isExhaustionLockout ? "text-red-400 animate-pulse" : "text-white"}`}
+              >
                 {circadian.isCurrentlySleeping ? "STASIS (FROZEN)" : `${circadian.hoursAwakeLive.toFixed(1)}h/26h`}
               </span>
             </div>
@@ -808,7 +812,7 @@ export function CharacterHUD({
         </div>
 
         {/* Dynamic Telemetry Status / Debuff Note */}
-        <p className="text-[10px] font-mono text-slate-400 border-t border-slate-800/60 pt-1.5">
+        <p suppressHydrationWarning className="text-[10px] font-mono text-slate-400 border-t border-slate-800/60 pt-1.5">
           {circadian.isCurrentlySleeping ? (
             <span className="text-cyan-300 font-bold flex items-center gap-1.5 animate-pulse">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping inline-block" />

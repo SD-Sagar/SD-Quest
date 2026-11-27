@@ -11,6 +11,8 @@ export interface ActiveQuestUiState {
   currentPhysicalFatigue: number;
   currentMentalFatigue: number;
   hunterLevel: number;
+  isRepeatSession?: boolean;
+  isOffDaySession?: boolean;
 }
 
 const initialState: ActiveQuestUiState = {
@@ -23,6 +25,8 @@ const initialState: ActiveQuestUiState = {
   currentPhysicalFatigue: 0,
   currentMentalFatigue: 0,
   hunterLevel: 1,
+  isRepeatSession: false,
+  isOffDaySession: false,
 };
 
 export const questUiSlice = createSlice({
@@ -37,6 +41,8 @@ export const questUiSlice = createSlice({
         initialPhysicalFatigue?: number;
         initialMentalFatigue?: number;
         hunterLevel?: number;
+        isRepeatSession?: boolean;
+        isOffDaySession?: boolean;
       }>
     ) => {
       state.isActive = true;
@@ -48,6 +54,8 @@ export const questUiSlice = createSlice({
       state.currentPhysicalFatigue = action.payload.initialPhysicalFatigue ?? 0;
       state.currentMentalFatigue = action.payload.initialMentalFatigue ?? 0;
       state.hunterLevel = action.payload.hunterLevel ?? 1;
+      state.isRepeatSession = action.payload.isRepeatSession ?? false;
+      state.isOffDaySession = action.payload.isOffDaySession ?? false;
     },
     minimizeQuestSession: (state) => {
       state.isMinimized = true;
@@ -65,6 +73,8 @@ export const questUiSlice = createSlice({
       state.currentPhysicalFatigue = 0;
       state.currentMentalFatigue = 0;
       state.hunterLevel = 1;
+      state.isRepeatSession = false;
+      state.isOffDaySession = false;
     },
     updateQuestLiveFatigue: (
       state,

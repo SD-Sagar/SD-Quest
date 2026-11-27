@@ -11,12 +11,13 @@ import {
   completeSleepSessionAction,
   applySleepDeprivationAction,
   spendGraceCoinAction,
+  syncFatigueOnSessionAbandonAction,
 } from "@/server/actions/player.actions";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { endQuestSession, minimizeQuestSession, updateQuestLiveFatigue } from "@/store/slices/questUiSlice";
 import { triggerHaptic } from "@/lib/utils";
 import confetti from "canvas-confetti";
-import { Play, Pause, X, CheckCircle2, Zap, Flame, Shield, Minimize2, AlertTriangle, Moon } from "lucide-react";
+import { Play, Pause, X, CheckCircle2, Zap, Flame, Shield, Minimize2, AlertTriangle, Moon, Lock } from "lucide-react";
 import { Quest, AttributeType } from "@/types";
 import { ActiveFatigueDock } from "@/components/character/ActiveFatigueDock";
 
@@ -297,7 +298,10 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
     setLoading(true);
     try {
       await clearActiveSessionAction();
-      await completeQuestAction(quest.id, Math.max(1, minutes));
+      await completeQuestAction(quest.id, Math.max(1, minutes), {
+        isRepeatSession: reduxQuestState.isRepeatSession,
+        isOffDaySession: reduxQuestState.isOffDaySession,
+      });
       confetti({
         particleCount: 100,
         spread: 75,
@@ -363,6 +367,10 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
     triggerHaptic("medium");
     setLoading(true);
     try {
+      await syncFatigueOnSessionAbandonAction(
+        reduxQuestState.currentPhysicalFatigue,
+        reduxQuestState.currentMentalFatigue
+      );
       await clearActiveSessionAction();
       dispatch(endQuestSession());
       onClose();
@@ -421,6 +429,20 @@ export function LiveQuestStopwatch({ quest, onClose }: LiveQuestStopwatchProps) 
             </button>
           </div>
         </div>
+
+        {/* Special Session Badges */}
+        {reduxQuestState.isRepeatSession && (
+          <div className="py-1 px-2.5 rounded-xl bg-cyan-950/80 border border-cyan-400 text-cyan-300 font-mono text-[10px] font-bold flex items-center justify-center gap-1 shadow-[0_0_12px_rgba(0,229,255,0.3)] animate-pulse">
+            <Zap className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400" />
+            <span>REPEAT LIMIT BREAK (+25% FATIGUE RATE • 1.25X STAT BOOST)</span>
+          </div>
+        )}
+        {reduxQuestState.isOffDaySession && (
+          <div className="py-1 px-2.5 rounded-xl bg-amber-950/70 border border-amber-500/50 text-amber-300 font-mono text-[10px] font-bold flex items-center justify-center gap-1">
+            <Lock className="w-3.5 h-3.5 text-amber-400" />
+            <span>OFF-DAY DIRECTIVE SESSION (NORMAL FATIGUE • STANDARD YIELD)</span>
+          </div>
+        )}
 
         {/* Title */}
         <div className="space-y-1">

@@ -95,14 +95,74 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
     }
   }
 
-  // Map quests by deadline date or start date
+  // Map quests by deadline date, start date, or recurring multi-day calendar attachment
   const questsByDate: Record<string, Quest[]> = {};
+
+  const isQuestCompletedOnDate = (q: Quest, targetDateStr: string) => {
+    const isRecurring = Boolean(q.recurrence && q.recurrence !== "none");
+    if (!isRecurring) {
+      return q.status === "completed";
+    }
+    const doneDate =
+      q.last_completed_date ||
+      (q.completed_at ? (q.completed_at.includes("T") ? getLocalDateString(q.completed_at) : q.completed_at.split("T")[0]) : null);
+    return doneDate === targetDateStr;
+  };
+
   for (const q of quests) {
-    const raw = q.deadline || q.start_date;
-    if (raw) {
-      const d = raw.includes("T") ? getLocalDateString(raw) : raw;
-      if (!questsByDate[d]) questsByDate[d] = [];
-      questsByDate[d].push(q);
+    const isRecurring = Boolean(q.recurrence && q.recurrence !== "none");
+    const completedDate =
+      q.last_completed_date ||
+      (q.completed_at ? (q.completed_at.includes("T") ? getLocalDateString(q.completed_at) : q.completed_at.split("T")[0]) : null);
+
+    // If completed on a specific day, ensure it is recorded on that date
+    if (completedDate) {
+      if (!questsByDate[completedDate]) questsByDate[completedDate] = [];
+      if (!questsByDate[completedDate].some((existing) => existing.id === q.id)) {
+        questsByDate[completedDate].push(q);
+      }
+    }
+
+    if (isRecurring) {
+      const qStart = q.start_date || "2000-01-01";
+      const qEnd = q.deadline ? (q.deadline.includes("T") ? q.deadline.split("T")[0] : q.deadline) : "2099-12-31";
+
+      // Attach to every scheduled day within the viewed month
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const dow = new Date(year, month, day).getDay();
+
+        if (dateStr < qStart || dateStr > qEnd) continue;
+
+        let isScheduled = false;
+        if (q.recurrence === "daily") {
+          isScheduled = true;
+        } else if (q.recurrence === "weekdays") {
+          isScheduled = dow >= 1 && dow <= 5;
+        } else if (q.recurrence === "weekly") {
+          if (Array.isArray(q.recurrence_days) && q.recurrence_days.length > 0) {
+            isScheduled = q.recurrence_days.includes(dow);
+          } else if (q.start_date) {
+            isScheduled = new Date(q.start_date + "T00:00:00").getDay() === dow;
+          }
+        }
+
+        if (isScheduled) {
+          if (!questsByDate[dateStr]) questsByDate[dateStr] = [];
+          if (!questsByDate[dateStr].some((existing) => existing.id === q.id)) {
+            questsByDate[dateStr].push(q);
+          }
+        }
+      }
+    } else {
+      const raw = q.deadline || q.start_date;
+      if (raw) {
+        const d = raw.includes("T") ? getLocalDateString(raw) : raw;
+        if (!questsByDate[d]) questsByDate[d] = [];
+        if (!questsByDate[d].some((existing) => existing.id === q.id)) {
+          questsByDate[d].push(q);
+        }
+      }
     }
   }
 
@@ -186,7 +246,7 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
             const dayQuests = questsByDate[dateStr] || [];
             const completedSession = daySessions.find((s) => s.status === "completed");
             const hasCompleted = Boolean(completedSession);
-            const completedQuestsOnDay = dayQuests.filter((q) => q.status === "completed");
+            const completedQuestsOnDay = dayQuests.filter((q) => isQuestCompletedOnDate(q, dateStr));
             const hasDueQuests = dayQuests.length > 0;
             const isToday = dateStr === todayStr;
             const isSelected = dateStr === selectedDateStr;
@@ -391,26 +451,31 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
                 </p>
               ) : (
                 <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
-                  {selectedQuests.map((q) => (
-                    <div
-                      key={q.id}
-                      className="p-2.5 rounded-xl bg-[#070b14] border border-cyan-500/20 flex items-center justify-between text-xs font-mono"
-                    >
-                      <div>
-                        <span
-                          className={`font-bold block ${
-                            q.status === "completed" ? "line-through text-slate-500" : "text-white"
-                          }`}
-                        >
-                          {q.title}
-                        </span>
-                        <span className="text-[10px] text-slate-400 capitalize font-hud">
-                          {q.category} • {q.estimated_duration_minutes}m
+                  {selectedQuests.map((q) => {
+                    const isDone = isQuestCompletedOnDate(q, selectedDateStr);
+                    return (
+                      <div
+                        key={q.id}
+                        className="p-2.5 rounded-xl bg-[#070b14] border border-cyan-500/20 flex items-center justify-between text-xs font-mono"
+                      >
+                        <div>
+                          <span
+                            className={`font-bold block ${
+                              isDone ? "line-through text-slate-500" : "text-white"
+                            }`}
+                          >
+                            {q.title}
+                          </span>
+                          <span className="text-[10px] text-slate-400 capitalize font-hud">
+                            {q.category} • {q.estimated_duration_minutes}m
+                          </span>
+                        </div>
+                        <span className="text-cyan-300 font-bold font-mono">
+                          {isDone ? "✓ COMPLETED" : `+${q.xp_reward} XP`}
                         </span>
                       </div>
-                      <span className="text-cyan-300 font-bold font-mono">+{q.xp_reward} XP</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

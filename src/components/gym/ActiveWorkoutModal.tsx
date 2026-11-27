@@ -24,7 +24,7 @@ import {
   endSession,
   addSetToCurrentExercise,
 } from "@/store/slices/workoutUiSlice";
-import { finishWorkoutAction } from "@/server/actions/workout.actions";
+import { finishWorkoutAction, getTodaySkippingStatusAction } from "@/server/actions/workout.actions";
 import {
   saveActiveSessionAction,
   clearActiveSessionAction,
@@ -106,6 +106,25 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
   const [skipsCountInput, setSkipsCountInput] = useState(100);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [volumeCapNotice, setVolumeCapNotice] = useState<string | null>(null);
+  const [todaySkippingStatus, setTodaySkippingStatus] = useState<{
+    alreadyCompleted: boolean;
+    count: number;
+    source: "workout" | "quest" | "none";
+  }>({ alreadyCompleted: false, count: 0, source: "none" });
+
+  useEffect(() => {
+    let isMounted = true;
+    getTodaySkippingStatusAction()
+      .then((res) => {
+        if (isMounted && res) {
+          setTodaySkippingStatus(res);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const currentExercise = session.exercises[session.currentExerciseIndex];
   const currentSet = currentExercise?.sets[session.currentSetIndex];
@@ -1037,45 +1056,127 @@ export function ActiveWorkoutModal({ userProfile }: ActiveWorkoutModalProps = {}
             </p>
           </div>
 
-          {/* Stepper / Input */}
-          <div className="p-5 rounded-xl bg-[#070b14] border border-cyan-500/30 space-y-3 font-hud">
-            <span className="text-[11px] text-slate-400 uppercase font-mono block">
-              Skips Conquered
-            </span>
-            <div className="flex items-center justify-center gap-4">
-              <button
-                type="button"
-                onClick={() => setSkipsCountInput(Math.max(0, skipsCountInput - 10))}
-                className="w-12 h-12 rounded-xl bg-slate-900 border border-cyan-500/40 text-white font-bold text-lg hover:border-cyan-300 flex items-center justify-center font-mono"
-              >
-                -10
-              </button>
-              <span className="text-4xl font-black font-mono text-cyan-400 mana-text-glow">
-                {skipsCountInput}
-              </span>
-              <button
-                type="button"
-                onClick={() => setSkipsCountInput(skipsCountInput + 10)}
-                className="w-12 h-12 rounded-xl bg-slate-900 border border-cyan-500/40 text-white font-bold text-lg hover:border-cyan-300 flex items-center justify-center font-mono"
-              >
-                +10
-              </button>
-            </div>
-          </div>
+          {todaySkippingStatus.alreadyCompleted ? (
+            <div className="space-y-4">
+              {/* Cleared Banner */}
+              <div className="p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-500/50 text-left space-y-1 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-300 font-solo uppercase">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>COMPULSORY PROTOCOL ALREADY SATISFIED TODAY ◆</span>
+                  </div>
+                  <span className="text-[9.5px] font-mono px-2 py-0.5 rounded bg-emerald-900/80 border border-emerald-400/50 text-white font-bold">
+                    CLEARED
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 font-hud">
+                  {todaySkippingStatus.source === "quest"
+                    ? "100 skips verified via Quest Board earlier today. Compulsory workout requirement is satisfied."
+                    : `${todaySkippingStatus.count} skips already logged in earlier workout session today.`}
+                </p>
+              </div>
 
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => {
-              dispatch(logSkips(skipsCountInput));
-              dispatch(finishSkippingPhase());
-              handleFinishWorkout(skipsCountInput);
-            }}
-            className="w-full solo-btn py-3 text-xs font-solo"
-          >
-            <Trophy className="w-4 h-4 fill-current" />
-            <span>{isPending ? "SYSTEM LOGGING SESSION..." : "CLAIM VICTORY & HARVEST XP ◆"}</span>
-          </button>
+              {/* Primary: Quick finish with satisfied 100 skips */}
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  triggerHaptic("heavy");
+                  dispatch(logSkips(Math.max(100, todaySkippingStatus.count)));
+                  dispatch(finishSkippingPhase());
+                  handleFinishWorkout(Math.max(100, todaySkippingStatus.count));
+                }}
+                className="w-full solo-btn py-3.5 text-xs font-solo"
+              >
+                <Trophy className="w-4 h-4 fill-current" />
+                <span>{isPending ? "SYSTEM LOGGING SESSION..." : "✓ COMPLETE WORKOUT (APPLY TODAY'S 100 SKIPS)"}</span>
+              </button>
+
+              {/* Secondary: Overtime Limit Break option */}
+              <div className="p-3.5 rounded-xl bg-[#070b14] border border-cyan-500/25 space-y-2.5 font-hud text-center">
+                <div className="flex items-center justify-center gap-1.5 text-[10.5px] font-mono text-cyan-300 font-bold uppercase">
+                  <Zap className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400" />
+                  <span>OVERTIME LIMIT BREAK: BONUS CONDITIONING</span>
+                </div>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSkipsCountInput(Math.max(10, skipsCountInput - 10))}
+                    className="w-9 h-9 rounded-lg bg-slate-900 border border-cyan-500/40 text-white font-bold text-sm font-mono"
+                  >
+                    -10
+                  </button>
+                  <span className="text-2xl font-black font-mono text-cyan-400">
+                    +{skipsCountInput} Skips
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSkipsCountInput(skipsCountInput + 10)}
+                    className="w-9 h-9 rounded-lg bg-slate-900 border border-cyan-500/40 text-white font-bold text-sm font-mono"
+                  >
+                    +10
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => {
+                    triggerHaptic("heavy");
+                    const totalSkips = Math.max(100, todaySkippingStatus.count) + skipsCountInput;
+                    dispatch(logSkips(totalSkips));
+                    dispatch(finishSkippingPhase());
+                    handleFinishWorkout(totalSkips);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-cyan-950/80 hover:bg-cyan-900/80 border border-cyan-400 text-cyan-300 font-mono text-[11px] font-bold transition flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(0,229,255,0.25)]"
+                >
+                  <Zap className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400" />
+                  <span>LOG OVERTIME (+{skipsCountInput} EXTRA REPS)</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Stepper / Input */}
+              <div className="p-5 rounded-xl bg-[#070b14] border border-cyan-500/30 space-y-3 font-hud">
+                <span className="text-[11px] text-slate-400 uppercase font-mono block">
+                  Skips Conquered
+                </span>
+                <div className="flex items-center justify-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setSkipsCountInput(Math.max(0, skipsCountInput - 10))}
+                    className="w-12 h-12 rounded-xl bg-slate-900 border border-cyan-500/40 text-white font-bold text-lg hover:border-cyan-300 flex items-center justify-center font-mono"
+                  >
+                    -10
+                  </button>
+                  <span className="text-4xl font-black font-mono text-cyan-400 mana-text-glow">
+                    {skipsCountInput}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSkipsCountInput(skipsCountInput + 10)}
+                    className="w-12 h-12 rounded-xl bg-slate-900 border border-cyan-500/40 text-white font-bold text-lg hover:border-cyan-300 flex items-center justify-center font-mono"
+                  >
+                    +10
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  dispatch(logSkips(skipsCountInput));
+                  dispatch(finishSkippingPhase());
+                  handleFinishWorkout(skipsCountInput);
+                }}
+                className="w-full solo-btn py-3 text-xs font-solo"
+              >
+                <Trophy className="w-4 h-4 fill-current" />
+                <span>{isPending ? "SYSTEM LOGGING SESSION..." : "CLAIM VICTORY & HARVEST XP ◆"}</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
     );

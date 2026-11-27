@@ -9,10 +9,10 @@ import {
   maximizeQuestSession,
   endQuestSession,
 } from "@/store/slices/questUiSlice";
-import { completeQuestAction, deleteQuestAction, createQuestAction } from "@/server/actions/quest.actions";
+import { completeQuestAction, deleteQuestAction, createQuestAction, unlockOffDayQuestAction } from "@/server/actions/quest.actions";
 import { getTodaysWorkoutsAction } from "@/server/actions/workout.actions";
 import { saveActiveSessionAction, clearActiveSessionAction, logManualSleepSessionAction } from "@/server/actions/player.actions";
-import { calculateCircadianAwakeStatus } from "@/lib/calculations/fatigue";
+import { calculateCircadianAwakeStatus, calculatePassiveFatigueDecay } from "@/lib/calculations/fatigue";
 import { triggerHaptic } from "@/lib/utils";
 import { playQuestCompleteSound } from "@/lib/audio/soundEffects";
 import confetti from "canvas-confetti";
@@ -42,6 +42,7 @@ import {
   ChevronDown,
   ChevronUp,
   Minus,
+  Lock,
 } from "lucide-react";
 
 interface QuestListProps {
@@ -174,29 +175,101 @@ export function QuestList({
   }, []);
 
   const todayStr = new Date().toISOString().split("T")[0];
+  const currentDayOfWeek = new Date().getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+
+  // Unlocked state records for repeat sessions and off-day sessions
+  const [unlockedRepeats, setUnlockedRepeats] = useState<Record<string, boolean>>({});
+  const [unlockedOffDays, setUnlockedOffDays] = useState<Record<string, boolean>>({});
+  const [unlockLoadingId, setUnlockLoadingId] = useState<string | null>(null);
+
+  // Check if a quest was completed today
+  const isQuestCompletedToday = (q: Quest) => {
+    if (q.status !== "completed") return false;
+    const doneDate = q.last_completed_date || (q.completed_at ? q.completed_at.split("T")[0] : null);
+    return doneDate === todayStr;
+  };
+
+  // Helper to determine next scheduled day of week label for off-day badge
+  const getNextScheduledDayLabel = (q: Quest) => {
+    if (q.recurrence === "weekdays") return "MONDAY";
+    if (q.recurrence === "weekly") {
+      const DAYS = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+      if (Array.isArray(q.recurrence_days) && q.recurrence_days.length > 0) {
+        const sorted = [...q.recurrence_days].sort((a, b) => a - b);
+        const next = sorted.find((d) => d > currentDayOfWeek) ?? sorted[0];
+        return DAYS[next];
+      }
+      if (q.start_date) {
+        return DAYS[new Date(q.start_date + "T00:00:00").getDay()];
+      }
+    }
+    return "TOMORROW";
+  };
+
+  // Check if a quest is scheduled for today across all 4 recurrence types
+  const isQuestScheduledForToday = (q: Quest) => {
+    // 1. One-time date quest
+    if (!q.recurrence || q.recurrence === "none") {
+      const isDueToday = Boolean(q.deadline?.startsWith(todayStr));
+      const isStartToday = q.start_date === todayStr;
+      const isCurrentCampaign = Boolean(q.start_date && q.start_date <= todayStr && (!q.deadline || q.deadline >= todayStr));
+      const isUndated = !q.deadline && !q.start_date;
+      return isDueToday || isStartToday || isCurrentCampaign || isUndated;
+    }
+
+    // 2. Daily habit
+    if (q.recurrence === "daily") {
+      return true;
+    }
+
+    // 3. Weekdays habit (Mon to Fri)
+    if (q.recurrence === "weekdays") {
+      return currentDayOfWeek >= 1 && currentDayOfWeek <= 5;
+    }
+
+    // 4. Weekly habit on specific days
+    if (q.recurrence === "weekly") {
+      if (Array.isArray(q.recurrence_days) && q.recurrence_days.length > 0) {
+        return q.recurrence_days.includes(currentDayOfWeek);
+      }
+      if (q.start_date) {
+        const startDay = new Date(q.start_date + "T00:00:00").getDay();
+        return startDay === currentDayOfWeek;
+      }
+      return false;
+    }
+
+    return true;
+  };
 
   // Filter based on View Mode
   const modeFiltered = quests.filter((q) => {
     if (viewMode === "completed") {
       return q.status === "completed";
     }
-    if (q.status === "completed") return false;
 
     if (viewMode === "today") {
-      // Due today, start date is today, or daily recurrence
-      const isDueToday = q.deadline?.startsWith(todayStr);
-      const isStartToday = q.start_date === todayStr;
-      const isDailyHabit = q.recurrence === "daily" || q.recurrence === "weekdays";
-      return isDueToday || isStartToday || isDailyHabit || (!q.deadline && q.recurrence === "none");
+      const isRecurring = Boolean(q.recurrence && q.recurrence !== "none");
+      if (!isRecurring) {
+        // Normal one-time quest: once completed, vanish immediately from Today into Archive!
+        if (q.status === "completed") return false;
+        return isQuestScheduledForToday(q);
+      }
+      // Recurring quests (daily, weekdays, weekly): never leave Today view!
+      return true;
     }
 
     if (viewMode === "upcoming") {
-      // Has a deadline or start_date after today
-      return (q.deadline && q.deadline > todayStr + "T23:59:59") || (q.start_date > todayStr);
+      if (q.status === "completed") return false;
+      if (!q.recurrence || q.recurrence === "none") {
+        return (Boolean(q.deadline) && q.deadline! > todayStr + "T23:59:59") || (Boolean(q.start_date) && q.start_date > todayStr);
+      }
+      // Recurring quests upcoming if not scheduled today
+      return !isQuestScheduledForToday(q);
     }
 
     if (viewMode === "habits") {
-      return q.recurrence !== "none";
+      return Boolean(q.recurrence && q.recurrence !== "none");
     }
 
     return true;
@@ -301,34 +374,24 @@ export function QuestList({
             attribute_rewards: { agility: 0.25 },
           }),
           createQuestAction({
-            title: "Hydration Discipline: Reach 3,000ml Pure Water",
-            description: "Maintain cellular hydration and kidney filtration efficiency.",
+            title: "Morning Cold Splash & Posture Alignment",
+            description: "Shock nervous system with cold water rinse and 60-second spinal alignment.",
             category: "routine",
-            priority: "high",
-            estimated_duration_minutes: 10,
+            priority: "medium",
+            estimated_duration_minutes: 5,
             xp_reward: 40,
             recurrence: "daily",
-            attribute_rewards: { vitality: 0.25 },
+            attribute_rewards: { discipline: 0.25, vitality: 0.10 },
           }),
           createQuestAction({
-            title: "6,000 Steps Daily Territory Scouting",
-            description: "Achieve baseline caloric expenditure through walking mobility.",
+            title: "Core Plank & Isometric Hold Circuit",
+            description: "Build anterior abdominal stability and posture endurance through timed holds.",
             category: "fitness",
             priority: "medium",
-            estimated_duration_minutes: 45,
+            estimated_duration_minutes: 10,
             xp_reward: 50,
             recurrence: "daily",
-            attribute_rewards: { endurance: 0.25 },
-          }),
-          createQuestAction({
-            title: "Evening Review: Plan Next Day Directives",
-            description: "Review today's achievements and lock tomorrow's priority missions before resting.",
-            category: "routine",
-            priority: "medium",
-            estimated_duration_minutes: 15,
-            xp_reward: 40,
-            recurrence: "daily",
-            attribute_rewards: { discipline: 0.25 },
+            attribute_rewards: { endurance: 0.25, strength: 0.15 },
           }),
         ]);
       } catch (err) {
@@ -379,11 +442,25 @@ export function QuestList({
       return;
     }
 
-    // Launch fresh universal quest session with hunter's real profile fatigue
+    // Launch fresh universal quest session with hunter's real-time decayed profile fatigue
     const startedAt = Date.now();
-    const currentPhys = Number(profile?.physical_fatigue) || 0;
-    const currentMent = Number(profile?.mental_fatigue) || 0;
+    const decay = calculatePassiveFatigueDecay(
+      profile?.last_fatigue_update_at,
+      Number(profile?.mental_fatigue) || 0,
+      Number(profile?.physical_fatigue) || 0,
+      undefined,
+      {
+        hunterLevel: profile?.current_level,
+        rank: profile?.rank,
+        lastHydrationSurgeAt: profile?.last_hydration_surge_at,
+      }
+    );
+    const currentPhys = decay.newPhysicalFatigue;
+    const currentMent = decay.newMentalFatigue;
     const currentLvl = profile?.current_level || 1;
+
+    const isRepeat = Boolean(unlockedRepeats[q.id]);
+    const isOffDay = Boolean(unlockedOffDays[q.id]);
 
     dispatch(
       startQuestSession({
@@ -392,6 +469,8 @@ export function QuestList({
         initialPhysicalFatigue: currentPhys,
         initialMentalFatigue: currentMent,
         hunterLevel: currentLvl,
+        isRepeatSession: isRepeat,
+        isOffDaySession: isOffDay,
       })
     );
 
@@ -415,8 +494,32 @@ export function QuestList({
     }
   };
 
+  const handleUnlockRepeat = (q: Quest) => {
+    triggerHaptic("heavy");
+    setUnlockedRepeats((prev) => ({ ...prev, [q.id]: true }));
+  };
+
+  const handleUnlockOffDay = async (q: Quest) => {
+    triggerHaptic("heavy");
+    setUnlockLoadingId(q.id);
+    try {
+      const res = await unlockOffDayQuestAction(q.id);
+      if (res?.success) {
+        setUnlockedOffDays((prev) => ({ ...prev, [q.id]: true }));
+        triggerHaptic("success");
+      }
+    } catch (err) {
+      console.error("Failed to unlock off-day quest:", err);
+    } finally {
+      setUnlockLoadingId(null);
+    }
+  };
+
   const handleComplete = (quest: Quest) => {
-    if (quest.status === "completed") return;
+    const isRepeat = Boolean(unlockedRepeats[quest.id]);
+    const isOffDay = Boolean(unlockedOffDays[quest.id]);
+
+    if (quest.status === "completed" && !isRepeat) return;
 
     triggerHaptic("success");
     playQuestCompleteSound();
@@ -431,7 +534,16 @@ export function QuestList({
         dispatch(endQuestSession());
         await clearActiveSessionAction().catch(() => {});
       }
-      await completeQuestAction(quest.id);
+      await completeQuestAction(quest.id, undefined, {
+        isRepeatSession: isRepeat,
+        isOffDaySession: isOffDay,
+      });
+      if (isRepeat) {
+        setUnlockedRepeats((prev) => ({ ...prev, [quest.id]: false }));
+      }
+      if (isOffDay) {
+        setUnlockedOffDays((prev) => ({ ...prev, [quest.id]: false }));
+      }
     });
   };
 
@@ -1111,22 +1223,18 @@ export function QuestList({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left max-w-md mx-auto text-xs font-mono">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-left max-w-md mx-auto text-xs font-mono">
               <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
                 <span className="text-white font-bold block text-[11px]">100 Compulsory Skips</span>
                 <span className="text-slate-400 text-[10px]">Agility +0.25 • Daily</span>
               </div>
               <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span className="text-cyan-400 font-bold block text-[11px]">3,000ml Hydration</span>
-                <span className="text-slate-400 text-[10px]">Vitality +0.25 • Daily</span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span className="text-cyan-300 font-bold block text-[11px]">6,000 Steps Scouting</span>
-                <span className="text-slate-400 text-[10px]">Endurance +0.25 • Daily</span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span className="text-white font-bold block text-[11px]">Evening Review</span>
+                <span className="text-cyan-400 font-bold block text-[11px]">Cold Splash &amp; Posture</span>
                 <span className="text-slate-400 text-[10px]">Discipline +0.25 • Daily</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
+                <span className="text-cyan-300 font-bold block text-[11px]">Core Plank Circuit</span>
+                <span className="text-slate-400 text-[10px]">Endurance +0.25 • Daily</span>
               </div>
             </div>
 
@@ -1267,7 +1375,22 @@ export function QuestList({
         {/* REGULAR QUESTS LIST (Active Directives First + Collapsible Completed Directives) */}
         {(() => {
           const renderQuestCard = (quest: Quest) => {
-            const isCompleted = quest.status === "completed";
+            const isRecurring = Boolean(quest.recurrence && quest.recurrence !== "none");
+            const isCompletedToday = isQuestCompletedToday(quest);
+            const isScheduledToday = isQuestScheduledForToday(quest);
+
+            const isRepeatUnlocked = Boolean(unlockedRepeats[quest.id]);
+            const isOffDayUnlocked = Boolean(unlockedOffDays[quest.id]);
+
+            // State 1: Completed today and locked (needs repeat unlock)
+            const isCompletedLocked = isRecurring && isCompletedToday && !isRepeatUnlocked;
+
+            // State 2: Scheduled for another day (off-day) and not yet off-day unlocked and not completed today
+            const isOffDayLocked = isRecurring && !isScheduledToday && !isOffDayUnlocked && !isCompletedToday;
+
+            // State 3: Normal one-time quest that is completed (viewed in Archive)
+            const isNormalCompleted = !isRecurring && quest.status === "completed";
+
             const isCurrentQuestActive = isQuestActive && activeQuestInRedux?.id === quest.id;
             const isPrimaryDomainMainQuest = primaryDomainQuest?.id === quest.id;
 
@@ -1276,7 +1399,11 @@ export function QuestList({
                 <div
                   key={quest.id}
                   className={`p-2.5 sm:p-3 rounded-xl border transition-all duration-200 relative overflow-hidden ${
-                    isCompleted
+                    isCompletedLocked
+                      ? "bg-emerald-950/20 border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                      : isOffDayLocked
+                      ? "bg-slate-950/80 border-amber-500/30 opacity-80"
+                      : isNormalCompleted
                       ? "bg-slate-950/40 border-slate-800/60 opacity-60"
                       : isCurrentQuestActive
                       ? "hunter-panel border-cyan-400 bg-slate-900/95 shadow-[0_0_15px_rgba(0,229,255,0.22)]"
@@ -1287,7 +1414,11 @@ export function QuestList({
                 >
                   <div
                     className={`absolute top-0 left-0 bottom-0 ${isPrimaryDomainMainQuest ? "w-1.5" : "w-1"} ${
-                      isCompleted
+                      isCompletedLocked
+                        ? "bg-emerald-400 shadow-[0_0_8px_#10b981]"
+                        : isOffDayLocked
+                        ? "bg-amber-500"
+                        : isNormalCompleted
                         ? "bg-cyan-600"
                         : isCurrentQuestActive
                         ? "bg-cyan-400 shadow-[0_0_10px_#00e5ff]"
@@ -1310,6 +1441,32 @@ export function QuestList({
                         <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-slate-900 text-cyan-400 border border-slate-700">
                           {quest.category}
                         </span>
+                        {quest.recurrence && quest.recurrence !== "none" && (
+                          <span className="text-[8.5px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-cyan-950/70 text-cyan-300 border border-cyan-500/30">
+                            {quest.recurrence === "daily" ? "DAILY" : quest.recurrence === "weekdays" ? "WEEKDAYS" : "WEEKLY"}
+                          </span>
+                        )}
+                        {isCompletedLocked ? (
+                          <span className="text-[8.5px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                            COMPLETED TODAY ◆
+                          </span>
+                        ) : isOffDayLocked ? (
+                          <span className="text-[8.5px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-amber-950/70 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                            <Lock className="w-2.5 h-2.5 text-amber-400" />
+                            OFF-DAY (NEXT: {getNextScheduledDayLabel(quest)})
+                          </span>
+                        ) : isRepeatUnlocked ? (
+                          <span className="text-[8.5px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-400 animate-pulse flex items-center gap-0.5">
+                            <Zap className="w-2.5 h-2.5 text-cyan-400 fill-cyan-400" />
+                            LIMIT BREAK (+25% FATIGUE)
+                          </span>
+                        ) : isOffDayUnlocked ? (
+                          <span className="text-[8.5px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-amber-950/80 text-amber-300 border border-amber-500/50 flex items-center gap-0.5">
+                            <Lock className="w-2.5 h-2.5 text-amber-400" />
+                            OFF-DAY UNLOCKED
+                          </span>
+                        ) : null}
                         <span className="text-[9px] text-slate-400 font-mono flex items-center gap-0.5">
                           <Clock className="w-2.5 h-2.5" />
                           {quest.estimated_duration_minutes}m
@@ -1325,7 +1482,7 @@ export function QuestList({
                       </div>
                       <h4
                         className={`text-xs sm:text-sm font-bold truncate ${
-                          isCompleted ? "line-through text-slate-500" : "text-white font-solo"
+                          isNormalCompleted || isCompletedLocked ? "line-through text-slate-400" : "text-white font-solo"
                         }`}
                       >
                         {quest.title}
@@ -1334,7 +1491,28 @@ export function QuestList({
 
                     {/* Quick Compact Actions */}
                     <div className="flex items-center gap-1 shrink-0">
-                      {!isCompleted && (
+                      {isCompletedLocked ? (
+                        <button
+                          type="button"
+                          onClick={() => handleUnlockRepeat(quest)}
+                          className="px-2 py-1 rounded-lg font-mono text-[9px] font-bold bg-cyan-950/90 border border-cyan-400 text-cyan-300 hover:bg-cyan-900 transition flex items-center gap-1 shadow-[0_0_10px_rgba(0,229,255,0.3)]"
+                          title="Unlock same-day repeat session (+25% fatigue rate, boosted attribute gain)"
+                        >
+                          <Zap className="w-3 h-3 text-cyan-400 fill-cyan-400" />
+                          <span>REPEAT (+25%)</span>
+                        </button>
+                      ) : isOffDayLocked ? (
+                        <button
+                          type="button"
+                          disabled={unlockLoadingId === quest.id}
+                          onClick={() => handleUnlockOffDay(quest)}
+                          className="px-2 py-1 rounded-lg font-mono text-[9px] font-bold bg-slate-900 border border-amber-500/50 text-amber-300 hover:bg-amber-950/40 transition flex items-center gap-1"
+                          title="Unlock off-day early access (-10 XP fee)"
+                        >
+                          <Lock className="w-3 h-3 text-amber-400" />
+                          <span>{unlockLoadingId === quest.id ? "..." : "UNLOCK (-10 XP)"}</span>
+                        </button>
+                      ) : !isNormalCompleted ? (
                         <>
                           <button
                             type="button"
@@ -1361,7 +1539,7 @@ export function QuestList({
                             <CheckCircle2 className="w-3.5 h-3.5" />
                           </button>
                         </>
-                      )}
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => handleDelete(quest)}
@@ -1380,7 +1558,11 @@ export function QuestList({
               <div
                 key={quest.id}
                 className={`p-4 rounded-2xl border transition-all duration-200 relative overflow-hidden ${
-                  isCompleted
+                  isCompletedLocked
+                    ? "bg-emerald-950/15 border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                    : isOffDayLocked
+                    ? "bg-slate-950/80 border-amber-500/30 opacity-80"
+                    : isNormalCompleted
                     ? "bg-slate-950/40 border-slate-800/60 opacity-60"
                     : isCurrentQuestActive
                     ? "hunter-panel border-cyan-400 bg-slate-900/95 shadow-[0_0_20px_rgba(0,229,255,0.25)]"
@@ -1392,7 +1574,11 @@ export function QuestList({
                 {/* Priority Color Stripe */}
                 <div
                   className={`absolute top-0 left-0 bottom-0 ${isPrimaryDomainMainQuest ? "w-1.5" : "w-1"} ${
-                    isCompleted
+                    isCompletedLocked
+                      ? "bg-emerald-400 shadow-[0_0_10px_#10b981]"
+                      : isOffDayLocked
+                      ? "bg-amber-500"
+                      : isNormalCompleted
                       ? "bg-cyan-600"
                       : isCurrentQuestActive
                       ? "bg-cyan-400 shadow-[0_0_12px_#00e5ff]"
@@ -1417,6 +1603,40 @@ export function QuestList({
                       <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-slate-900 text-cyan-400 border border-slate-700">
                         {quest.category}
                       </span>
+
+                      {quest.recurrence && quest.recurrence !== "none" && (
+                        <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-cyan-950/70 text-cyan-300 border border-cyan-500/40">
+                          {quest.recurrence === "daily" ? "DAILY HABIT" : quest.recurrence === "weekdays" ? "WEEKDAYS (MON-FRI)" : "WEEKLY RECURRING"}
+                        </span>
+                      )}
+
+                      {isCompletedLocked && (
+                        <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 flex items-center gap-1 shadow-[0_0_10px_rgba(16,185,129,0.25)]">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          LOCKED // COMPLETED TODAY ◆
+                        </span>
+                      )}
+
+                      {isOffDayLocked && (
+                        <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-amber-950/70 text-amber-300 border border-amber-500/50 flex items-center gap-1">
+                          <Lock className="w-3 h-3 text-amber-400" />
+                          LOCKED // OFF-DAY (NEXT: {getNextScheduledDayLabel(quest)})
+                        </span>
+                      )}
+
+                      {isRepeatUnlocked && (
+                        <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-400 shadow-[0_0_10px_rgba(0,229,255,0.3)] animate-pulse flex items-center gap-1">
+                          <Zap className="w-3 h-3 text-cyan-400 fill-cyan-400" />
+                          LIMIT BREAK (+25% FATIGUE • 1.25X STATS)
+                        </span>
+                      )}
+
+                      {isOffDayUnlocked && (
+                        <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-500/60 flex items-center gap-1">
+                          <Lock className="w-3 h-3 text-amber-400" />
+                          OFF-DAY SESSION ACTIVE
+                        </span>
+                      )}
 
                       {/* Physical Training Circadian Lockout Indicator */}
                       {(quest.category === "fitness" ||
@@ -1464,7 +1684,7 @@ export function QuestList({
 
                     <h4
                       className={`text-sm font-bold tracking-tight ${
-                        isCompleted ? "line-through text-slate-500" : "text-white"
+                        isNormalCompleted || isCompletedLocked ? "line-through text-slate-400" : "text-white"
                       }`}
                     >
                       {quest.title}
@@ -1494,7 +1714,26 @@ export function QuestList({
 
                   {/* Actions */}
                   <div className="flex items-center gap-1.5 shrink-0 self-center">
-                    {!isCompleted && (
+                    {isCompletedLocked ? (
+                      <button
+                        type="button"
+                        onClick={() => handleUnlockRepeat(quest)}
+                        className="px-3.5 py-2 rounded-xl font-mono text-xs font-black uppercase tracking-wider bg-gradient-to-r from-cyan-950 via-blue-950 to-slate-900 border border-cyan-400 text-cyan-300 hover:border-cyan-300 hover:shadow-[0_0_15px_rgba(0,229,255,0.4)] transition flex items-center gap-1.5"
+                      >
+                        <Zap className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400" />
+                        <span>⚡ UNLOCK REPEAT (+25% BOOST)</span>
+                      </button>
+                    ) : isOffDayLocked ? (
+                      <button
+                        type="button"
+                        disabled={unlockLoadingId === quest.id}
+                        onClick={() => handleUnlockOffDay(quest)}
+                        className="px-3.5 py-2 rounded-xl font-mono text-xs font-bold uppercase tracking-wider bg-slate-900 border border-amber-500/60 text-amber-300 hover:bg-amber-950/50 hover:border-amber-400 transition flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Lock className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{unlockLoadingId === quest.id ? "UNLOCKING..." : "🔓 UNLOCK OFF-DAY (-10 XP)"}</span>
+                      </button>
+                    ) : !isNormalCompleted ? (
                       <>
                         <button
                           type="button"
@@ -1522,7 +1761,7 @@ export function QuestList({
                           <CheckCircle2 className="w-4 h-4" />
                         </button>
                       </>
-                    )}
+                    ) : null}
 
                     <button
                       type="button"
@@ -1539,43 +1778,9 @@ export function QuestList({
           };
 
           if (viewMode === "today") {
-            const pending = displayQuests.filter((q) => q.status !== "completed");
-            const completed = displayQuests.filter((q) => q.status === "completed");
-
             return (
               <div className="space-y-3">
-                {pending.map(renderQuestCard)}
-
-                {/* Collapsible Completed Section for Clean Anti-Scroll Mobile UX */}
-                {completed.length > 0 && (
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        triggerHaptic("light");
-                        setIsCompletedExpanded(!isCompletedExpanded);
-                      }}
-                      className="w-full py-2 px-3 rounded-xl bg-slate-950/70 border border-slate-800/80 hover:border-cyan-500/40 text-slate-400 hover:text-cyan-300 font-mono text-xs flex items-center justify-between transition group shadow-sm"
-                    >
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-[11px] font-bold uppercase tracking-wider group-hover:text-white transition">
-                          {completed.length} COMPLETED DIRECTIVE{completed.length !== 1 ? "S" : ""}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[10px] text-slate-500 group-hover:text-cyan-400 transition">
-                        <span>{isCompletedExpanded ? "HIDE ARCHIVE" : "VIEW COMPLETED"}</span>
-                        {isCompletedExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                      </div>
-                    </button>
-
-                    {isCompletedExpanded && (
-                      <div className="space-y-2 mt-2 pl-1 border-l-2 border-emerald-500/30 animate-in fade-in duration-150">
-                        {completed.map(renderQuestCard)}
-                      </div>
-                    )}
-                  </div>
-                )}
+                {displayQuests.map(renderQuestCard)}
               </div>
             );
           }

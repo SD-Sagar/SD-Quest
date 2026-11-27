@@ -10,12 +10,12 @@ import {
   endQuestSession,
   updateQuestLiveFatigue,
 } from "@/store/slices/questUiSlice";
-import { getActiveSessionAction, clearActiveSessionAction } from "@/server/actions/player.actions";
+import { getActiveSessionAction, clearActiveSessionAction, syncFatigueOnSessionAbandonAction } from "@/server/actions/player.actions";
 import { ActiveWorkoutModal } from "./ActiveWorkoutModal";
 import { LiveQuestStopwatch } from "@/components/quests/LiveQuestStopwatch";
 import { triggerHaptic } from "@/lib/utils";
 import { Dumbbell, Clock, Maximize2, X } from "lucide-react";
-import { calculateSessionFatigueDelta, calculatePassiveFatigueDecay } from "@/lib/calculations/fatigue";
+import { calculateSessionFatigueDelta, calculatePassiveFatigueDecay, determineTaskDomain } from "@/lib/calculations/fatigue";
 import { AttributeType } from "@/types";
 
 export function GlobalWorkoutHost() {
@@ -137,8 +137,29 @@ export function GlobalWorkoutHost() {
         { hunterLevel: questUiState.hunterLevel || 1 }
       );
 
-      const totalMental = Math.max(0, Math.min(100, Number((passiveDecay.newMentalFatigue + liveFatigue.mentalDelta).toFixed(2))));
-      const totalPhysical = Math.max(0, Math.min(100, Number((passiveDecay.newPhysicalFatigue + liveFatigue.physicalDelta).toFixed(2))));
+      const domain = determineTaskDomain(linkedAttrs as AttributeType[], activeQuest.category);
+
+      // Same-day repeat limit break accumulates fatigue 25% faster
+      const fatigueMultiplier = questUiState.isRepeatSession ? 1.25 : 1.0;
+      const effectiveMentalDelta = liveFatigue.mentalDelta * fatigueMultiplier;
+      const effectivePhysicalDelta = liveFatigue.physicalDelta * fatigueMultiplier;
+
+      let totalMental: number;
+      let totalPhysical: number;
+
+      if (isMeditationQuest || activeQuest.is_fun) {
+        totalMental = Math.max(0, Math.min(100, Number((questUiState.initialMentalFatigue + effectiveMentalDelta).toFixed(2))));
+        totalPhysical = Math.max(0, Math.min(100, Number((passiveDecay.newPhysicalFatigue + effectivePhysicalDelta).toFixed(2))));
+      } else if (domain === "mental") {
+        totalMental = Math.max(0, Math.min(100, Number((questUiState.initialMentalFatigue + effectiveMentalDelta).toFixed(2))));
+        totalPhysical = Math.max(0, Math.min(100, Number((passiveDecay.newPhysicalFatigue + effectivePhysicalDelta).toFixed(2))));
+      } else if (domain === "physical") {
+        totalPhysical = Math.max(0, Math.min(100, Number((questUiState.initialPhysicalFatigue + effectivePhysicalDelta).toFixed(2))));
+        totalMental = Math.max(0, Math.min(100, Number((passiveDecay.newMentalFatigue + effectiveMentalDelta).toFixed(2))));
+      } else {
+        totalMental = Math.max(0, Math.min(100, Number((questUiState.initialMentalFatigue + effectiveMentalDelta).toFixed(2))));
+        totalPhysical = Math.max(0, Math.min(100, Number((questUiState.initialPhysicalFatigue + effectivePhysicalDelta).toFixed(2))));
+      }
 
       dispatch(updateQuestLiveFatigue({
         currentPhysicalFatigue: totalPhysical,
@@ -183,6 +204,10 @@ export function GlobalWorkoutHost() {
 
     if (!confirm("Discard this active directive? Elapsed time and potential rewards will be lost.")) return;
     triggerHaptic("medium");
+    await syncFatigueOnSessionAbandonAction(
+      questUiState.currentPhysicalFatigue,
+      questUiState.currentMentalFatigue
+    );
     await clearActiveSessionAction();
     dispatch(endQuestSession());
   };

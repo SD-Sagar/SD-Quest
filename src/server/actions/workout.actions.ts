@@ -72,3 +72,57 @@ export async function updateEquipmentAction(equipmentData: Partial<EquipmentInve
   return updated;
 }
 
+export async function getTodaySkippingStatusAction(): Promise<{
+  alreadyCompleted: boolean;
+  count: number;
+  source: "workout" | "quest" | "none";
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { alreadyCompleted: false, count: 0, source: "none" };
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStart = `${todayStr}T00:00:00.000Z`;
+
+  try {
+    // 1. Check if a workout completed today already cleared >= 100 skips
+    const { data: workouts } = await supabase
+      .from("workout_sessions")
+      .select("skipping_completed, completed_at")
+      .eq("user_id", user.id)
+      .eq("status", "completed")
+      .gte("completed_at", todayStart)
+      .gte("skipping_completed", 100);
+
+    if (workouts && workouts.length > 0) {
+      const totalSkips = workouts.reduce((sum, w) => sum + (w.skipping_completed || 0), 0);
+      return { alreadyCompleted: true, count: totalSkips, source: "workout" };
+    }
+
+    // 2. Check if the daily skipping quest was completed today on the quest board
+    const { data: quests } = await supabase
+      .from("quests")
+      .select("id, title, status, last_completed_date, completed_at")
+      .eq("user_id", user.id)
+      .eq("status", "completed")
+      .ilike("title", "%skip%");
+
+    const completedTodayQuest = quests?.find(
+      (q) =>
+        q.last_completed_date === todayStr ||
+        (q.completed_at && q.completed_at.startsWith(todayStr))
+    );
+
+    if (completedTodayQuest) {
+      return { alreadyCompleted: true, count: 100, source: "quest" };
+    }
+  } catch (err) {
+    console.warn("Failed to check today skipping status:", err);
+  }
+
+  return { alreadyCompleted: false, count: 0, source: "none" };
+}
+

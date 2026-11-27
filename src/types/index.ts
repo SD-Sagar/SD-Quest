@@ -311,6 +311,7 @@ export interface Quest {
   status: QuestStatus;
   is_manual: boolean;
   is_fun?: boolean;
+  last_completed_date?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
   created_at: string;

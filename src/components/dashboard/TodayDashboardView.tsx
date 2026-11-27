@@ -189,18 +189,54 @@ export function TodayDashboardView({
   const streakInfo = getEffectiveStreakInfo(profile, todayDateStr);
 
   const userMainDomain = profile.active_main_quest || (isGymEnabled ? "fitness" : "career");
+
+  const isQuestDoneToday = (q: Quest) => {
+    if (q.status !== "completed") return false;
+    const doneDate = q.last_completed_date || (q.completed_at ? q.completed_at.split("T")[0] : null);
+    return doneDate === todayDateStr;
+  };
+
+  const todayCompletedQuests = useMemo(() => {
+    return quests.filter(isQuestDoneToday);
+  }, [quests, todayDateStr]);
+
+  const todayScheduledQuests = useMemo(() => {
+    const dayOfWeek = new Date().getDay();
+    return quests.filter((q) => {
+      if (!q.recurrence || q.recurrence === "none") {
+        const isDueToday = Boolean(q.deadline?.startsWith(todayDateStr));
+        const isStartToday = q.start_date === todayDateStr;
+        const isCurrentCampaign = Boolean(q.start_date && q.start_date <= todayDateStr && (!q.deadline || q.deadline >= todayDateStr));
+        const isUndated = !q.deadline && !q.start_date;
+        return isDueToday || isStartToday || isCurrentCampaign || isUndated;
+      }
+      if (q.recurrence === "daily") return true;
+      if (q.recurrence === "weekdays") return dayOfWeek >= 1 && dayOfWeek <= 5;
+      if (q.recurrence === "weekly") {
+        if (Array.isArray(q.recurrence_days) && q.recurrence_days.length > 0) {
+          return q.recurrence_days.includes(dayOfWeek);
+        }
+        if (q.start_date) {
+          return new Date(q.start_date + "T00:00:00").getDay() === dayOfWeek;
+        }
+        return false;
+      }
+      return true;
+    });
+  }, [quests, todayDateStr]);
+
   const isMainGoalCompleted = useMemo(() => {
     if (userMainDomain === "career") {
-      return quests.some((q) => q.category === "career" && q.status === "completed");
+      return quests.some((q) => q.category === "career" && isQuestDoneToday(q));
     }
     if (userMainDomain === "education") {
-      return quests.some((q) => q.category === "education" && q.status === "completed");
+      return quests.some((q) => q.category === "education" && isQuestDoneToday(q));
     }
     if (userMainDomain === "finance") {
-      return quests.some((q) => q.category === "finance" && q.status === "completed");
+      return quests.some((q) => q.category === "finance" && isQuestDoneToday(q));
     }
     return isTodayWorkoutCompleted || isSunday;
-  }, [userMainDomain, quests, isTodayWorkoutCompleted, isSunday]);
+  }, [userMainDomain, quests, isTodayWorkoutCompleted, isSunday, todayDateStr]);
 
   return (
     <div className="min-h-screen bg-[#05070c] text-slate-100 selection:bg-cyan-500 selection:text-black">
@@ -373,8 +409,8 @@ export function TodayDashboardView({
               targetHydrationMl={hydrationTarget}
               currentSteps={activity?.steps || 0}
               targetSteps={stepsTarget}
-              completedQuestsCount={quests.filter((q) => q.status === "completed").length}
-              totalQuestsCount={quests.length}
+              completedQuestsCount={todayCompletedQuests.length}
+              totalQuestsCount={todayScheduledQuests.length}
               streakDays={streakInfo.effectiveStreak}
               streakStatus={streakInfo.status}
               streakMultiplier={streakInfo.multiplierLabel}
@@ -393,7 +429,7 @@ export function TodayDashboardView({
                   <span className="text-cyan-400">◆</span> ACTIVE DIRECTIVES &amp; COMMITMENTS
                 </h2>
                 <span className="text-[10px] font-mono font-bold text-cyan-400 font-hud">
-                  {quests.filter((q) => q.status === "completed").length + (isGymEnabled && isTodayWorkoutCompleted ? 1 : 0)} / {quests.length + (isGymEnabled ? 1 : 0)} COMPLETED
+                  {todayCompletedQuests.length + (isGymEnabled && isTodayWorkoutCompleted ? 1 : 0)} / {todayScheduledQuests.length + (isGymEnabled ? 1 : 0)} COMPLETED
                 </span>
               </div>
 
