@@ -171,25 +171,25 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
   const selectedQuests = questsByDate[selectedDateStr] || [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Calendar Header with Navigation */}
-      <div className="hunter-panel rounded-3xl p-5 border border-slate-800 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-400">
-              <CalendarIcon className="w-4 h-4" />
+      <div className="hunter-panel rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 border border-slate-800 space-y-3 sm:space-y-4">
+        <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <div className="p-1.5 sm:p-2 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-400 shrink-0">
+              <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
-            <div>
-              <h2 className="text-base font-black text-white uppercase tracking-tight font-mono">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-black text-white uppercase tracking-tight font-mono truncate">
                 {monthName} {year}
               </h2>
-              <span className="text-[10px] text-slate-400 font-mono">
+              <span className="text-[9px] sm:text-[10px] text-slate-400 font-mono hidden xs:inline block truncate">
                 Full-Cell Monthly Tile Ledger
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -198,42 +198,43 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
                 setCurrentDate(now);
                 setSelectedDateStr(getLocalDateString(now));
               }}
-              className="px-2.5 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-950/40 text-cyan-300 font-mono text-[10px] font-bold hover:bg-cyan-900/40 transition"
+              className="px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl border border-cyan-500/30 bg-cyan-950/40 text-cyan-300 font-mono text-[9px] sm:text-[10px] font-bold hover:bg-cyan-900/40 transition"
               title="Jump to Today"
             >
               TODAY
             </button>
             <button
               onClick={handlePrevMonth}
-              className="p-2 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-white transition"
+              className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-white transition"
+              aria-label="Previous Month"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
             <button
               onClick={handleNextMonth}
-              className="p-2 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-white transition"
+              className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-white transition"
+              aria-label="Next Month"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
         </div>
 
         {/* Days of week header */}
-        <div className="grid grid-cols-7 gap-1 text-center font-mono text-[10px] text-slate-500 font-bold uppercase">
-          <span>Sun</span>
-          <span>Mon</span>
-          <span>Tue</span>
-          <span>Wed</span>
-          <span>Thu</span>
-          <span>Fri</span>
-          <span>Sat</span>
+        <div className="grid grid-cols-7 gap-1 text-center font-mono text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, idx) => (
+            <span key={day}>
+              <span className="inline sm:hidden">{["S", "M", "T", "W", "T", "F", "S"][idx]}</span>
+              <span className="hidden sm:inline">{day}</span>
+            </span>
+          ))}
         </div>
 
         {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1.5">
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
           {/* Leading empty slots */}
           {Array.from({ length: firstDayIndex }).map((_, i) => (
-            <div key={`empty-${i}`} className="h-16 rounded-xl bg-slate-950/30 opacity-20" />
+            <div key={`empty-${i}`} className="h-13 sm:h-16 rounded-lg sm:rounded-xl bg-slate-950/30 opacity-20" />
           ))}
 
           {/* Month Days */}
@@ -283,13 +284,13 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
                   triggerHaptic("light");
                   setSelectedDateStr(dateStr);
                 }}
-                className={`h-16 rounded-xl border p-1.5 flex flex-col justify-between transition-all ${statusBg} ${
+                className={`h-13 sm:h-16 rounded-lg sm:rounded-xl border p-1 sm:p-1.5 flex flex-col justify-between transition-all overflow-hidden ${statusBg} ${
                   isToday ? "ring-2 ring-cyan-400" : ""
-                } ${isSelected ? "border-cyan-400 scale-[1.03]" : ""}`}
+                } ${isSelected ? "border-cyan-400 scale-[1.03] z-10" : ""}`}
               >
-                <div className="flex justify-between items-center w-full">
+                <div className="flex justify-between items-center w-full leading-none">
                   <span
-                    className={`text-[10px] font-mono font-bold ${
+                    className={`text-[9px] sm:text-[10px] font-mono font-bold ${
                       hasAllCompleted
                         ? "text-black font-black"
                         : isToday
@@ -302,41 +303,47 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
                     {dayNum}
                   </span>
                   {isToday ? (
-                    <span className={`text-[7.5px] font-mono font-black uppercase px-1 rounded animate-pulse ${hasAllCompleted ? "bg-black text-white" : "bg-cyan-950/80 text-cyan-300 border border-cyan-400"}`}>
-                      TODAY
-                    </span>
+                    <>
+                      <span className={`hidden sm:inline text-[7.5px] font-mono font-black uppercase px-1 rounded animate-pulse ${hasAllCompleted ? "bg-black text-white" : "bg-cyan-950/80 text-cyan-300 border border-cyan-400"}`}>
+                        TODAY
+                      </span>
+                      <span className={`sm:hidden w-1.5 h-1.5 rounded-full ${hasAllCompleted ? "bg-black" : "bg-cyan-400 shadow-[0_0_6px_#00e5ff]"} animate-pulse`} />
+                    </>
                   ) : (
-                    <div className={`w-1.5 h-1.5 rounded-full ${indicatorColor}`} />
+                    <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${indicatorColor}`} />
                   )}
                 </div>
 
-                <div className="text-[8.5px] font-mono truncate text-left w-full space-y-0.5">
+                <div className="text-[7px] sm:text-[8.5px] font-mono truncate text-left w-full space-y-0.5 leading-tight">
                   {hasAllCompleted ? (
                     <div className="truncate text-black">
-                      <span className="font-black block truncate">
-                        CLEARED ★
+                      <span className="font-black block truncate leading-none">
+                        <span className="inline sm:hidden">★ CLEAR</span>
+                        <span className="hidden sm:inline">CLEARED ★</span>
                       </span>
-                      <span className="text-[7.5px] text-slate-800 truncate block uppercase font-bold">
+                      <span className="text-[6.5px] sm:text-[7.5px] text-slate-800 truncate block uppercase font-bold leading-tight">
                         {completedSession?.split_day ? completedSession.split_day.split(" ")[0] : splitHint}
                       </span>
                     </div>
                   ) : hasStreakQualified || hasCompleted ? (
                     <div className="truncate text-white">
-                      <span className="font-bold block truncate text-white">
-                        {hasStreakQualified ? "STREAK" : "CLEARED"}
+                      <span className="font-bold block truncate text-white leading-none">
+                        <span className="inline sm:hidden">{hasStreakQualified ? "STRK" : "DONE"}</span>
+                        <span className="hidden sm:inline">{hasStreakQualified ? "STREAK" : "CLEARED"}</span>
                       </span>
-                      <span className="text-[7.5px] text-slate-300 truncate block uppercase">
+                      <span className="text-[6.5px] sm:text-[7.5px] text-slate-300 truncate block uppercase leading-tight">
                         {completedSession?.split_day ? completedSession.split_day.split(" ")[0] : splitHint}
                       </span>
                     </div>
                   ) : (
                     <div className="truncate">
                       {hasDueQuests && (
-                        <span className="text-cyan-400 font-semibold block truncate">
-                          {dayQuests.length} Qst
+                        <span className="text-cyan-400 font-semibold block truncate leading-none">
+                          <span className="inline sm:hidden">{dayQuests.length}Q</span>
+                          <span className="hidden sm:inline">{dayQuests.length} Qst</span>
                         </span>
                       )}
-                      <span className={`text-[8px] block truncate uppercase ${isRest ? "text-slate-500 font-bold" : "text-slate-500/80"}`}>
+                      <span className={`text-[6.5px] sm:text-[8px] block truncate uppercase leading-tight ${isRest ? "text-slate-500 font-bold" : "text-slate-500/80"}`}>
                         {splitHint}
                       </span>
                     </div>
@@ -349,22 +356,22 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
       </div>
 
       {/* Selected Date Telemetry Ledger (Collapsible / Expandable) */}
-      <div className="solo-frame rounded-2xl p-4 sm:p-5 space-y-3 font-hud">
-        <div className="flex items-center justify-between border-b border-cyan-500/20 pb-2.5">
+      <div className="solo-frame rounded-2xl p-3 sm:p-5 space-y-3 font-hud">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-cyan-500/20 pb-2.5 gap-2">
           <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-cyan-400" />
+            <Zap className="w-4 h-4 text-cyan-400 shrink-0" />
             <span className="text-xs font-solo font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5 flex-wrap">
-              <span>TELEMETRY FOR: {selectedDateStr}</span>
+              <span>TELEMETRY: {selectedDateStr}</span>
               {selectedDateStr === todayStr && (
-                <span className="text-cyan-400 font-mono text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-400/50">
-                  CURRENT CYCLE (TODAY)
+                <span className="text-cyan-400 font-mono text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-400/50">
+                  TODAY
                 </span>
               )}
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">
+          <div className="flex items-center justify-between sm:justify-end gap-2.5">
+            <span className="text-[10px] font-mono text-slate-400">
               {selectedSessions.length} SESSIONS • {selectedQuests.length} QUESTS
             </span>
             <button
@@ -373,9 +380,9 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
                 triggerHaptic("light");
                 setIsTelemetryCollapsed(!isTelemetryCollapsed);
               }}
-              className="solo-btn-secondary py-1 px-2.5 text-[10px] flex items-center gap-1"
+              className="solo-btn-secondary py-1 px-2 text-[9px] sm:text-[10px] flex items-center gap-1 shrink-0"
             >
-              <span>{isTelemetryCollapsed ? "EXPAND MATRIX" : "COLLAPSE"}</span>
+              <span>{isTelemetryCollapsed ? "EXPAND" : "COLLAPSE"}</span>
               {isTelemetryCollapsed ? (
                 <ChevronDown className="w-3 h-3 text-cyan-400" />
               ) : (
@@ -387,7 +394,7 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
 
         {/* Collapsed State Summary Badge */}
         {isTelemetryCollapsed ? (
-          <div className="p-3 rounded-xl bg-[#070b14] border border-cyan-500/20 flex items-center justify-between text-xs font-mono">
+          <div className="p-2.5 sm:p-3 rounded-xl bg-[#070b14] border border-cyan-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-mono">
             <span className="text-slate-300">
               Total Volume Moved:{" "}
               <strong className="text-cyan-400">
@@ -397,7 +404,7 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
                 KG
               </strong>
             </span>
-            <span className="text-slate-400 text-[11px]">
+            <span className="text-slate-400 text-[10px] sm:text-[11px]">
               {selectedSessions.length} Workouts • {selectedQuests.length} Quests
             </span>
           </div>
@@ -417,16 +424,16 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
                   {selectedSessions.map((s) => (
                     <div
                       key={s.id}
-                      className="p-3 rounded-xl bg-[#070b14] border border-cyan-500/25 flex items-center justify-between text-xs font-mono hover:border-cyan-400/50 transition"
+                      className="p-2.5 sm:p-3 rounded-xl bg-[#070b14] border border-cyan-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 text-xs font-mono hover:border-cyan-400/50 transition"
                     >
-                      <div>
-                        <span className="font-bold text-white block font-solo text-xs">{s.title}</span>
-                        <span className="text-slate-400 text-[11px] mt-0.5 block font-hud">
-                          Duration: {getFormattedDuration(s)} • ~{s.calories_burned || 0} kcal (Active) • Skips: {s.skipping_completed} /{" "}
+                      <div className="min-w-0 flex-1">
+                        <span className="font-bold text-white block font-solo text-xs truncate">{s.title}</span>
+                        <span className="text-slate-400 text-[10px] sm:text-[11px] mt-0.5 block font-hud">
+                          Duration: {getFormattedDuration(s)} • ~{s.calories_burned || 0} kcal • Skips: {s.skipping_completed} /{" "}
                           {s.skipping_target}
                         </span>
                       </div>
-                      <span className="text-cyan-400 font-bold font-mono">
+                      <span className="text-cyan-400 font-bold font-mono text-xs sm:text-sm self-end sm:self-auto shrink-0">
                         {s.total_tonnage_kg.toLocaleString()} KG
                       </span>
                     </div>
@@ -456,21 +463,21 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
                     return (
                       <div
                         key={q.id}
-                        className="p-2.5 rounded-xl bg-[#070b14] border border-cyan-500/20 flex items-center justify-between text-xs font-mono"
+                        className="p-2 sm:p-2.5 rounded-xl bg-[#070b14] border border-cyan-500/20 flex items-center justify-between text-xs font-mono gap-2"
                       >
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <span
-                            className={`font-bold block ${
+                            className={`font-bold block truncate ${
                               isDone ? "line-through text-slate-500" : "text-white"
                             }`}
                           >
                             {q.title}
                           </span>
-                          <span className="text-[10px] text-slate-400 capitalize font-hud">
+                          <span className="text-[9px] sm:text-[10px] text-slate-400 capitalize font-hud block">
                             {q.category} • {q.estimated_duration_minutes}m
                           </span>
                         </div>
-                        <span className="text-cyan-300 font-bold font-mono">
+                        <span className="text-cyan-300 font-bold font-mono text-[11px] sm:text-xs shrink-0">
                           {isDone ? "✓ COMPLETED" : `+${q.xp_reward} XP`}
                         </span>
                       </div>

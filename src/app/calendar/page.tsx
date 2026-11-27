@@ -28,12 +28,12 @@ export default async function CalendarPage() {
   return (
     <div className="min-h-screen bg-[#07080b] text-slate-100 selection:bg-cyan-500 selection:text-black">
       <DesktopNavbar enableGym={isGymEnabled} />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-12 space-y-6">
+      <main className="max-w-4xl mx-auto px-2.5 sm:px-6 py-4 sm:py-6 pb-28 md:pb-12 space-y-4 sm:space-y-6">
         <div>
-          <h1 className="text-2xl font-black text-white tracking-tight mana-text-glow font-mono">
+          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight mana-text-glow font-mono">
             DAILY CALENDAR &amp; WORKOUT LEDGER
           </h1>
-          <p className="text-xs text-slate-400 font-mono mt-1">
+          <p className="text-[11px] sm:text-xs text-slate-400 font-mono mt-1">
             Section 12 • Full-Cell Monthly Tile Ledger • Synchronized Workouts &amp; Date Quests
           </p>
         </div>
