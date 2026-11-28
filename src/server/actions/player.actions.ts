@@ -324,3 +324,39 @@ export async function logManualSleepSessionAction(minutesSlept: number) {
   return result;
 }
 
+export async function activateMedicalSanctuaryAction(params: {
+  reason: string;
+  days?: number;
+  notes?: string;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "Unauthorized" };
+
+  const result = await PlayerRepository.activateMedicalSanctuary(user.id, params);
+  revalidatePath("/settings");
+  revalidatePath("/");
+  revalidatePath("/calendar");
+  revalidatePath("/gym");
+  return result;
+}
+
+export async function deactivateMedicalSanctuaryAction() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "Unauthorized" };
+
+  const result = await PlayerRepository.deactivateMedicalSanctuary(user.id);
+  revalidatePath("/settings");
+  revalidatePath("/");
+  revalidatePath("/calendar");
+  revalidatePath("/gym");
+  return result;
+}
+

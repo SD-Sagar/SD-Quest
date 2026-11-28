@@ -164,7 +164,10 @@ export function getEffectiveStreakInfo(
     multiplierLabel: mult.label,
     tier: mult.tier,
     status: "expired",
-    statusMessage: "Streak lapsed. Complete today's protocol to reignite Day 1.",
+    statusMessage:
+      profile.condition === "chicken"
+        ? "[CHICKEN STATUS] -50% XP Debuff Active. Complete today's protocol to reignite Day 1."
+        : "Streak lapsed. Complete today's protocol to reignite Day 1.",
     isSecuredToday: false,
   };
 }

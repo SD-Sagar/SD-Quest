@@ -3,6 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateHunterSettingsAction, logoutAction } from "@/server/actions/auth.actions";
+import {
+  activateMedicalSanctuaryAction,
+  deactivateMedicalSanctuaryAction,
+} from "@/server/actions/player.actions";
 import { triggerHaptic } from "@/lib/utils";
 import { Profile, EquipmentInventory, DailyNutritionTargets } from "@/types";
 import {
@@ -23,6 +27,8 @@ import {
   Compass,
   Minus,
   Plus,
+  Clock,
+  Activity,
 } from "lucide-react";
 
 interface SettingsClientViewProps {
@@ -48,6 +54,17 @@ export function SettingsClientView({
   const [enableGym, setEnableGym] = useState(
     profile.enable_gym !== undefined ? profile.enable_gym : (profile.active_main_quest === "fitness")
   );
+
+  // Medical Sanctuary states
+  const [isSanctuaryActive, setIsSanctuaryActive] = useState(
+    profile.condition === "medical_sanctuary"
+  );
+  const [sanctuaryExpiresAt, setSanctuaryExpiresAt] = useState<string | null>(
+    profile.medical_sanctuary_expires_at ?? null
+  );
+  const [sanctuaryReason, setSanctuaryReason] = useState("Muscle strain / physical recovery");
+  const [sanctuaryDays, setSanctuaryDays] = useState<number>(0); // 0 = Indefinite until toggled off
+  const [isSanctuaryPending, startSanctuaryTransition] = useTransition();
 
   // Telemetry & Fatigue Display Mode states
   const [questFatigueMode, setQuestFatigueMode] = useState<"log" | "live">(() => {
@@ -132,6 +149,43 @@ export function SettingsClientView({
         setTimeout(() => setSuccessMsg(false), 3500);
       } else {
         setErrorMsg(res.error || "Failed to update hunter settings.");
+        triggerHaptic("warning");
+      }
+    });
+  };
+
+  const handleActivateSanctuary = () => {
+    triggerHaptic("heavy");
+    startSanctuaryTransition(async () => {
+      const res = await activateMedicalSanctuaryAction({
+        reason: sanctuaryReason.trim() || "Medical recovery & injury rehabilitation",
+        days: sanctuaryDays > 0 ? sanctuaryDays : undefined,
+      });
+      if (res.success) {
+        setIsSanctuaryActive(true);
+        setSanctuaryExpiresAt("expiresAt" in res ? (res.expiresAt ?? null) : null);
+        setSuccessMsg(true);
+        triggerHaptic("success");
+        router.refresh();
+      } else {
+        setErrorMsg(res.error || "Failed to activate Medical Sanctuary.");
+        triggerHaptic("warning");
+      }
+    });
+  };
+
+  const handleDeactivateSanctuary = () => {
+    triggerHaptic("heavy");
+    startSanctuaryTransition(async () => {
+      const res = await deactivateMedicalSanctuaryAction();
+      if (res.success) {
+        setIsSanctuaryActive(false);
+        setSanctuaryExpiresAt(null);
+        setSuccessMsg(true);
+        triggerHaptic("success");
+        router.refresh();
+      } else {
+        setErrorMsg(res.error || "Failed to deactivate Medical Sanctuary.");
         triggerHaptic("warning");
       }
     });
@@ -878,6 +932,172 @@ export function SettingsClientView({
           <span>{isPending ? "ENCRYPTING CHANGES..." : "SAVE HUNTER CONFIGURATION"}</span>
         </button>
       </form>
+
+      {/* HONORABLE MEDICAL SANCTUARY // INJURY & RECOVERY PROTOCOL */}
+      <div
+        className={`hunter-panel rounded-2xl sm:rounded-3xl border transition-all duration-300 p-4 sm:p-6 space-y-4 ${
+          isSanctuaryActive
+            ? "border-cyan-400/80 bg-gradient-to-b from-[#061426] to-[#040912] shadow-[0_0_30px_rgba(0,229,255,0.2)]"
+            : "border-slate-800 bg-[#080c16]"
+        }`}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-800/80 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div
+              className={`p-2 rounded-xl border ${
+                isSanctuaryActive
+                  ? "bg-cyan-950/80 border-cyan-400 text-cyan-300 shadow-[0_0_12px_#00e5ff]"
+                  : "bg-slate-900 border-slate-700 text-slate-400"
+              }`}
+            >
+              <Shield className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-[10px] font-mono font-bold tracking-widest text-cyan-400 uppercase block font-solo">
+                THE SYSTEM // SANCTUARY PROTOCOL
+              </span>
+              <h3 className="text-sm font-black text-white font-mono uppercase tracking-tight">
+                Honorable Medical Sanctuary
+              </h3>
+            </div>
+          </div>
+
+          <div className="self-start sm:self-auto">
+            {isSanctuaryActive ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-950/90 border border-cyan-400 text-cyan-300 text-[10px] font-mono font-bold shadow-[0_0_10px_rgba(0,229,255,0.4)] animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                ACTIVE PROTECTION
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-slate-400 text-[10px] font-mono font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                STANDBY / INACTIVE
+              </span>
+            )}
+          </div>
+        </div>
+
+        {isSanctuaryActive ? (
+          <div className="space-y-4">
+            <div className="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs font-mono text-cyan-200 space-y-1.5">
+              <div className="flex items-center gap-2 text-cyan-300 font-bold">
+                <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span>Sanctuary Protocol Active — Hunter Account Safeguarded</span>
+              </div>
+              <p className="text-[11px] text-cyan-300/80 leading-relaxed font-hud">
+                Your active streaks are frozen in time with zero decay. You are completely immune from missed daily directive penalties, Chicken status debuffs, and level demotions while resting and rehabilitating.
+              </p>
+              {sanctuaryExpiresAt && (
+                <div className="pt-1 flex items-center gap-1.5 text-[10px] font-mono text-cyan-400 font-bold">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Scheduled Expiration: {new Date(sanctuaryExpiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              disabled={isSanctuaryPending}
+              onClick={handleDeactivateSanctuary}
+              className="w-full sm:w-auto px-5 py-3 rounded-xl border border-cyan-400 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-200 hover:text-white font-mono text-xs font-bold transition flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,229,255,0.25)] active:scale-98 disabled:opacity-50"
+            >
+              <Activity className="w-4 h-4 text-cyan-400" />
+              <span>{isSanctuaryPending ? "DEACTIVATING PROTOCOL..." : "⚡ DEACTIVATE SANCTUARY & RESUME HUNT"}</span>
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-xs text-slate-400 font-mono leading-relaxed">
+              Facing illness, physical injury, surgery, or emergency travel? Engage Medical Sanctuary to pause all daily requirements without losing your streak, rank, or character level.
+            </p>
+
+            {/* Reason Presets */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-slate-400 uppercase font-mono block">
+                Quick Reason / Diagnosis:
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  "Fever / Flu Recovery",
+                  "Muscle Strain / Sprain",
+                  "Joint / Tendon Pain",
+                  "Surgery / Medical Rest",
+                  "Travel / Emergency",
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setSanctuaryReason(preset);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-mono transition border ${
+                      sanctuaryReason === preset
+                        ? "bg-cyan-950 border-cyan-400 text-cyan-300 font-bold"
+                        : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reason Custom Input */}
+            <div className="space-y-1">
+              <input
+                type="text"
+                value={sanctuaryReason}
+                onChange={(e) => setSanctuaryReason(e.target.value)}
+                placeholder="Reason for medical pause..."
+                className="w-full bg-[#04060a] border border-slate-800 focus:border-cyan-500 rounded-xl px-3 py-2 text-xs text-white font-mono placeholder:text-slate-600 focus:outline-none transition"
+              />
+            </div>
+
+            {/* Duration Options */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-slate-400 uppercase font-mono block">
+                Protected Duration:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                {[
+                  { label: "Indefinite", days: 0 },
+                  { label: "3 Days", days: 3 },
+                  { label: "7 Days", days: 7 },
+                  { label: "14 Days", days: 14 },
+                  { label: "30 Days", days: 30 },
+                ].map((opt) => (
+                  <button
+                    key={opt.days}
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setSanctuaryDays(opt.days);
+                    }}
+                    className={`py-2 px-2 rounded-xl text-[10px] font-mono text-center transition border ${
+                      sanctuaryDays === opt.days
+                        ? "bg-cyan-950 border-cyan-400 text-cyan-300 font-bold"
+                        : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={isSanctuaryPending}
+              onClick={handleActivateSanctuary}
+              className="w-full sm:w-auto px-5 py-3 rounded-xl border border-cyan-500/60 bg-cyan-950/50 hover:bg-cyan-900/70 text-cyan-300 hover:text-white font-mono text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm active:scale-98 disabled:opacity-50"
+            >
+              <Shield className="w-4 h-4 text-cyan-400" />
+              <span>{isSanctuaryPending ? "ENACTING SANCTUARY..." : "🛡️ ENGAGE MEDICAL SANCTUARY PROTOCOL"}</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* System Access & Session Management */}
       <div className="hunter-panel rounded-3xl border border-red-950/60 bg-[#090b12] p-5 sm:p-6 space-y-4">

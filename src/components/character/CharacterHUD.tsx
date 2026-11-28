@@ -234,12 +234,19 @@ export function CharacterHUD({
 
     // 4. Chicken Status Debuff (RED)
     if (profile.condition === "chicken") {
+      let chickenTimer: string | undefined = undefined;
+      if (profile.chicken_status_expires_at) {
+        const msRemaining = Math.max(0, new Date(profile.chicken_status_expires_at).getTime() - Date.now());
+        const daysRemaining = Math.ceil(msRemaining / (1000 * 3600 * 24));
+        chickenTimer = `${daysRemaining}D LEFT`;
+      }
       list.push({
         id: "chicken-condition",
         type: "debuff",
-        title: "CHICKEN STATUS // PENALTY ACTIVE",
-        description: "Discipline failure protocol applied",
-        badge: "DEBUFF",
+        title: "CHICKEN STATUS // 7-DAY PENALTY",
+        description: "-50% XP debuff applied from 3 consecutive missed days",
+        badge: "-50% XP",
+        timer: chickenTimer,
         icon: <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />,
         onClick: onOpenSanctuaryModal,
       });
@@ -274,12 +281,19 @@ export function CharacterHUD({
 
     // 7. Medical Sanctuary (BLUE/WHITE BUFF)
     if (profile.condition === "medical_sanctuary") {
+      let sanctuaryTimer: string | undefined = undefined;
+      if (profile.medical_sanctuary_expires_at) {
+        const msRemaining = Math.max(0, new Date(profile.medical_sanctuary_expires_at).getTime() - Date.now());
+        const daysRemaining = Math.ceil(msRemaining / (1000 * 3600 * 24));
+        sanctuaryTimer = `${daysRemaining}D`;
+      }
       list.push({
         id: "medical-sanctuary",
         type: "buff",
         title: "HONORABLE MEDICAL SANCTUARY",
-        description: "Streaks and historical progress protected",
+        description: "Streaks and historical progress protected from decay",
         badge: "PROTECTED",
+        timer: sanctuaryTimer,
         icon: <Shield className="w-3.5 h-3.5 text-cyan-300 shrink-0" />,
         onClick: onOpenSanctuaryModal,
       });

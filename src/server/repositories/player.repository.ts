@@ -130,7 +130,8 @@ export class PlayerRepository {
 
     // 3-Day Directive Inactivity Failure Penalty:
     // If no daily challenges are completed across a 3-day lapse without Medical Sanctuary:
-    // A complete level is wiped out, and XP is set to 99% of that previous level.
+    // A complete level is wiped out, XP is set to 99% of that previous level,
+    // and the Chicken Status Debuff is inflicted for 7 full days!
     if (profile.last_streak_date && profile.condition !== "medical_sanctuary") {
       const today = new Date().toISOString().split("T")[0];
       const d1 = new Date(today + "T00:00:00Z");
@@ -143,10 +144,13 @@ export class PlayerRepository {
         const newLevel = Math.max(1, profile.current_level - 1);
         const xpThreshold = profile.xp_to_next_level || 500;
         const newXp = Math.floor(xpThreshold * 0.99);
+        const chickenExpires = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
 
         profile.current_level = newLevel;
         profile.current_xp = newXp;
         profile.current_streak = 0;
+        profile.condition = "chicken";
+        profile.chicken_status_expires_at = chickenExpires;
 
         await supabase
           .from("profiles")
@@ -154,11 +158,49 @@ export class PlayerRepository {
             current_level: newLevel,
             current_xp: newXp,
             current_streak: 0,
+            condition: "chicken",
+            chicken_status_expires_at: chickenExpires,
             active_session_state: sessionState,
             updated_at: new Date().toISOString(),
           })
           .eq("id", userId);
       }
+    }
+
+    // Auto-cure Chicken Condition after 7 days:
+    if (
+      profile.condition === "chicken" &&
+      profile.chicken_status_expires_at &&
+      new Date(profile.chicken_status_expires_at).getTime() <= Date.now()
+    ) {
+      profile.condition = "normal";
+      profile.chicken_status_expires_at = null;
+      await supabase
+        .from("profiles")
+        .update({
+          condition: "normal",
+          chicken_status_expires_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+    }
+
+    // Auto-cure Medical Sanctuary if expiration date passed:
+    if (
+      profile.condition === "medical_sanctuary" &&
+      profile.medical_sanctuary_expires_at &&
+      new Date(profile.medical_sanctuary_expires_at).getTime() <= Date.now()
+    ) {
+      profile.condition = "normal";
+      profile.medical_sanctuary_expires_at = null;
+      await supabase
+        .from("profiles")
+        .update({
+          condition: "normal",
+          medical_sanctuary_expires_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
     }
 
     // Continuous Passive Fatigue Decay:
@@ -420,10 +462,10 @@ export class PlayerRepository {
     let finalXpDelta = params.xpDelta;
     let finalNotes = params.notes || "";
 
-    // Check hunter status modifiers: Fatigue, 2X EXP Booster, Sleep Deprivation, Poison
+    // Check hunter status modifiers: Fatigue, 2X EXP Booster, Sleep Deprivation, Poison, Chicken Status
     const { data: profile } = await supabase
       .from("profiles")
-      .select("poison_expires_at, mental_fatigue, physical_fatigue, exp_booster_multiplier, exp_booster_expires_at, sleep_deprived_expires_at")
+      .select("condition, chicken_status_expires_at, poison_expires_at, mental_fatigue, physical_fatigue, exp_booster_multiplier, exp_booster_expires_at, sleep_deprived_expires_at")
       .eq("id", params.userId)
       .single();
 
@@ -463,6 +505,18 @@ export class PlayerRepository {
         finalNotes = finalNotes
           ? `${finalNotes} [POISON DEBUFF ACTIVE: -35% XP]`
           : "[POISON DEBUFF ACTIVE: -35% XP]";
+      }
+
+      // 5. CHECK CHICKEN STATUS DEBUFF (3-day consecutive miss penalty: -50% XP debuff for 7 days)
+      if (
+        profile?.condition === "chicken" ||
+        (profile?.chicken_status_expires_at &&
+          new Date(profile.chicken_status_expires_at).getTime() > Date.now())
+      ) {
+        finalXpDelta = Math.max(1, Math.round(finalXpDelta * 0.50));
+        finalNotes = finalNotes
+          ? `${finalNotes} [🐔 CHICKEN DEBUFF ACTIVE: -50% XP (7-Day Discipline Penalty)]`
+          : "[🐔 CHICKEN DEBUFF ACTIVE: -50% XP (7-Day Discipline Penalty)]";
       }
     }
 
@@ -1305,6 +1359,95 @@ export class PlayerRepository {
       .single();
 
     return data?.day_routines || null;
+  }
+
+  static async activateMedicalSanctuary(
+    userId: string,
+    params: {
+      reason: string;
+      days?: number;
+      notes?: string;
+    }
+  ): Promise<{ success: boolean; condition: string; expiresAt: string | null; error?: string }> {
+    const supabase = await createClient();
+    try {
+      const expiresAt =
+        params.days && params.days > 0
+          ? new Date(Date.now() + params.days * 86400000).toISOString()
+          : null;
+
+      // 1. Insert record into medical_sanctuary_records
+      try {
+        await supabase.from("medical_sanctuary_records").insert({
+          user_id: userId,
+          reason: params.reason || "Medical recovery & injury rehabilitation",
+          started_at: new Date().toISOString(),
+          is_active: true,
+          notes: params.notes || null,
+        });
+      } catch (insertErr) {
+        console.warn("Could not insert into medical_sanctuary_records (table may have RLS or schema diff):", insertErr);
+      }
+
+      // 2. Update profile condition to medical_sanctuary
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          condition: "medical_sanctuary",
+          medical_sanctuary_expires_at: expiresAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+
+      if (error) {
+        return { success: false, condition: "normal", expiresAt: null, error: error.message };
+      }
+
+      return { success: true, condition: "medical_sanctuary", expiresAt };
+    } catch (err: any) {
+      console.error("Failed to activate medical sanctuary:", err);
+      return { success: false, condition: "normal", expiresAt: null, error: err.message };
+    }
+  }
+
+  static async deactivateMedicalSanctuary(
+    userId: string
+  ): Promise<{ success: boolean; condition: string; error?: string }> {
+    const supabase = await createClient();
+    try {
+      // 1. Close active records in medical_sanctuary_records
+      try {
+        await supabase
+          .from("medical_sanctuary_records")
+          .update({
+            is_active: false,
+            ended_at: new Date().toISOString(),
+          })
+          .eq("user_id", userId)
+          .eq("is_active", true);
+      } catch (recErr) {
+        console.warn("Could not close medical_sanctuary_records:", recErr);
+      }
+
+      // 2. Update profile condition back to normal
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          condition: "normal",
+          medical_sanctuary_expires_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+
+      if (error) {
+        return { success: false, condition: "medical_sanctuary", error: error.message };
+      }
+
+      return { success: true, condition: "normal" };
+    } catch (err: any) {
+      console.error("Failed to deactivate medical sanctuary:", err);
+      return { success: false, condition: "medical_sanctuary", error: err.message };
+    }
   }
 }
 

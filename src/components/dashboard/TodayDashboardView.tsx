@@ -280,7 +280,14 @@ export function TodayDashboardView({
           {/* Left Column (Col 1 to 5): Hunter Status HUD & Biometric Telemetry */}
           <div className="lg:col-span-5 space-y-4">
             {/* Authentic Solo Leveling Personal Status */}
-            <CharacterHUD profile={profile} attributes={attributes} />
+            <CharacterHUD
+              profile={profile}
+              attributes={attributes}
+              onOpenSanctuaryModal={() => {
+                triggerHaptic("light");
+                router.push("/settings");
+              }}
+            />
 
             {/* COMPACT BIOMETRIC TELEMETRY DOCK (Anti-Scroll Mobile First) */}
             <div className="solo-frame rounded-2xl p-3 sm:p-4 space-y-2.5">
