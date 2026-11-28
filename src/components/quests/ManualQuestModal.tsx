@@ -115,6 +115,14 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
     setClassification("scheduled");
   };
 
+  const formatDurationDisplay = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+  };
+
   const handleTimeWindowChange = (newStart: string, newEnd: string) => {
     setStartTime(newStart);
     setEndTime(newEnd);
@@ -123,15 +131,16 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
       const [eh, em] = newEnd.split(":").map(Number);
       if (!isNaN(sh) && !isNaN(sm) && !isNaN(eh) && !isNaN(em)) {
         let diff = eh * 60 + em - (sh * 60 + sm);
-        if (diff <= 0) diff += 24 * 60;
-        setDurationMinutes(diff);
+        if (diff <= 0) diff += 24 * 60; // Handle cross-midnight overnight windows
+        const clamped = Math.max(5, Math.min(1440, diff));
+        setDurationMinutes(clamped);
       }
     } catch {
       // ignore
     }
   };
 
-  const numDuration = Math.max(5, Math.min(480, Number(durationMinutes) || 45));
+  const numDuration = Math.max(5, Math.min(1440, Number(durationMinutes) || 45));
   const calculatedRewards = calculateFairStatYield(numDuration, difficulty, selectedAttributes);
   const calculatedXp = calculateFairQuestXp(numDuration, difficulty, priority);
 
@@ -144,10 +153,33 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
 
     try {
       let fullDeadline = null;
-      if (hasDeadline || isDateRange || hasTimeWindow) {
-        const targetDate = isDateRange ? endDate : deadlineDate;
-        const targetTime = hasTimeWindow ? endTime : deadlineTime;
-        fullDeadline = `${targetDate}T${targetTime}:00`;
+      const isRecurring = recurrence !== "none";
+
+      if (isRecurring) {
+        // For recurring quests:
+        // A daily time window (e.g. 10:45 – 19:30) represents the daily work shift schedule,
+        // NOT a single-day death sentence for the recurring series!
+        // fullDeadline only represents the campaign series end date if an explicit date range or deadline was set.
+        if (isDateRange && endDate) {
+          const targetTime = hasTimeWindow ? endTime : (hasDeadline ? deadlineTime : "23:59");
+          fullDeadline = `${endDate}T${targetTime}:00`;
+        } else if (hasDeadline) {
+          fullDeadline = `${deadlineDate}T${deadlineTime}:00`;
+        } else {
+          // Recurring series repeats indefinitely with no end date!
+          fullDeadline = null;
+        }
+      } else {
+        // For one-time / non-recurring quests:
+        if (isDateRange && endDate) {
+          const targetTime = hasTimeWindow ? endTime : (hasDeadline ? deadlineTime : "18:00");
+          fullDeadline = `${endDate}T${targetTime}:00`;
+        } else if (hasDeadline) {
+          fullDeadline = `${deadlineDate}T${deadlineTime}:00`;
+        } else if (hasTimeWindow) {
+          // One-time quest with fixed time window on startDate:
+          fullDeadline = `${startDate}T${endTime}:00`;
+        }
       }
 
       let questDesc = description.trim();
@@ -353,30 +385,48 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
 
             {/* Date Inputs */}
             {isDateRange ? (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                    From Date
-                  </label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    onClick={(e) => { try { (e.target as any).showPicker?.(); } catch {} }}
-                    className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
-                  />
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                      From Date
+                    </label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      onClick={(e) => { try { (e.target as any).showPicker?.(); } catch {} }}
+                      className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                      To Date (Campaign End)
+                    </label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      onClick={(e) => { try { (e.target as any).showPicker?.(); } catch {} }}
+                      className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
+                    />
+                  </div>
                 </div>
+
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                    To Date
+                    Recurrence Pattern Within Range
                   </label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    onClick={(e) => { try { (e.target as any).showPicker?.(); } catch {} }}
-                    className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 [color-scheme:dark] cursor-pointer hover:border-cyan-500/50 transition"
-                  />
+                  <select
+                    value={recurrence}
+                    onChange={(e) => setRecurrence(e.target.value as any)}
+                    className="w-full rounded-xl bg-slate-950 border border-slate-700/80 px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400"
+                  >
+                    <option value="none">One-Time Campaign (Runs across date range)</option>
+                    <option value="daily">Daily Habit (Every day in range)</option>
+                    <option value="weekdays">Weekdays (Mon-Fri in range)</option>
+                    <option value="weekly">Weekly on Specific Days (in range)</option>
+                  </select>
                 </div>
               </div>
             ) : (
@@ -432,8 +482,8 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                   Fixed Time Window (From Time to Time)
                 </span>
                 {hasTimeWindow && (
-                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 border border-cyan-500/40 px-1.5 py-0.2 rounded">
-                    Auto-calc: {numDuration}m
+                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 border border-cyan-500/40 px-1.5 py-0.5 rounded shadow-sm">
+                    Auto-calc: {numDuration}m ({formatDurationDisplay(numDuration)})
                   </span>
                 )}
               </label>
@@ -537,9 +587,16 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
           {/* Duration & Difficulty */}
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                Duration (Min)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Duration (Min)
+                </label>
+                {numDuration >= 60 && (
+                  <span className="text-[10px] font-mono text-cyan-400 font-bold">
+                    ≈ {formatDurationDisplay(numDuration)}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center bg-slate-950 border border-slate-700 rounded-xl p-0.5 focus-within:border-cyan-400">
                 <button
                   type="button"
@@ -554,12 +611,12 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                 <input
                   type="number"
                   min={5}
-                  max={480}
+                  max={1440}
                   step={5}
                   value={durationMinutes}
                   onChange={(e) => setDurationMinutes(e.target.value)}
                   onBlur={() => {
-                    const val = Math.min(480, Math.max(5, Number(durationMinutes) || 45));
+                    const val = Math.min(1440, Math.max(5, Number(durationMinutes) || 45));
                     setDurationMinutes(val);
                   }}
                   className="w-full text-center bg-transparent py-1 text-xs font-mono font-bold text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -568,7 +625,7 @@ export function ManualQuestModal({ isOpen, onClose }: ManualQuestModalProps) {
                   type="button"
                   onClick={() => {
                     triggerHaptic("light");
-                    setDurationMinutes((prev) => Math.min(480, (Number(prev) || 45) + 5));
+                    setDurationMinutes((prev) => Math.min(1440, (Number(prev) || 45) + 5));
                   }}
                   className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition shrink-0"
                 >

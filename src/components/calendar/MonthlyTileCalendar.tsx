@@ -155,12 +155,28 @@ export function MonthlyTileCalendar({ sessions, quests = [] }: MonthlyTileCalend
         }
       }
     } else {
-      const raw = q.deadline || q.start_date;
-      if (raw) {
-        const d = raw.includes("T") ? getLocalDateString(raw) : raw;
-        if (!questsByDate[d]) questsByDate[d] = [];
-        if (!questsByDate[d].some((existing) => existing.id === q.id)) {
-          questsByDate[d].push(q);
+      const qStart = q.start_date;
+      const qEnd = q.deadline ? (q.deadline.includes("T") ? q.deadline.split("T")[0] : q.deadline) : null;
+
+      // If it's a multi-day campaign range (start_date < deadline), project across all days in range
+      if (qStart && qEnd && qStart < qEnd) {
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          if (dateStr >= qStart && dateStr <= qEnd) {
+            if (!questsByDate[dateStr]) questsByDate[dateStr] = [];
+            if (!questsByDate[dateStr].some((existing) => existing.id === q.id)) {
+              questsByDate[dateStr].push(q);
+            }
+          }
+        }
+      } else {
+        const raw = q.deadline || q.start_date;
+        if (raw) {
+          const d = raw.includes("T") ? getLocalDateString(raw) : raw;
+          if (!questsByDate[d]) questsByDate[d] = [];
+          if (!questsByDate[d].some((existing) => existing.id === q.id)) {
+            questsByDate[d].push(q);
+          }
         }
       }
     }
