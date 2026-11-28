@@ -1,0 +1,215 @@
+-- =============================================================================
+-- SD-QUEST: COMPREHENSIVE DATABASE RESET & ACCOUNT DELETION REFERENCE
+-- Location: supabase/migrations/reset.txt
+-- =============================================================================
+-- Instructions:
+-- 1. Open your Supabase Project Dashboard (https://supabase.com/dashboard).
+-- 2. Navigate to "SQL Editor" on the left sidebar.
+-- 3. Click "New query", paste the desired section below, and click "Run" (or Ctrl+Enter).
+-- =============================================================================
+
+
+-- =============================================================================
+-- PART 1: RESET / DELETE AN INDIVIDUAL ACCOUNT
+-- =============================================================================
+
+--------------------------------------------------------------------------------
+-- OPTION 1A: RESET AN INDIVIDUAL CHARACTER (KEEP USER LOGIN INTACT)
+-- Description:
+--   Clears all character progress, stats, workouts, quests, and logs for ONE user.
+--   Keeps their email & password so they can log in and go through /character-creation fresh!
+--
+-- Instructions: Replace 'TARGET_EMAIL_HERE' with the user's email address.
+--------------------------------------------------------------------------------
+
+DO $$
+DECLARE
+    target_user_id UUID;
+    target_email TEXT := 'TARGET_EMAIL_HERE'; -- << CHANGE THIS EMAIL
+BEGIN
+    -- 1. Locate the user ID
+    SELECT id INTO target_user_id FROM auth.users WHERE email = target_email;
+
+    IF target_user_id IS NULL THEN
+        RAISE NOTICE 'No account found matching email: %', target_email;
+        RETURN;
+    END IF;
+
+    -- 2. Delete transactional and child logs for this user
+    DELETE FROM workout_set_logs WHERE user_id = target_user_id;
+    DELETE FROM workout_sessions WHERE user_id = target_user_id;
+    DELETE FROM quest_timer_sessions WHERE user_id = target_user_id;
+    DELETE FROM quests WHERE user_id = target_user_id;
+    DELETE FROM attribute_transactions WHERE user_id = target_user_id;
+    DELETE FROM xp_transactions WHERE user_id = target_user_id;
+    DELETE FROM nutrition_logs WHERE user_id = target_user_id;
+    DELETE FROM hydration_logs WHERE user_id = target_user_id;
+    DELETE FROM activity_logs WHERE user_id = target_user_id;
+    DELETE FROM body_measurements WHERE user_id = target_user_id;
+    DELETE FROM progress_photos WHERE user_id = target_user_id;
+    DELETE FROM medical_sanctuary_records WHERE user_id = target_user_id;
+    DELETE FROM monthly_player_snapshots WHERE user_id = target_user_id;
+    DELETE FROM scheduled_reminders WHERE user_id = target_user_id;
+    DELETE FROM future_self_messages WHERE user_id = target_user_id;
+    DELETE FROM custom_workout_plans WHERE user_id = target_user_id;
+
+    -- 3. Delete setup and profile records (Forces Character Creation on next login)
+    DELETE FROM daily_nutrition_targets WHERE user_id = target_user_id;
+    DELETE FROM equipment_inventory WHERE user_id = target_user_id;
+    DELETE FROM player_attributes WHERE user_id = target_user_id;
+    DELETE FROM profiles WHERE id = target_user_id;
+
+    RAISE NOTICE 'SUCCESS: Individual account % (ID: %) has been fully reset to fresh character state!', target_email, target_user_id;
+END $$;
+
+
+--------------------------------------------------------------------------------
+-- OPTION 1B: PERMANENTLY DELETE AN INDIVIDUAL USER & ALL THEIR DATA
+-- Description:
+--   Completely removes the user from auth.users.
+--   Foreign key CASCADE constraints will automatically wipe their profile and all data.
+--
+-- Instructions: Replace 'TARGET_EMAIL_HERE' with the user's email address.
+--------------------------------------------------------------------------------
+
+DO $$
+DECLARE
+    target_user_id UUID;
+    target_email TEXT := 'TARGET_EMAIL_HERE'; -- << CHANGE THIS EMAIL
+BEGIN
+    SELECT id INTO target_user_id FROM auth.users WHERE email = target_email;
+
+    IF target_user_id IS NULL THEN
+        RAISE NOTICE 'No account found matching email: %', target_email;
+        RETURN;
+    END IF;
+
+    -- Deleting from auth.users cascades to profiles and all linked game tables
+    DELETE FROM auth.users WHERE id = target_user_id;
+
+    RAISE NOTICE 'SUCCESS: User % (ID: %) and all associated data have been permanently deleted from Supabase.', target_email, target_user_id;
+END $$;
+
+
+
+-- =============================================================================
+-- PART 2: RESET / DELETE ALL ACCOUNTS AND ALL GAME DATA (WHOLE SYSTEM)
+-- =============================================================================
+
+--------------------------------------------------------------------------------
+-- OPTION 2A: WIPE ALL GAME DATA BUT PRESERVE AUTH LOGINS (RECOMMENDED FOR RE-TESTING)
+-- Description:
+--   Empties all game progress, workouts, quests, attributes, and equipment across ALL users.
+--   Keeps all user logins and passwords intact. Every user will be prompted to re-awaken
+--   and create their character on next sign-in.
+--------------------------------------------------------------------------------
+
+TRUNCATE TABLE 
+    workout_set_logs,
+    workout_sessions,
+    quest_timer_sessions,
+    quests,
+    attribute_transactions,
+    xp_transactions,
+    player_attributes,
+    equipment_inventory,
+    daily_nutrition_targets,
+    nutrition_logs,
+    hydration_logs,
+    activity_logs,
+    body_measurements,
+    progress_photos,
+    medical_sanctuary_records,
+    monthly_player_snapshots,
+    scheduled_reminders,
+    future_self_messages,
+    custom_workout_plans,
+    profiles
+CASCADE;
+
+SELECT 'DATABASE RESET SUCCESSFUL: All gameplay data wiped. Existing auth users can log in and re-create their characters.' AS result;
+
+
+--------------------------------------------------------------------------------
+-- OPTION 2B: NUCLEAR FULL WIPE (DELETE ALL ACCOUNTS & ALL DATA)
+-- Description:
+--   Completely deletes ALL users from auth.users and empties all game tables.
+--   Restores Supabase to day 0 (no registered users exist).
+--------------------------------------------------------------------------------
+
+-- 1. Wipe all auth accounts (cascades to linked tables)
+DELETE FROM auth.users;
+
+-- 2. Truncate any remaining game tables with cascade
+TRUNCATE TABLE 
+    workout_set_logs,
+    workout_sessions,
+    quest_timer_sessions,
+    quests,
+    attribute_transactions,
+    xp_transactions,
+    player_attributes,
+    equipment_inventory,
+    daily_nutrition_targets,
+    nutrition_logs,
+    hydration_logs,
+    activity_logs,
+    body_measurements,
+    progress_photos,
+    medical_sanctuary_records,
+    monthly_player_snapshots,
+    scheduled_reminders,
+    future_self_messages,
+    custom_workout_plans,
+    profiles
+CASCADE;
+
+SELECT 'NUCLEAR WIPE COMPLETE: All auth accounts and all game data have been completely erased.' AS result;
+
+
+
+-- =============================================================================
+-- PART 3: REUSABLE SQL STORED PROCEDURES (OPTIONAL HELPER FUNCTIONS)
+-- Run this once to install helper functions you can call anytime in SQL Editor:
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION reset_individual_account_by_email(p_email TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    target_id UUID;
+BEGIN
+    SELECT id INTO target_id FROM auth.users WHERE email = p_email;
+    IF target_id IS NULL THEN
+        RETURN 'Error: User not found for email: ' || p_email;
+    END IF;
+
+    DELETE FROM workout_set_logs WHERE user_id = target_id;
+    DELETE FROM workout_sessions WHERE user_id = target_id;
+    DELETE FROM quest_timer_sessions WHERE user_id = target_id;
+    DELETE FROM quests WHERE user_id = target_id;
+    DELETE FROM attribute_transactions WHERE user_id = target_id;
+    DELETE FROM xp_transactions WHERE user_id = target_id;
+    DELETE FROM nutrition_logs WHERE user_id = target_id;
+    DELETE FROM hydration_logs WHERE user_id = target_id;
+    DELETE FROM activity_logs WHERE user_id = target_id;
+    DELETE FROM body_measurements WHERE user_id = target_id;
+    DELETE FROM progress_photos WHERE user_id = target_id;
+    DELETE FROM medical_sanctuary_records WHERE user_id = target_id;
+    DELETE FROM monthly_player_snapshots WHERE user_id = target_id;
+    DELETE FROM scheduled_reminders WHERE user_id = target_id;
+    DELETE FROM future_self_messages WHERE user_id = target_id;
+    DELETE FROM custom_workout_plans WHERE user_id = target_id;
+    DELETE FROM daily_nutrition_targets WHERE user_id = target_id;
+    DELETE FROM equipment_inventory WHERE user_id = target_id;
+    DELETE FROM player_attributes WHERE user_id = target_id;
+    DELETE FROM profiles WHERE id = target_id;
+
+    RETURN 'Success: Account for ' || p_email || ' has been fully reset to character creation state.';
+END;
+$$;
+
+-- How to call it:
+-- SELECT reset_individual_account_by_email('hunter@example.com');
